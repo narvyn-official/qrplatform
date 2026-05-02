@@ -19,8 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements/production.txt .
-RUN pip install --prefix=/install -r production.txt
+COPY backend/requirements/ ./requirements/
+RUN pip install --prefix=/install -r requirements/production.txt
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime
