@@ -2,9 +2,16 @@
 <html lang="en" class="h-full">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="{{ PLATFORM_NAME }}">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>{% block title %}{{ PLATFORM_NAME }}{% endblock %}</title>
+  <link rel="manifest" href="{% url 'core:manifest' %}">
+  <link rel="icon" href="/static/pwa/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/pwa/icon.svg">
 
   <!-- Tailwind CSS CDN (replace with compiled in production) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -21,6 +28,7 @@
             'card': '0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04)',
             'card-hover': '0 4px 12px rgba(0,0,0,.1)',
             'glow': '0 0 20px rgba(99,102,241,.25)',
+            'depth': '0 24px 70px rgba(15,23,42,.14)',
           }
         }
       }
@@ -57,6 +65,182 @@
       .badge-red    { @apply bg-rose-100 text-rose-800; }
       .badge-blue   { @apply bg-sky-100 text-sky-800; }
       .badge-gray   { @apply bg-gray-100 text-gray-700; }
+      .icon-tile { @apply inline-flex items-center justify-center rounded-lg border border-white/60 bg-white/80 shadow-sm backdrop-blur; }
+      .interactive-card { @apply transition duration-200 ease-out; }
+      .interactive-card:hover { transform: translateY(-2px); }
+      .mesh-panel { @apply relative isolate overflow-hidden rounded-lg border border-surface-200 bg-white shadow-card; }
+      .mesh-panel::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background:
+          linear-gradient(135deg, rgba(99, 102, 241, .12), transparent 42%),
+          linear-gradient(315deg, rgba(16, 185, 129, .12), transparent 48%),
+          linear-gradient(180deg, rgba(255, 255, 255, .92), rgba(248, 250, 252, .92));
+      }
+      .mesh-panel::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        opacity: .42;
+        background-image:
+          linear-gradient(rgba(15, 23, 42, .08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(15, 23, 42, .08) 1px, transparent 1px);
+        background-size: 34px 34px;
+        mask-image: linear-gradient(135deg, #000 0%, transparent 76%);
+      }
+      .ambient-canvas {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        opacity: .5;
+      }
+      .hero-scene {
+        position: relative;
+        overflow: hidden;
+        background:
+          linear-gradient(145deg, rgba(15, 23, 42, .96), rgba(30, 41, 59, .94) 42%, rgba(6, 78, 59, .88));
+      }
+      .hero-scene::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: .22;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, .16) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, .16) 1px, transparent 1px);
+        background-size: 44px 44px;
+        transform: perspective(900px) rotateX(62deg) translateY(-16%);
+        transform-origin: top;
+      }
+      .visual-stage {
+        perspective: 900px;
+        transform-style: preserve-3d;
+      }
+      .qr-prism {
+        position: relative;
+        width: 150px;
+        height: 150px;
+        transform-style: preserve-3d;
+        transform: rotateX(58deg) rotateZ(-32deg);
+        animation: qr-float 7s ease-in-out infinite;
+      }
+      .qr-prism::after {
+        content: "";
+        position: absolute;
+        inset: 18px;
+        transform: translateZ(-40px);
+        border-radius: 18px;
+        background: rgba(15, 23, 42, .18);
+        filter: blur(18px);
+      }
+      .qr-prism__face {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 7px;
+        padding: 17px;
+        border: 1px solid rgba(255, 255, 255, .72);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, .94);
+        box-shadow: 0 22px 60px rgba(15, 23, 42, .22), inset 0 1px 0 rgba(255, 255, 255, .75);
+      }
+      .qr-prism__face span {
+        min-width: 0;
+        min-height: 0;
+        border-radius: 5px;
+        background: #111827;
+      }
+      .qr-prism__face span:nth-child(4n),
+      .qr-prism__face span:nth-child(7n) {
+        opacity: .18;
+      }
+      .qr-prism__face span:nth-child(3n + 2) {
+        background: #4f46e5;
+      }
+      .qr-prism__face span:nth-child(5n + 1) {
+        background: #10b981;
+      }
+      .qr-art-card {
+        position: relative;
+        overflow: hidden;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, .96), rgba(240, 253, 250, .92)),
+          linear-gradient(315deg, rgba(99, 102, 241, .14), transparent);
+      }
+      .qr-art-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: .3;
+        background-image:
+          linear-gradient(rgba(79, 70, 229, .14) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(16, 185, 129, .12) 1px, transparent 1px);
+        background-size: 26px 26px;
+      }
+      .qr-art-card > * {
+        position: relative;
+      }
+      .qr-preview-tilt {
+        transform: rotateX(7deg) rotateZ(-2deg);
+        transform-origin: center;
+        box-shadow: 0 24px 50px rgba(15, 23, 42, .12);
+      }
+      .auth-shell {
+        min-height: 100vh;
+        min-height: 100dvh;
+        background:
+          linear-gradient(135deg, rgba(79, 70, 229, .1), transparent 34%),
+          linear-gradient(315deg, rgba(16, 185, 129, .1), transparent 42%),
+          #f8fafc;
+      }
+      .auth-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        min-height: 100vh;
+        min-height: 100dvh;
+      }
+      .auth-panel {
+        @apply relative overflow-hidden rounded-lg border border-surface-200 bg-white shadow-depth;
+      }
+      .auth-visual {
+        position: relative;
+        overflow: hidden;
+        background:
+          linear-gradient(145deg, rgba(15, 23, 42, .97), rgba(49, 46, 129, .92) 54%, rgba(6, 78, 59, .9));
+      }
+      .auth-visual::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: .26;
+        background-image:
+          linear-gradient(rgba(255,255,255,.18) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.18) 1px, transparent 1px);
+        background-size: 36px 36px;
+      }
+      .settings-nav-link { @apply flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-surface-50 hover:text-primary-700; }
+      .mobile-tabbar {
+        padding-bottom: max(.5rem, env(safe-area-inset-bottom));
+      }
+      @media (min-width: 1024px) {
+        .auth-grid { grid-template-columns: minmax(460px, 52vw) minmax(360px, 1fr); }
+      }
+    }
+
+    @keyframes qr-float {
+      0%, 100% { transform: rotateX(58deg) rotateZ(-32deg) translate3d(0, 0, 0); }
+      50% { transform: rotateX(54deg) rotateZ(-28deg) translate3d(4px, -10px, 18px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .qr-prism { animation: none; }
+      .interactive-card:hover { transform: none; }
     }
   </style>
 
@@ -87,6 +271,101 @@
 
   {% block body %}{% endblock %}
 
+  <script>
+    (() => {
+      function bootAmbientParticles() {
+        const canvas = document.getElementById('ambient-particles');
+        if (!canvas || canvas.dataset.ready === 'true') return;
+        canvas.dataset.ready = 'true';
+
+        const ctx = canvas.getContext('2d');
+        const colors = ['#4f46e5', '#10b981', '#0ea5e9', '#f59e0b'];
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let particles = [];
+        let frameId = null;
+
+        function resize() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const rect = canvas.getBoundingClientRect();
+          const width = Math.max(rect.width, window.innerWidth);
+          const height = Math.max(rect.height, window.innerHeight);
+
+          canvas.width = Math.floor(width * dpr);
+          canvas.height = Math.floor(height * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+          const count = reduceMotion ? 30 : Math.min(80, Math.max(34, Math.floor((width * height) / 26000)));
+          particles = Array.from({ length: count }, () => ({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: (Math.random() - .5) * .22,
+            vy: (Math.random() - .5) * .22,
+            size: 1 + Math.random() * 2.4,
+            color: colors[Math.floor(Math.random() * colors.length)]
+          }));
+          draw();
+        }
+
+        function draw() {
+          const width = canvas.width / Math.min(window.devicePixelRatio || 1, 2);
+          const height = canvas.height / Math.min(window.devicePixelRatio || 1, 2);
+          ctx.clearRect(0, 0, width, height);
+
+          for (let i = 0; i < particles.length; i += 1) {
+            const p = particles[i];
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = .22;
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+
+            for (let j = i + 1; j < particles.length; j += 1) {
+              const q = particles[j];
+              const dx = p.x - q.x;
+              const dy = p.y - q.y;
+              const distance = Math.hypot(dx, dy);
+              if (distance < 118) {
+                ctx.globalAlpha = (1 - distance / 118) * .12;
+                ctx.strokeStyle = '#4f46e5';
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(q.x, q.y);
+                ctx.stroke();
+              }
+            }
+
+            if (!reduceMotion) {
+              p.x += p.vx;
+              p.y += p.vy;
+              if (p.x < -8) p.x = width + 8;
+              if (p.x > width + 8) p.x = -8;
+              if (p.y < -8) p.y = height + 8;
+              if (p.y > height + 8) p.y = -8;
+            }
+          }
+
+          ctx.globalAlpha = 1;
+          if (!reduceMotion) frameId = window.requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('resize', () => {
+          if (frameId) window.cancelAnimationFrame(frameId);
+          resize();
+        }, { passive: true });
+        resize();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootAmbientParticles);
+      } else {
+        bootAmbientParticles();
+      }
+
+      if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    })();
+  </script>
   {% block extra_scripts %}{% endblock %}
 </body>
 </html>

@@ -11,7 +11,7 @@ from django.core.paginator import Paginator
 from django.core.files.base import ContentFile
 
 from apps.barcodes.models import Barcode, BulkBarcodeJob
-from apps.barcodes.forms import BarcodeForm, BulkBarcodeForm
+from apps.barcodes.forms import BarcodeForm, BulkBarcodeForm, supported_barcode_choices
 from apps.barcodes.utils import (
     generate_barcode_png, generate_barcode_svg, validate_barcode_content
 )
@@ -40,30 +40,34 @@ def barcode_create(request):
                 barcode_obj = form.save(commit=False)
                 barcode_obj.user = request.user
 
-                png = generate_barcode_png(
-                    data["content"], data["barcode_format"],
-                    data.get("foreground_color", "#000000"),
-                    data.get("background_color", "#FFFFFF"),
-                    data.get("width", 300), data.get("height", 100),
-                    data.get("font_size", 10), data.get("show_text", True),
-                )
-                barcode_obj.image_png.save(f"{barcode_obj.id}.png", ContentFile(png), save=False)
-                barcode_obj.image_svg = generate_barcode_svg(
-                    data["content"], data["barcode_format"],
-                    data.get("foreground_color", "#000000"),
-                    data.get("background_color", "#FFFFFF"),
-                    data.get("width", 300), data.get("height", 100),
-                    data.get("show_text", True),
-                )
-                barcode_obj.save()
-                messages.success(request, "Barcode created!")
-                return redirect("barcodes:detail", pk=barcode_obj.id)
+                try:
+                    png = generate_barcode_png(
+                        data["content"], data["barcode_format"],
+                        data.get("foreground_color", "#000000"),
+                        data.get("background_color", "#FFFFFF"),
+                        data.get("width", 300), data.get("height", 100),
+                        data.get("font_size", 10), data.get("show_text", True),
+                    )
+                    barcode_obj.image_png.save(f"{barcode_obj.id}.png", ContentFile(png), save=False)
+                    barcode_obj.image_svg = generate_barcode_svg(
+                        data["content"], data["barcode_format"],
+                        data.get("foreground_color", "#000000"),
+                        data.get("background_color", "#FFFFFF"),
+                        data.get("width", 300), data.get("height", 100),
+                        data.get("show_text", True),
+                    )
+                    barcode_obj.save()
+                    messages.success(request, "Barcode created and ready to download.")
+                    return redirect("barcodes:detail", pk=barcode_obj.id)
+                except Exception as exc:
+                    logger.exception("Barcode generation failed: %s", exc)
+                    form.add_error(None, "Barcode generation failed. Check the content and format, then try again.")
     else:
         form = BarcodeForm()
 
     return render(request, "barcodes/create.html", {
         "form": form, "active_tab": "create_barcode",
-        "formats": Barcode.BarcodeFormat.choices,
+        "formats": supported_barcode_choices(),
     })
 
 
@@ -117,5 +121,6 @@ def bulk_barcode(request):
 
     jobs = BulkBarcodeJob.objects.filter(user=request.user).order_by("-created_at")[:5]
     return render(request, "barcodes/bulk.html", {
-        "form": form, "jobs": jobs, "active_tab": "barcodes"
+        "form": form, "jobs": jobs, "active_tab": "barcodes",
+        "formats": supported_barcode_choices(),
     })

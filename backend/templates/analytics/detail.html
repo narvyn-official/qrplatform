@@ -101,10 +101,13 @@
 {% endblock %}
 
 {% block extra_scripts %}
+{{ daily_stats|json_script:"analytics-daily-stats" }}
+{{ geo_stats|json_script:"analytics-geo-stats" }}
+{{ heatmap_data|json_script:"analytics-heatmap-data" }}
 <script>
-const dailyStats = {{ daily_stats|safe }};
-const geoStats = {{ geo_stats|safe }};
-const heatmapData = {{ heatmap_data|safe }};
+const dailyStats = JSON.parse(document.getElementById('analytics-daily-stats').textContent);
+const geoStats = JSON.parse(document.getElementById('analytics-geo-stats').textContent);
+const heatmapData = JSON.parse(document.getElementById('analytics-heatmap-data').textContent);
 
 // Timeline chart
 const timelineCtx = document.getElementById('scanTimeline').getContext('2d');

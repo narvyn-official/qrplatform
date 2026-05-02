@@ -11,17 +11,29 @@ from apps.accounts.models import UserProfile
 User = get_user_model()
 
 
+INPUT_CLASS = "input"
+CHECKBOX_CLASS = "rounded border-surface-300 text-primary-600 focus:ring-primary-500"
+
+
 class SignupForm(forms.Form):
-    full_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={"placeholder": "Full name"}))
-    email = forms.EmailField(widget=forms.EmailInput(attrs={"placeholder": "Email address"}))
+    full_name = forms.CharField(max_length=150, widget=forms.TextInput(attrs={
+        "placeholder": "Full name", "class": INPUT_CLASS, "autocomplete": "name",
+    }))
+    email = forms.EmailField(widget=forms.EmailInput(attrs={
+        "placeholder": "Email address", "class": INPUT_CLASS, "autocomplete": "email",
+    }))
     password = forms.CharField(
         min_length=10,
-        widget=forms.PasswordInput(attrs={"placeholder": "Password (min 10 chars)"}),
+        widget=forms.PasswordInput(attrs={
+            "placeholder": "Password (min 10 chars)", "class": INPUT_CLASS, "autocomplete": "new-password",
+        }),
     )
     confirm_password = forms.CharField(
-        widget=forms.PasswordInput(attrs={"placeholder": "Confirm password"})
+        widget=forms.PasswordInput(attrs={
+            "placeholder": "Confirm password", "class": INPUT_CLASS, "autocomplete": "new-password",
+        })
     )
-    agree_terms = forms.BooleanField(required=True)
+    agree_terms = forms.BooleanField(required=True, widget=forms.CheckboxInput(attrs={"class": CHECKBOX_CLASS}))
 
     def clean_email(self):
         email = self.cleaned_data["email"].lower().strip()
@@ -48,9 +60,22 @@ class SignupForm(forms.Form):
 
 
 class LoginForm(forms.Form):
-    email = forms.EmailField(widget=forms.EmailInput(attrs={"placeholder": "Email address"}))
-    password = forms.CharField(widget=forms.PasswordInput(attrs={"placeholder": "Password"}))
-    remember_me = forms.BooleanField(required=False)
+    email = forms.EmailField(widget=forms.EmailInput(attrs={
+        "placeholder": "you@company.com", "class": INPUT_CLASS, "autocomplete": "email",
+    }))
+    password = forms.CharField(widget=forms.PasswordInput(attrs={
+        "placeholder": "Password", "class": INPUT_CLASS, "autocomplete": "current-password",
+    }))
+    remember_me = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={"class": CHECKBOX_CLASS}))
+
+    def clean_email(self):
+        return self.cleaned_data["email"].lower().strip()
+
+
+class ResendVerificationForm(forms.Form):
+    email = forms.EmailField(widget=forms.EmailInput(attrs={
+        "placeholder": "you@company.com", "class": INPUT_CLASS, "autocomplete": "email",
+    }))
 
     def clean_email(self):
         return self.cleaned_data["email"].lower().strip()
@@ -69,6 +94,18 @@ class ProfileForm(forms.ModelForm):
             "brand_color": forms.TextInput(attrs={"type": "color"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs.setdefault("class", CHECKBOX_CLASS)
+            elif isinstance(field.widget, forms.FileInput):
+                field.widget.attrs.setdefault("class", "block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-primary-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-100")
+            elif name == "brand_color":
+                field.widget.attrs.setdefault("class", "h-11 w-full rounded-lg border border-surface-200 bg-white p-1")
+            else:
+                field.widget.attrs.setdefault("class", INPUT_CLASS)
+
     def clean_website(self):
         url = self.cleaned_data.get("website", "")
         if url and not url.startswith(("http://", "https://")):
@@ -83,9 +120,15 @@ class ProfileForm(forms.ModelForm):
 
 
 class ChangePasswordForm(forms.Form):
-    current_password = forms.CharField(widget=forms.PasswordInput())
-    new_password = forms.CharField(min_length=10, widget=forms.PasswordInput())
-    confirm_password = forms.CharField(widget=forms.PasswordInput())
+    current_password = forms.CharField(widget=forms.PasswordInput(attrs={
+        "class": INPUT_CLASS, "autocomplete": "current-password", "placeholder": "Current password",
+    }))
+    new_password = forms.CharField(min_length=10, widget=forms.PasswordInput(attrs={
+        "class": INPUT_CLASS, "autocomplete": "new-password", "placeholder": "New password",
+    }))
+    confirm_password = forms.CharField(widget=forms.PasswordInput(attrs={
+        "class": INPUT_CLASS, "autocomplete": "new-password", "placeholder": "Confirm new password",
+    }))
 
     def clean(self):
         cleaned = super().clean()
@@ -95,12 +138,18 @@ class ChangePasswordForm(forms.Form):
 
 
 class ForgotPasswordForm(forms.Form):
-    email = forms.EmailField(widget=forms.EmailInput(attrs={"placeholder": "Your account email"}))
+    email = forms.EmailField(widget=forms.EmailInput(attrs={
+        "placeholder": "Your account email", "class": INPUT_CLASS, "autocomplete": "email",
+    }))
 
 
 class ResetPasswordForm(forms.Form):
-    password = forms.CharField(min_length=10, widget=forms.PasswordInput(attrs={"placeholder": "New password"}))
-    confirm_password = forms.CharField(widget=forms.PasswordInput(attrs={"placeholder": "Confirm new password"}))
+    password = forms.CharField(min_length=10, widget=forms.PasswordInput(attrs={
+        "placeholder": "New password", "class": INPUT_CLASS, "autocomplete": "new-password",
+    }))
+    confirm_password = forms.CharField(widget=forms.PasswordInput(attrs={
+        "placeholder": "Confirm new password", "class": INPUT_CLASS, "autocomplete": "new-password",
+    }))
 
     def clean(self):
         cleaned = super().clean()

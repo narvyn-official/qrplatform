@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model
 
 from apps.barcodes.models import Barcode, BulkBarcodeJob
 from apps.barcodes.forms import BarcodeForm, BulkBarcodeForm
+from apps.barcodes.utils import validate_barcode_content
 
 User = get_user_model()
 
@@ -133,6 +134,27 @@ class BarcodeFormTest(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("content", form.errors)
 
+    def test_upce_is_rejected_instead_of_silent_fallback(self):
+        form = BarcodeForm({
+            "name": "UPC-E",
+            "barcode_format": "upce",
+            "content": "123456",
+            "foreground_color": "#000000",
+            "background_color": "#FFFFFF",
+            "show_text": True,
+            "width": 300,
+            "height": 100,
+            "font_size": 10,
+            "tags": "[]",
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn("barcode_format", form.errors)
+
+    def test_validate_upce_reports_unsupported(self):
+        ok, error = validate_barcode_content("123456", "upce")
+        self.assertFalse(ok)
+        self.assertIn("not supported", error)
+
 
 class BulkBarcodeFormTest(TestCase):
 
@@ -198,6 +220,8 @@ class BarcodeCreateViewTest(TestCase):
         resp = self.client.get(reverse("barcodes:create"))
         self.assertEqual(resp.status_code, 200)
         self.assertIn("form", resp.context)
+        self.assertContains(resp, "Font Size")
+        self.assertNotContains(resp, 'value="upce"')
 
     @patch("apps.barcodes.views.generate_barcode_png", return_value=b"\x89PNG\r\n")
     @patch("apps.barcodes.views.generate_barcode_svg", return_value="<svg/>")
@@ -241,6 +265,24 @@ class BarcodeCreateViewTest(TestCase):
             "content": "ABC",
         })
         self.assertEqual(resp.status_code, 200)
+
+    def test_post_real_generation_creates_downloadable_files(self):
+        resp = self.client.post(reverse("barcodes:create"), {
+            "name": "Real Barcode",
+            "barcode_format": "code128",
+            "content": "ABC123",
+            "foreground_color": "#111111",
+            "background_color": "#ffffff",
+            "show_text": True,
+            "width": 300,
+            "height": 100,
+            "font_size": 10,
+            "tags": "[]",
+        })
+        self.assertEqual(resp.status_code, 302)
+        bc = Barcode.objects.get(user=self.user, name="Real Barcode")
+        self.assertTrue(bc.image_png)
+        self.assertTrue(bc.image_svg.startswith("<?xml"))
 
 
 @override_settings(CACHES=CACHE_OVERRIDE, AXES_ENABLED=False)

@@ -5,10 +5,39 @@
 
 {% block content %}
 
+<section class="mesh-panel mb-6 p-5 sm:p-6">
+  <div class="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+    <div class="max-w-2xl">
+      <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">Live workspace</p>
+      <h2 class="mt-2 text-2xl font-bold text-gray-950 sm:text-3xl">Build, scan, and learn from every code.</h2>
+      <p class="mt-3 text-sm leading-6 text-gray-600">
+        Your QR codes, barcodes, analytics, and downloads are ready from one focused dashboard.
+      </p>
+      <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+        <span class="badge badge-blue">PNG</span>
+        <span class="badge badge-green">SVG</span>
+        <span class="badge badge-yellow">PDF</span>
+        <span class="badge badge-gray">Dynamic links</span>
+      </div>
+    </div>
+    <div class="visual-stage flex justify-center lg:w-72" aria-hidden="true">
+      <div class="qr-prism">
+        <div class="qr-prism__face">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Stats cards -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
 
-  <div class="card p-5">
+  <div class="card interactive-card p-5">
     <div class="flex items-center justify-between mb-3">
       <p class="text-sm font-medium text-gray-500">Total QR Codes</p>
       <div class="w-9 h-9 bg-primary-50 rounded-xl flex items-center justify-center">
@@ -19,7 +48,7 @@
     <p class="text-xs text-gray-400 mt-1">Active codes</p>
   </div>
 
-  <div class="card p-5">
+  <div class="card interactive-card p-5">
     <div class="flex items-center justify-between mb-3">
       <p class="text-sm font-medium text-gray-500">Total Scans</p>
       <div class="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center">
@@ -30,7 +59,7 @@
     <p class="text-xs text-gray-400 mt-1">All time</p>
   </div>
 
-  <div class="card p-5">
+  <div class="card interactive-card p-5">
     <div class="flex items-center justify-between mb-3">
       <p class="text-sm font-medium text-gray-500">This Week</p>
       <div class="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center">
@@ -41,7 +70,7 @@
     <p class="text-xs text-gray-400 mt-1">Scans last 7 days</p>
   </div>
 
-  <div class="card p-5">
+  <div class="card interactive-card p-5">
     <div class="flex items-center justify-between mb-3">
       <p class="text-sm font-medium text-gray-500">Unique Scans</p>
       <div class="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center">
@@ -99,7 +128,7 @@
 <!-- Quick actions -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
   {% for item in quick_actions %}
-  <a href="{{ item.url }}" class="card p-4 hover:shadow-card-hover transition-shadow group">
+  <a href="{{ item.url }}" class="card interactive-card p-4 hover:shadow-card-hover group">
     <div class="w-10 h-10 {{ item.bg }} rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
       {{ item.icon|safe }}
     </div>
@@ -112,8 +141,9 @@
 {% endblock %}
 
 {% block extra_scripts %}
+{{ weekly_stats|json_script:"dashboard-weekly-stats" }}
 <script>
-  const weeklyData = {{ weekly_stats|safe }};
+  const weeklyData = JSON.parse(document.getElementById('dashboard-weekly-stats').textContent);
   const labels = weeklyData.map(d => new Date(d.date).toLocaleDateString('en', {weekday:'short', month:'short', day:'numeric'}));
   const totals = weeklyData.map(d => d.total_scans);
   const uniques = weeklyData.map(d => d.unique_scans);

@@ -25,11 +25,11 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
   <!-- QR image -->
-  <div class="card p-6 flex flex-col items-center justify-center">
+  <div class="card qr-art-card p-6 flex flex-col items-center justify-center">
     {% if qr.image_png %}
-    <img src="{{ qr.image_png.url }}" alt="{{ qr.name }}" class="w-48 h-48 object-contain">
+    <img src="{{ qr.image_png.url }}" alt="{{ qr.name }}" class="relative w-48 h-48 object-contain rounded-lg bg-white p-2 shadow-depth">
     {% else %}
-    <div class="w-48 h-48 bg-surface-100 rounded-2xl flex flex-col items-center justify-center text-gray-400">
+    <div class="relative w-48 h-48 bg-surface-100 rounded-2xl flex flex-col items-center justify-center text-gray-400">
       <svg class="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/></svg>
       <p class="text-xs">Generating…</p>
     </div>
@@ -112,8 +112,9 @@
 
 {% block extra_scripts %}
 {% if daily_stats %}
+{{ daily_stats|json_script:"qr-detail-daily-stats" }}
 <script>
-  const stats = {{ daily_stats|safe }};
+  const stats = JSON.parse(document.getElementById('qr-detail-daily-stats').textContent);
   const labels = stats.map(d => new Date(d.date).toLocaleDateString('en', {month:'short', day:'numeric'}));
   new Chart(document.getElementById('detailChart').getContext('2d'), {
     type: 'bar',

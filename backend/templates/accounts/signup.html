@@ -2,51 +2,88 @@
 {% block title %}Create Account — {{ PLATFORM_NAME }}{% endblock %}
 
 {% block body %}
-<div class="min-h-screen flex items-center justify-center bg-surface-50 px-4 py-12">
-  <div class="w-full max-w-md">
-    <div class="flex items-center gap-2.5 mb-8 justify-center">
-      <div class="w-9 h-9 bg-primary-600 rounded-xl flex items-center justify-center">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/></svg>
+<main class="auth-shell px-4 py-10 sm:px-6">
+  <div class="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-8 lg:grid-cols-[1fr_440px]">
+    <section class="hidden lg:block">
+      <div class="mesh-panel p-8">
+        <div class="visual-stage mb-8 flex h-44 items-center justify-center">
+          <div class="qr-prism">
+            <div class="qr-prism__face">
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+        <h1 class="max-w-xl text-4xl font-black leading-tight text-gray-950">Launch a cleaner QR and barcode workspace.</h1>
+        <p class="mt-4 max-w-lg text-sm leading-6 text-gray-600">Create dynamic QR codes, track scans, generate barcodes, and keep API access under control from one responsive dashboard.</p>
+        <div class="mt-6 grid grid-cols-3 gap-3 text-center text-xs font-semibold">
+          <span class="rounded-lg bg-primary-50 px-3 py-2 text-primary-700">QR exports</span>
+          <span class="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-700">Analytics</span>
+          <span class="rounded-lg bg-sky-50 px-3 py-2 text-sky-700">API keys</span>
+        </div>
       </div>
-      <span class="font-bold text-xl text-gray-900">{{ PLATFORM_NAME }}</span>
-    </div>
+    </section>
 
-    <div class="card p-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-1 text-center">Create your account</h1>
-      <p class="text-gray-500 text-sm mb-6 text-center">Free forever. No credit card required.</p>
+    <section class="mx-auto w-full max-w-md">
+      <a href="{% url 'core:home' %}" class="mb-7 flex items-center justify-center gap-2.5 lg:justify-start">
+        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600 text-white shadow-glow">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/>
+          </svg>
+        </span>
+        <span class="text-xl font-bold text-gray-950">{{ PLATFORM_NAME }}</span>
+      </a>
 
-      <form method="post" class="space-y-4">
-        {% csrf_token %}
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Full name</label>
-          <input type="text" name="full_name" class="input" required placeholder="John Smith">
-          {% if form.full_name.errors %}<p class="text-red-500 text-xs mt-1">{{ form.full_name.errors|join:", " }}</p>{% endif %}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
-          <input type="email" name="email" class="input" required placeholder="you@company.com">
-          {% if form.email.errors %}<p class="text-red-500 text-xs mt-1">{{ form.email.errors|join:", " }}</p>{% endif %}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
-          <input type="password" name="password" class="input" required placeholder="Min 10 characters">
-          {% if form.password.errors %}<p class="text-red-500 text-xs mt-1">{{ form.password.errors|join:", " }}</p>{% endif %}
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Confirm password</label>
-          <input type="password" name="confirm_password" class="input" required placeholder="Repeat password">
-        </div>
-        <div class="flex items-center gap-2">
-          <input type="checkbox" name="agree_terms" id="agree_terms" required class="rounded text-primary-600">
-          <label for="agree_terms" class="text-sm text-gray-600">I agree to the <a href="#" class="text-primary-600 hover:underline">Terms of Service</a></label>
-        </div>
-        <button type="submit" class="w-full btn-primary justify-center py-3 text-base mt-2">Create Account</button>
-      </form>
+      <div class="auth-panel p-6 sm:p-8">
+        <h2 class="text-2xl font-bold text-gray-950">Create your account</h2>
+        <p class="mt-2 text-sm leading-6 text-gray-500">Free forever. Verify your email before first login.</p>
 
-      <p class="text-center text-sm text-gray-500 mt-5">
-        Already have an account? <a href="{% url 'accounts:login' %}" class="text-primary-600 font-medium hover:underline">Sign in →</a>
-      </p>
-    </div>
+        {% if form.non_field_errors %}
+        <div class="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {{ form.non_field_errors|join:", " }}
+        </div>
+        {% endif %}
+
+        <form method="post" class="mt-6 space-y-4">
+          {% csrf_token %}
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="id_full_name">Full name</label>
+            {{ form.full_name }}
+            {% if form.full_name.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.full_name.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="id_email">Email address</label>
+            {{ form.email }}
+            {% if form.email.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.email.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="id_password">Password</label>
+              {{ form.password }}
+              {% if form.password.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.password.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="id_confirm_password">Confirm</label>
+              {{ form.confirm_password }}
+              {% if form.confirm_password.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.confirm_password.errors|join:", " }}</p>{% endif %}
+            </div>
+          </div>
+          <label class="flex items-start gap-2 text-sm leading-5 text-gray-600">
+            {{ form.agree_terms }}
+            <span>I agree to the <a href="{% url 'core:terms' %}" class="font-semibold text-primary-600 hover:text-primary-700">Terms of Service</a>.</span>
+          </label>
+          <button type="submit" class="btn-primary w-full justify-center py-3 text-base">Create account</button>
+        </form>
+
+        <p class="mt-6 text-center text-sm text-gray-500">
+          Already have an account?
+          <a href="{% url 'accounts:login' %}" class="font-semibold text-primary-600 hover:text-primary-700">Sign in</a>
+        </p>
+      </div>
+    </section>
   </div>
-</div>
+</main>
 {% endblock %}

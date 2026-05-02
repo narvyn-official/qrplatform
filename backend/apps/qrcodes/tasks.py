@@ -2,8 +2,6 @@
 QR Code async tasks — image generation and expiration cleanup.
 """
 import logging
-import os
-from io import BytesIO
 
 from celery import shared_task
 from django.core.files.base import ContentFile
@@ -104,9 +102,3 @@ def cleanup_expired_qrcodes():
     count_limit = expired_limit.update(status=QRCode.Status.EXPIRED)
 
     logger.info("Expired %d time-based and %d scan-limit QR codes", count_time, count_limit)
-
-
-@shared_task
-def bulk_generate_qrcodes_task(job_id: str):
-    """Process a bulk QR generation job from uploaded CSV."""
-    pass  # Placeholder — implement per project requirements

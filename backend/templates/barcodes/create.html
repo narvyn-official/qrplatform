@@ -2,72 +2,143 @@
 {% block title %}Create Barcode — {{ PLATFORM_NAME }}{% endblock %}
 {% block page_title %}Create Barcode{% endblock %}
 
+{% block header_actions %}
+<a href="{% url 'barcodes:bulk' %}" class="btn-secondary hidden sm:inline-flex">
+  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h10M7 12h10M7 17h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
+  </svg>
+  Bulk
+</a>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-2xl">
-  <form method="post" class="space-y-5">
+<div class="max-w-6xl" x-data="{
+  format: '{{ form.barcode_format.value|default:'code128'|escapejs }}',
+  content: '{{ form.content.value|default:'ABC123456789'|escapejs }}',
+  foreground: '{{ form.foreground_color.value|default:'#000000' }}',
+  background: '{{ form.background_color.value|default:'#FFFFFF' }}',
+  showText: {% if form.show_text.value == False %}false{% else %}true{% endif %}
+}">
+  {% if form.non_field_errors %}
+  <div class="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+    {{ form.non_field_errors|join:", " }}
+  </div>
+  {% endif %}
+
+  <form method="post" class="grid grid-cols-1 gap-6 lg:grid-cols-12">
     {% csrf_token %}
-
-    <div class="card p-6 space-y-5">
-      <h2 class="font-semibold text-gray-900">Barcode Details</h2>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">Name</label>
-        <input type="text" name="name" class="input" placeholder="e.g. Product SKU-001" required
-               value="{{ form.name.value|default:'' }}">
-        {% if form.name.errors %}<p class="text-red-500 text-xs mt-1">{{ form.name.errors|join:", " }}</p>{% endif %}
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">Format</label>
-        <select name="barcode_format" class="input">
-          {% for value, label in formats %}
-          <option value="{{ value }}" {% if form.barcode_format.value == value %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-        {% if form.barcode_format.errors %}<p class="text-red-500 text-xs mt-1">{{ form.barcode_format.errors|join:", " }}</p>{% endif %}
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">Content</label>
-        <input type="text" name="content" class="input" placeholder="Value to encode" required
-               value="{{ form.content.value|default:'' }}">
-        {% if form.content.errors %}<p class="text-red-500 text-xs mt-1">{{ form.content.errors|join:", " }}</p>{% endif %}
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Foreground Color</label>
-          <input type="color" name="foreground_color" value="{{ form.foreground_color.value|default:'#000000' }}"
-                 class="h-10 w-full rounded-xl border border-surface-200 cursor-pointer">
+    <section class="lg:col-span-7 space-y-6">
+      <div class="card p-5 sm:p-6">
+        <div class="mb-5">
+          <h2 class="text-lg font-bold text-gray-950">Barcode details</h2>
+          <p class="mt-1 text-sm text-gray-500">Choose a format, enter valid content, and generate downloadable PNG/SVG assets.</p>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Background Color</label>
-          <input type="color" name="background_color" value="{{ form.background_color.value|default:'#FFFFFF' }}"
-                 class="h-10 w-full rounded-xl border border-surface-200 cursor-pointer">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Width (px)</label>
-          <input type="number" name="width" class="input" value="{{ form.width.value|default:300 }}" min="100" max="1200">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Height (px)</label>
-          <input type="number" name="height" class="input" value="{{ form.height.value|default:100 }}" min="40" max="400">
+
+        <div class="space-y-4">
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-gray-700">Name</label>
+            <input type="text" name="name" class="input" placeholder="Product SKU-001" required value="{{ form.name.value|default:'' }}">
+            {% if form.name.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.name.errors|join:", " }}</p>{% endif %}
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-700">Format</label>
+              <select name="barcode_format" class="input" x-model="format">
+                {% for value, label in formats %}
+                <option value="{{ value }}" {% if form.barcode_format.value == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% if form.barcode_format.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.barcode_format.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-700">Content</label>
+              <input type="text" name="content" class="input font-mono" placeholder="Value to encode" required x-model="content" value="{{ form.content.value|default:'' }}">
+              {% if form.content.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.content.errors|join:", " }}</p>{% endif %}
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-surface-200 bg-surface-50 px-4 py-3 text-xs leading-5 text-gray-600">
+            EAN and UPC formats require numeric values with the correct length. UPC-E is hidden because the installed barcode engine does not support it accurately.
+          </div>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <input type="checkbox" name="show_text" id="show_text" class="rounded text-primary-600"
-               {% if form.show_text.value != False %}checked{% endif %}>
-        <label for="show_text" class="text-sm font-medium text-gray-700">Show text below barcode</label>
+      <div class="card p-5 sm:p-6">
+        <div class="mb-5">
+          <h2 class="text-lg font-bold text-gray-950">Appearance</h2>
+          <p class="mt-1 text-sm text-gray-500">Tune production dimensions and text rendering.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-gray-700">Foreground</label>
+            <input type="color" name="foreground_color" x-model="foreground" value="{{ form.foreground_color.value|default:'#000000' }}" class="h-11 w-full rounded-lg border border-surface-200 bg-white p-1">
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-gray-700">Background</label>
+            <input type="color" name="background_color" x-model="background" value="{{ form.background_color.value|default:'#FFFFFF' }}" class="h-11 w-full rounded-lg border border-surface-200 bg-white p-1">
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-gray-700">Width (px)</label>
+            <input type="number" name="width" class="input" value="{{ form.width.value|default:300 }}" min="100" max="1200">
+            {% if form.width.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.width.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-gray-700">Height (px)</label>
+            <input type="number" name="height" class="input" value="{{ form.height.value|default:100 }}" min="40" max="400">
+            {% if form.height.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.height.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-gray-700">Font Size</label>
+            <input type="number" name="font_size" class="input" value="{{ form.font_size.value|default:10 }}" min="0" max="48">
+            {% if form.font_size.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.font_size.errors|join:", " }}</p>{% endif %}
+          </div>
+          <label class="flex items-center gap-3 pt-7 text-sm font-semibold text-gray-700">
+            <input type="checkbox" name="show_text" x-model="showText" class="rounded border-surface-300 text-primary-600 focus:ring-primary-500" {% if form.show_text.value != False %}checked{% endif %}>
+            Show text below barcode
+          </label>
+        </div>
+        <input type="hidden" name="tags" value="{{ form.tags.value|default:'[]' }}">
       </div>
 
-      <input type="hidden" name="tags" value="{{ form.tags.value|default:'[]' }}">
-    </div>
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <button type="submit" class="btn-primary justify-center px-6 py-3">Generate Barcode</button>
+        <a href="{% url 'barcodes:list' %}" class="btn-secondary justify-center px-6 py-3">Cancel</a>
+      </div>
+    </section>
 
-    <div class="flex gap-3">
-      <button type="submit" class="btn-primary py-3 px-6">Generate Barcode</button>
-      <a href="{% url 'barcodes:list' %}" class="btn-secondary py-3 px-6">Cancel</a>
-    </div>
+    <aside class="lg:col-span-5">
+      <div class="sticky top-24 space-y-4">
+        <section class="card qr-art-card p-5 sm:p-6">
+          <div class="mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-gray-950">Live preview</h2>
+            <span class="badge badge-blue" x-text="format"></span>
+          </div>
+          <div class="rounded-lg border border-surface-200 bg-white/70 p-5 backdrop-blur">
+            <div class="mx-auto flex min-h-40 w-full max-w-md flex-col items-center justify-center rounded-lg p-5 shadow-depth"
+                 :style="`background:${background}`">
+              <div class="flex h-24 w-full items-stretch justify-center gap-1 overflow-hidden px-2">
+                <template x-for="i in 36" :key="i">
+                  <span class="block rounded-sm"
+                        :style="`background:${foreground}; width:${[1,4,8,13,21,29,35].includes(i) ? 9 : ([2,7,15,26,31].includes(i) ? 5 : 2)}px; opacity:${[5,12,19,27,33].includes(i) ? .2 : 1}`"></span>
+                </template>
+              </div>
+              <p x-show="showText" class="mt-4 max-w-full truncate font-mono text-xs" :style="`color:${foreground}`" x-text="content || 'VALUE'"></p>
+            </div>
+          </div>
+          <dl class="mt-4 space-y-3 text-sm">
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-gray-500">Downloads</dt>
+              <dd class="font-semibold text-gray-900">PNG + SVG</dd>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <dt class="text-gray-500">Validation</dt>
+              <dd class="font-semibold text-emerald-700">Server checked</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+    </aside>
   </form>
 </div>
 {% endblock %}

@@ -3,6 +3,10 @@
 {% block page_title %}Barcodes{% endblock %}
 
 {% block header_actions %}
+<a href="{% url 'barcodes:bulk' %}" class="btn-secondary hidden sm:inline-flex">
+  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h10M7 12h10M7 17h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
+  Bulk
+</a>
 <a href="{% url 'barcodes:create' %}" class="btn-secondary">
   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
   New Barcode
@@ -15,8 +19,8 @@
 <div class="card overflow-hidden mb-6">
   <div class="divide-y divide-surface-100">
     {% for bc in barcodes %}
-    <div class="flex items-center justify-between px-5 py-4 hover:bg-surface-50 transition-colors group">
-      <div class="flex items-center gap-4">
+    <div class="flex flex-col gap-4 px-5 py-4 hover:bg-surface-50 transition-colors group sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex min-w-0 items-center gap-4">
         {% if bc.image_png %}
         <img src="{{ bc.image_png.url }}" alt="{{ bc.name }}" class="w-16 h-10 object-contain rounded border border-surface-200 bg-white p-1">
         {% else %}
@@ -24,12 +28,12 @@
           <svg class="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
         </div>
         {% endif %}
-        <div>
+        <div class="min-w-0">
           <p class="text-sm font-semibold text-gray-800 group-hover:text-primary-700">{{ bc.name }}</p>
           <p class="text-xs text-gray-400">{{ bc.get_barcode_format_display }} · <span class="font-mono">{{ bc.content|truncatechars:30 }}</span></p>
         </div>
       </div>
-      <div class="flex items-center gap-3 text-xs">
+      <div class="flex flex-wrap items-center gap-3 text-xs sm:justify-end">
         <a href="{% url 'barcodes:detail' bc.id %}" class="btn-secondary py-1.5 px-3">View</a>
         <a href="{% url 'barcodes:download' bc.id 'png' %}" class="text-gray-500 hover:text-primary-600">PNG</a>
         <a href="{% url 'barcodes:download' bc.id 'svg' %}" class="text-gray-500 hover:text-primary-600">SVG</a>

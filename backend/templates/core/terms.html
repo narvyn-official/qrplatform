@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Terms of Service — {{ PLATFORM_NAME }}{% endblock %}
+
+{% block body %}
+<main class="min-h-screen bg-surface-50 px-4 py-12 sm:px-6">
+  <div class="mx-auto max-w-3xl">
+    <a href="{% url 'core:home' %}" class="mb-8 inline-flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700">
+      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Back to {{ PLATFORM_NAME }}
+    </a>
+
+    <section class="card p-6 sm:p-8">
+      <p class="text-sm font-semibold uppercase tracking-wider text-primary-600">Terms</p>
+      <h1 class="mt-2 text-3xl font-bold text-gray-900">Terms of Service</h1>
+      <p class="mt-4 text-sm leading-6 text-gray-600">
+        By creating an account, you agree to use {{ PLATFORM_NAME }} responsibly and only for content you are allowed to publish or share.
+      </p>
+
+      <div class="mt-8 space-y-6 text-sm leading-6 text-gray-600">
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">Acceptable Use</h2>
+          <p class="mt-2">Do not create QR codes or barcodes that point to phishing pages, malware, illegal content, abusive material, or destinations that mislead scanners.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">Your Content</h2>
+          <p class="mt-2">You are responsible for the links, text, images, logos, and metadata you upload. You can edit or delete your codes from the dashboard.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">Service Availability</h2>
+          <p class="mt-2">{{ PLATFORM_NAME }} aims to keep redirects and downloads available, but local development and preview environments may use console email, test domains, or temporary storage.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">Contact</h2>
+          <p class="mt-2">Questions about these terms can be sent to <a class="font-medium text-primary-600 hover:text-primary-700" href="mailto:support@qrplatform.io">support@qrplatform.io</a>.</p>
+        </section>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}

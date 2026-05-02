@@ -17,7 +17,7 @@ from apps.accounts.models import (
 )
 from apps.accounts.forms import (
     SignupForm, LoginForm, ProfileForm, ChangePasswordForm,
-    ForgotPasswordForm, ResetPasswordForm,
+    ForgotPasswordForm, ResetPasswordForm, ResendVerificationForm,
 )
 
 User = get_user_model()
@@ -278,6 +278,14 @@ class LoginFormTests(TestCase):
         self.assertFalse(form.is_valid())
 
 
+class ResendVerificationFormTests(TestCase):
+
+    def test_normalises_email(self):
+        form = ResendVerificationForm(data={"email": "USER@Example.COM"})
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["email"], "user@example.com")
+
+
 class ResetPasswordFormTests(TestCase):
 
     def test_valid_matching_passwords(self):
@@ -350,6 +358,31 @@ class LoginViewTests(TestCase):
         self.assertEqual(resp.status_code, 302)
 
     @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_valid_login_rejects_unsafe_next_url(self, mock_ip):
+        resp = self.client.post(self.url + "?next=https://evil.example/", {
+            "email": self.user.email,
+            "password": "testpass123",
+        })
+        self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
+
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_remember_me_sets_seven_day_session(self, mock_ip):
+        self.client.post(self.url, {
+            "email": self.user.email,
+            "password": "testpass123",
+            "remember_me": "on",
+        })
+        self.assertGreaterEqual(self.client.session.get_expiry_age(), 60 * 60 * 24 * 6)
+
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_login_without_remember_me_expires_at_browser_close(self, mock_ip):
+        self.client.post(self.url, {
+            "email": self.user.email,
+            "password": "testpass123",
+        })
+        self.assertTrue(self.client.session.get_expire_at_browser_close())
+
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
     def test_invalid_password_stays_on_page(self, mock_ip):
         resp = self.client.post(self.url, {
             "email": self.user.email,
@@ -366,6 +399,7 @@ class LoginViewTests(TestCase):
             "password": "testpass123",
         })
         self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Resend verification email")
 
     def test_authenticated_user_redirected(self):
         self.client.force_login(self.user)
@@ -420,6 +454,24 @@ class VerifyEmailViewTests(TestCase):
         )
         resp = self.client.get(reverse("accounts:verify_email", args=[tok.token]))
         self.assertRedirects(resp, reverse("accounts:login"))
+
+
+@override_settings(CACHES=CACHE_OVERRIDE)
+class ResendVerificationViewTests(TestCase):
+
+    def test_resend_for_unverified_user_sends_email(self):
+        user = User.objects.create_user(email="pending@example.com", password="pass123456")
+        resp = self.client.post(reverse("accounts:resend_verification"), {"email": user.email})
+
+        self.assertRedirects(resp, reverse("accounts:login"))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertTrue(EmailVerificationToken.objects.filter(user=user).exists())
+
+    def test_resend_for_unknown_email_does_not_reveal(self):
+        resp = self.client.post(reverse("accounts:resend_verification"), {"email": "missing@example.com"})
+
+        self.assertRedirects(resp, reverse("accounts:login"))
+        self.assertEqual(len(mail.outbox), 0)
 
 
 @override_settings(CACHES=CACHE_OVERRIDE)
@@ -500,6 +552,27 @@ class ProfileViewTests(TestCase):
         self.assertRedirects(resp, reverse("accounts:profile"))
         profile = UserProfile.objects.get(user=self.user)
         self.assertEqual(profile.company, "Acme Corp")
+
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_change_password(self, mock_ip):
+        resp = self.client.post(reverse("accounts:change_password"), {
+            "current_password": "testpass123",
+            "new_password": "newpassword99",
+            "confirm_password": "newpassword99",
+        })
+        self.assertRedirects(resp, reverse("accounts:profile"))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("newpassword99"))
+
+    def test_change_password_rejects_wrong_current_password(self):
+        resp = self.client.post(reverse("accounts:change_password"), {
+            "current_password": "wrongpass123",
+            "new_password": "newpassword99",
+            "confirm_password": "newpassword99",
+        })
+        self.assertRedirects(resp, reverse("accounts:profile"))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("testpass123"))
 
     def test_unauthenticated_redirects(self):
         self.client.logout()

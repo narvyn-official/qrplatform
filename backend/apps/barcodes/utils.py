@@ -16,10 +16,11 @@ BARCODE_FORMAT_MAP = {
     "ean13": "ean13",
     "ean8": "ean8",
     "upca": "upca",
-    "upce": "upce",
     "itf": "itf",
     "gs1_128": "gs1_128",
 }
+
+UNSUPPORTED_FORMATS = {"upce"}
 
 
 def _get_writer_options(
@@ -53,6 +54,8 @@ def generate_barcode_png(
     show_text: bool = True,
 ) -> bytes:
     """Return PNG bytes of a barcode."""
+    if barcode_format in UNSUPPORTED_FORMATS:
+        raise ValueError("UPC-E is not supported by the installed barcode engine.")
     fmt = BARCODE_FORMAT_MAP.get(barcode_format, "code128")
     try:
         bc_class = barcode.get_barcode_class(fmt)
@@ -85,6 +88,8 @@ def generate_barcode_svg(
     show_text: bool = True,
 ) -> str:
     """Return SVG string of a barcode."""
+    if barcode_format in UNSUPPORTED_FORMATS:
+        raise ValueError("UPC-E is not supported by the installed barcode engine.")
     fmt = BARCODE_FORMAT_MAP.get(barcode_format, "code128")
     try:
         bc_class = barcode.get_barcode_class(fmt)
@@ -116,6 +121,15 @@ def validate_barcode_content(content: str, barcode_format: str) -> Tuple[bool, s
     """Validate content for a given barcode format. Returns (is_valid, error_msg)."""
     fmt = barcode_format.lower()
 
+    if not content:
+        return False, "Content cannot be empty."
+    if len(content) > 1000:
+        return False, "Content is too long."
+    if fmt in UNSUPPORTED_FORMATS:
+        return False, "UPC-E is not supported yet. Use UPC-A or Code 128."
+    if fmt not in BARCODE_FORMAT_MAP:
+        return False, "Unsupported barcode format."
+
     if fmt == "ean13":
         digits = content.replace("-", "").replace(" ", "")
         if not digits.isdigit():
@@ -141,10 +155,5 @@ def validate_barcode_content(content: str, barcode_format: str) -> Tuple[bool, s
         valid = set("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ -.$/+%")
         if not all(c in valid for c in content.upper()):
             return False, "Code 39 only supports A-Z, 0-9, and - . $ / + % space."
-
-    if not content:
-        return False, "Content cannot be empty."
-    if len(content) > 1000:
-        return False, "Content is too long."
 
     return True, ""

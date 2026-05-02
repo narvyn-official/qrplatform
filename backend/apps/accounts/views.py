@@ -4,7 +4,9 @@ Account views — signup, login, email verification, password reset, profile.
 import logging
 import secrets
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, authenticate, get_user_model
+from django.contrib.auth import (
+    login, logout, authenticate, get_user_model, update_session_auth_hash,
+)
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.mail import EmailMultiAlternatives
@@ -13,13 +15,14 @@ from django.utils import timezone
 from django.conf import settings
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from apps.accounts.models import (
     EmailVerificationToken, PasswordResetToken, UserProfile, AuditLog, APIKey
 )
 from apps.accounts.forms import (
     SignupForm, LoginForm, ProfileForm, ChangePasswordForm,
-    ForgotPasswordForm, ResetPasswordForm,
+    ForgotPasswordForm, ResetPasswordForm, ResendVerificationForm,
 )
 from apps.analytics.utils import get_client_ip
 
@@ -45,6 +48,34 @@ def _log_audit(user, action, request, **metadata):
     )
 
 
+def _safe_next_url(request):
+    next_url = request.POST.get("next") or request.GET.get("next") or ""
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return settings.LOGIN_REDIRECT_URL
+
+
+def _login_context(request, form, verification_email=None):
+    pending_email = verification_email or request.session.get("pending_verification_email", "")
+    next_url = request.GET.get("next", "")
+    if next_url and not url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = ""
+    return {
+        "form": form,
+        "resend_form": ResendVerificationForm(initial={"email": pending_email}),
+        "verification_email": pending_email,
+        "next_url": next_url,
+    }
+
+
 @never_cache
 def signup(request):
     if request.user.is_authenticated:
@@ -55,6 +86,7 @@ def signup(request):
         if form.is_valid():
             user = form.save()
             _send_verification_email(user, request)
+            request.session["pending_verification_email"] = user.email
             messages.info(request, "Account created! Check your email to verify.")
             return redirect("accounts:login")
     else:
@@ -126,31 +158,59 @@ def login_view(request):
             email = form.cleaned_data["email"]
             password = form.cleaned_data["password"]
             user = authenticate(request, username=email, password=password)
+            verification_email = None
 
             if user is not None:
                 if not user.is_email_verified:
+                    verification_email = user.email
+                    request.session["pending_verification_email"] = user.email
+                    _log_audit(user, AuditLog.Action.LOGIN_FAILED, request, email=email, reason="email_unverified")
                     messages.warning(request, "Please verify your email before logging in.")
                 else:
+                    if form.cleaned_data.get("remember_me"):
+                        request.session.set_expiry(60 * 60 * 24 * 7)
+                    else:
+                        request.session.set_expiry(0)
                     login(request, user)
                     user.update_last_activity()
                     _log_audit(user, AuditLog.Action.LOGIN, request)
-                    next_url = request.GET.get("next") or "/dashboard/"
-                    return redirect(next_url)
+                    request.session.pop("pending_verification_email", None)
+                    return redirect(_safe_next_url(request))
             else:
                 _log_audit(None, AuditLog.Action.LOGIN_FAILED, request, email=email)
-                # Distinguish between wrong credentials and unverified account
                 try:
                     unverified = User.objects.get(email=email)
-                    if not unverified.is_email_verified:
+                    if not unverified.is_email_verified and unverified.check_password(password):
+                        verification_email = unverified.email
+                        request.session["pending_verification_email"] = unverified.email
                         messages.warning(request, "Please verify your email before logging in.")
                     else:
                         messages.error(request, "Invalid email or password.")
                 except User.DoesNotExist:
                     messages.error(request, "Invalid email or password.")
+            if verification_email:
+                return render(request, "accounts/login.html", _login_context(request, form, verification_email))
     else:
         form = LoginForm()
 
-    return render(request, "accounts/login.html", {"form": form})
+    return render(request, "accounts/login.html", _login_context(request, form))
+
+
+@never_cache
+@require_POST
+def resend_verification(request):
+    form = ResendVerificationForm(request.POST)
+    if form.is_valid():
+        email = form.cleaned_data["email"]
+        try:
+            user = User.objects.get(email=email)
+            if not user.is_email_verified:
+                _send_verification_email(user, request)
+                request.session["pending_verification_email"] = user.email
+        except User.DoesNotExist:
+            pass
+    messages.info(request, "If this account still needs verification, a new email has been sent.")
+    return redirect("accounts:login")
 
 
 @login_required
@@ -234,6 +294,9 @@ def profile(request):
     if request.method == "POST":
         form = ProfileForm(request.POST, request.FILES, instance=profile_obj)
         if form.is_valid():
+            if "full_name" in request.POST:
+                request.user.full_name = request.POST.get("full_name", "").strip()[:150]
+                request.user.save(update_fields=["full_name"])
             form.save()
             _log_audit(request.user, AuditLog.Action.PROFILE_UPDATE, request)
             messages.success(request, "Profile updated.")
@@ -244,12 +307,32 @@ def profile(request):
     new_api_key = request.session.pop("new_api_key", None)
     context = {
         "form": form,
+        "password_form": ChangePasswordForm(),
         "profile": profile_obj,
         "api_keys": api_keys,
         "new_api_key": new_api_key,
         "active_tab": "profile",
     }
     return render(request, "accounts/profile.html", context)
+
+
+@login_required
+@require_POST
+def change_password(request):
+    form = ChangePasswordForm(request.POST)
+    if form.is_valid():
+        if not request.user.check_password(form.cleaned_data["current_password"]):
+            messages.error(request, "Current password is incorrect.")
+        else:
+            request.user.set_password(form.cleaned_data["new_password"])
+            request.user.save(update_fields=["password"])
+            update_session_auth_hash(request, request.user)
+            _log_audit(request.user, AuditLog.Action.PASSWORD_CHANGE, request)
+            messages.success(request, "Password changed successfully.")
+    else:
+        first_error = next(iter(form.errors.values()))[0]
+        messages.error(request, first_error)
+    return redirect("accounts:profile")
 
 
 @login_required

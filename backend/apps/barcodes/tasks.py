@@ -5,6 +5,7 @@ import csv
 import io
 import zipfile
 import logging
+import re
 from celery import shared_task
 from django.core.files.base import ContentFile
 from django.utils import timezone
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 @shared_task(bind=True, max_retries=2)
 def process_bulk_barcode_job(self, job_id: str):
     from apps.barcodes.models import BulkBarcodeJob, Barcode
-    from apps.barcodes.utils import generate_barcode_png, validate_barcode_content
+    from apps.barcodes.utils import generate_barcode_png, generate_barcode_svg, validate_barcode_content
 
     try:
         job = BulkBarcodeJob.objects.get(id=job_id)
@@ -49,15 +50,19 @@ def process_bulk_barcode_job(self, job_id: str):
 
                 try:
                     png = generate_barcode_png(content, job.barcode_format)
+                    svg = generate_barcode_svg(content, job.barcode_format)
                     bc = Barcode.objects.create(
                         user=job.user,
                         name=name,
                         barcode_format=job.barcode_format,
                         content=content,
                         bulk_job=job,
+                        image_svg=svg,
                     )
                     bc.image_png.save(f"{bc.id}.png", ContentFile(png), save=True)
-                    zf.writestr(f"{name}_{i+1}.png", png)
+                    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_") or f"barcode_{i+1}"
+                    zf.writestr(f"{safe_name}_{i+1}.png", png)
+                    zf.writestr(f"{safe_name}_{i+1}.svg", svg)
                     job.processed_count += 1
                 except Exception as exc:
                     errors.append({"row": i + 1, "content": content, "error": str(exc)})
