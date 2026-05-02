@@ -1,0 +1,176 @@
+{% extends "dashboard/layout.html" %}
+{% block title %}Analytics: {{ qr.name }} — {{ PLATFORM_NAME }}{% endblock %}
+{% block page_title %}Analytics: {{ qr.name }}{% endblock %}
+
+{% block content %}
+
+<!-- Summary cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="card p-5">
+    <p class="text-xs font-medium text-gray-500 mb-2">Total Scans</p>
+    <p class="text-3xl font-bold text-gray-900">{{ qr.total_scans }}</p>
+  </div>
+  <div class="card p-5">
+    <p class="text-xs font-medium text-gray-500 mb-2">Unique Scans</p>
+    <p class="text-3xl font-bold text-gray-900">{{ qr.unique_scans }}</p>
+  </div>
+  <div class="card p-5">
+    <p class="text-xs font-medium text-gray-500 mb-2">Last Scanned</p>
+    <p class="text-lg font-bold text-gray-900">
+      {% if qr.last_scanned_at %}{{ qr.last_scanned_at|timesince }} ago{% else %}—{% endif %}
+    </p>
+  </div>
+  <div class="card p-5">
+    <p class="text-xs font-medium text-gray-500 mb-2">Status</p>
+    <span class="badge {% if qr.status == 'active' %}badge-green{% elif qr.status == 'paused' %}badge-yellow{% else %}badge-red{% endif %} text-sm px-3 py-1">
+      {{ qr.status|title }}
+    </span>
+  </div>
+</div>
+
+<!-- Date range selector -->
+<div class="flex gap-2 mb-6">
+  {% for d in "7,14,30,90" %}
+  <a href="?days={{ d }}"
+     class="px-4 py-2 rounded-xl text-sm font-medium transition
+       {% if days|stringformat:'s' == d %}bg-primary-600 text-white{% else %}bg-white border border-surface-200 text-gray-600 hover:bg-surface-50{% endif %}">
+    {{ d }}d
+  </a>
+  {% endfor %}
+  <a href="{% url 'analytics:detail' qr.id %}?export=csv"
+     class="ml-auto btn-secondary">
+    ↓ Export CSV
+  </a>
+</div>
+
+<!-- Charts grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+  <!-- Scans over time -->
+  <div class="card p-6 lg:col-span-2">
+    <h2 class="font-semibold text-gray-900 mb-4">Scans Over Time</h2>
+    <div class="h-64">
+      <canvas id="scanTimeline"></canvas>
+    </div>
+  </div>
+
+  <!-- Device breakdown -->
+  <div class="card p-6">
+    <h2 class="font-semibold text-gray-900 mb-4">Device Breakdown</h2>
+    <div class="h-48">
+      <canvas id="deviceChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Top Countries -->
+  <div class="card p-6">
+    <h2 class="font-semibold text-gray-900 mb-4">Top Countries</h2>
+    <div class="space-y-3 overflow-y-auto max-h-52" id="geoList">
+      {% for geo in geo_stats %}
+      <div class="flex items-center gap-3">
+        <span class="text-lg">{{ geo.country_code }}</span>
+        <div class="flex-1">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-medium text-gray-700">{{ geo.country_name|default:"Unknown" }}</span>
+            <span class="text-sm text-gray-500">{{ geo.scans }}</span>
+          </div>
+          {% if qr.total_scans %}
+          <div class="h-1.5 bg-surface-200 rounded-full overflow-hidden">
+            <div class="h-full bg-primary-500 rounded-full"
+                 style="width: {% widthratio geo.scans qr.total_scans 100 %}%"></div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <p class="text-sm text-gray-400 text-center py-4">No geo data yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Heatmap -->
+<div class="card p-6 mb-6">
+  <h2 class="font-semibold text-gray-900 mb-4">Scan Heatmap (Day × Hour)</h2>
+  <div id="heatmap" class="overflow-x-auto">
+    <!-- Rendered by JS -->
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const dailyStats = {{ daily_stats|safe }};
+const geoStats = {{ geo_stats|safe }};
+const heatmapData = {{ heatmap_data|safe }};
+
+// Timeline chart
+const timelineCtx = document.getElementById('scanTimeline').getContext('2d');
+new Chart(timelineCtx, {
+  type: 'line',
+  data: {
+    labels: dailyStats.map(d => d.date),
+    datasets: [
+      {
+        label: 'Total',
+        data: dailyStats.map(d => d.total_scans),
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99,102,241,0.1)',
+        fill: true, tension: 0.4, borderWidth: 2.5,
+      },
+      {
+        label: 'Unique',
+        data: dailyStats.map(d => d.unique_scans),
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16,185,129,0.05)',
+        fill: true, tension: 0.4, borderWidth: 2,
+      },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'top' } },
+    scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
+  }
+});
+
+// Device chart
+const mobile = dailyStats.reduce((a,d) => a + (d.mobile_scans||0), 0);
+const desktop = dailyStats.reduce((a,d) => a + (d.desktop_scans||0), 0);
+const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+new Chart(deviceCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Mobile', 'Desktop', 'Tablet'],
+    datasets: [{ data: [mobile, desktop, 0], backgroundColor: ['#6366f1','#10b981','#f59e0b'], borderWidth: 0 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } },
+    cutout: '70%',
+  }
+});
+
+// Heatmap
+const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const hours = Array.from({length:24}, (_,i) => `${i}:00`);
+let maxVal = Math.max(...Object.values(heatmapData), 1);
+let html = '<table class="text-xs border-collapse"><thead><tr><th class="p-1 text-gray-400 font-normal w-8"></th>';
+hours.forEach(h => html += `<th class="p-1 text-gray-400 font-normal w-7">${h.split(':')[0]}</th>`);
+html += '</tr></thead><tbody>';
+days.forEach((day, di) => {
+  html += `<tr><td class="p-1 text-gray-500 font-medium pr-2">${day}</td>`;
+  for (let h=0; h<24; h++) {
+    const val = heatmapData[`${di}_${h}`] || 0;
+    const opacity = val ? Math.max(0.15, val/maxVal) : 0;
+    const bg = val ? `rgba(99,102,241,${opacity})` : '#f8fafc';
+    html += `<td class="w-7 h-7 rounded" style="background:${bg}" title="${day} ${h}:00 — ${val} scans"></td>`;
+  }
+  html += '</tr>';
+});
+html += '</tbody></table>';
+document.getElementById('heatmap').innerHTML = html;
+</script>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends "dashboard/layout.html" %}
+{% block title %}{{ qr.name }} — {{ PLATFORM_NAME }}{% endblock %}
+{% block page_title %}{{ qr.name }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'qrcodes:edit' qr.id %}" class="btn-secondary">
+  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+  Edit
+</a>
+<div x-data="{ open: false }" class="relative">
+  <button @click="open=!open" class="btn-secondary">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+    Download ▾
+  </button>
+  <div x-show="open" @click.away="open=false" x-cloak
+       class="absolute right-0 top-10 bg-white border border-surface-200 rounded-xl shadow-lg p-1 z-20 min-w-[110px]">
+    <a href="{% url 'qrcodes:download' qr.id 'png' %}" class="block px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">PNG</a>
+    <a href="{% url 'qrcodes:download' qr.id 'svg' %}" class="block px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">SVG</a>
+    <a href="{% url 'qrcodes:download' qr.id 'pdf' %}" class="block px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">PDF</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+  <!-- QR image -->
+  <div class="card p-6 flex flex-col items-center justify-center">
+    {% if qr.image_png %}
+    <img src="{{ qr.image_png.url }}" alt="{{ qr.name }}" class="w-48 h-48 object-contain">
+    {% else %}
+    <div class="w-48 h-48 bg-surface-100 rounded-2xl flex flex-col items-center justify-center text-gray-400">
+      <svg class="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/></svg>
+      <p class="text-xs">Generating…</p>
+    </div>
+    {% endif %}
+    <p class="text-xs text-gray-400 mt-3 font-mono">{{ qr.short_code }}</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="card p-6 lg:col-span-2">
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Details</h2>
+    <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+      <div>
+        <dt class="text-gray-500">Type</dt>
+        <dd class="font-semibold text-gray-800 mt-0.5">{{ qr.get_qr_type_display }}</dd>
+      </div>
+      <div>
+        <dt class="text-gray-500">Status</dt>
+        <dd class="mt-0.5">
+          <span class="badge {% if qr.status == 'active' %}badge-green{% elif qr.status == 'paused' %}badge-yellow{% elif qr.status == 'expired' %}badge-red{% else %}badge-gray{% endif %}">
+            {{ qr.get_status_display }}
+          </span>
+        </dd>
+      </div>
+      <div>
+        <dt class="text-gray-500">Total Scans</dt>
+        <dd class="font-semibold text-2xl text-gray-900 mt-0.5">{{ qr.total_scans }}</dd>
+      </div>
+      <div>
+        <dt class="text-gray-500">Unique Scans</dt>
+        <dd class="font-semibold text-2xl text-gray-900 mt-0.5">{{ qr.unique_scans }}</dd>
+      </div>
+      {% if qr.is_dynamic %}
+      <div class="col-span-2">
+        <dt class="text-gray-500">Destination URL</dt>
+        <dd class="font-mono text-xs text-primary-700 break-all mt-0.5">
+          <a href="{{ qr.destination_url }}" target="_blank" rel="noopener noreferrer" class="hover:underline">{{ qr.destination_url }}</a>
+        </dd>
+      </div>
+      <div class="col-span-2">
+        <dt class="text-gray-500">QR Scan URL</dt>
+        <dd class="font-mono text-xs text-gray-700 break-all mt-0.5">{{ qr.redirect_url }}</dd>
+      </div>
+      {% endif %}
+      {% if qr.expires_at %}
+      <div>
+        <dt class="text-gray-500">Expires</dt>
+        <dd class="text-gray-800 mt-0.5">{{ qr.expires_at|date:"M d, Y H:i" }}</dd>
+      </div>
+      {% endif %}
+      <div>
+        <dt class="text-gray-500">Created</dt>
+        <dd class="text-gray-600 mt-0.5">{{ qr.created_at|date:"M d, Y" }}</dd>
+      </div>
+    </dl>
+
+    <div class="mt-6 pt-5 border-t border-surface-100">
+      <form method="post" action="{% url 'qrcodes:delete' qr.id %}"
+            onsubmit="return confirm('Delete {{ qr.name }}? This cannot be undone.')">
+        {% csrf_token %}
+        <button type="submit" class="text-sm text-red-500 hover:text-red-700 hover:underline">Delete QR code</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+{% if daily_stats %}
+<div class="card p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="font-semibold text-gray-900">Scan Activity — Last 30 Days</h2>
+    <a href="{% url 'analytics:detail' qr.id %}" class="text-sm text-primary-600 hover:underline">Full analytics →</a>
+  </div>
+  <div class="h-56">
+    <canvas id="detailChart"></canvas>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+{% if daily_stats %}
+<script>
+  const stats = {{ daily_stats|safe }};
+  const labels = stats.map(d => new Date(d.date).toLocaleDateString('en', {month:'short', day:'numeric'}));
+  new Chart(document.getElementById('detailChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Total Scans',
+        data: stats.map(d => d.total_scans),
+        backgroundColor: 'rgba(99,102,241,0.7)',
+        borderRadius: 4,
+      }, {
+        label: 'Unique Scans',
+        data: stats.map(d => d.unique_scans),
+        backgroundColor: 'rgba(16,185,129,0.6)',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { size: 12 } } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

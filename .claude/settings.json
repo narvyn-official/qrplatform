@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3 \"/Users/shadow/Documents/uncle's Project/hardware_site/db.sqlite3\" \"SELECT * FROM users_callbackrequest LIMIT 10;\")",
+      "Bash(sqlite3 \"/Users/shadow/Documents/uncle's Project/hardware_site/db.sqlite3\" \"SELECT * FROM enquiries_enquiry LIMIT 10;\")"
+    ]
+  }
+}

@@ -1,0 +1,165 @@
+{% extends "dashboard/layout.html" %}
+
+{% block title %}Dashboard — {{ PLATFORM_NAME }}{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Stats cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-medium text-gray-500">Total QR Codes</p>
+      <div class="w-9 h-9 bg-primary-50 rounded-xl flex items-center justify-center">
+        <svg class="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+      </div>
+    </div>
+    <p class="text-3xl font-bold text-gray-900">{{ total_qr }}</p>
+    <p class="text-xs text-gray-400 mt-1">Active codes</p>
+  </div>
+
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-medium text-gray-500">Total Scans</p>
+      <div class="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center">
+        <svg class="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+      </div>
+    </div>
+    <p class="text-3xl font-bold text-gray-900">{{ total_scans|default:0 }}</p>
+    <p class="text-xs text-gray-400 mt-1">All time</p>
+  </div>
+
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-medium text-gray-500">This Week</p>
+      <div class="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center">
+        <svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+      </div>
+    </div>
+    <p class="text-3xl font-bold text-gray-900" id="weeklyTotal">—</p>
+    <p class="text-xs text-gray-400 mt-1">Scans last 7 days</p>
+  </div>
+
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-medium text-gray-500">Unique Scans</p>
+      <div class="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center">
+        <svg class="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      </div>
+    </div>
+    <p class="text-3xl font-bold text-gray-900" id="weeklyUnique">—</p>
+    <p class="text-xs text-gray-400 mt-1">Last 7 days</p>
+  </div>
+
+</div>
+
+<!-- Chart + Recent QRs -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+  <!-- Scan chart -->
+  <div class="card p-5 lg:col-span-2">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold text-gray-900">Scan Activity</h2>
+      <span class="text-xs text-gray-400">Last 7 days</span>
+    </div>
+    <div class="h-56">
+      <canvas id="scanChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Top QR Codes -->
+  <div class="card p-5">
+    <h2 class="font-semibold text-gray-900 mb-4">Top QR Codes</h2>
+    <div class="space-y-3">
+      {% for qr in recent_qrcodes %}
+      <a href="{% url 'qrcodes:detail' qr.id %}" class="flex items-center gap-3 group">
+        <div class="w-8 h-8 bg-surface-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-primary-50 transition">
+          <svg class="w-4 h-4 text-gray-400 group-hover:text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/></svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-800 truncate group-hover:text-primary-700">{{ qr.name }}</p>
+          <p class="text-xs text-gray-400">{{ qr.total_scans }} scans</p>
+        </div>
+        <span class="badge {% if qr.status == 'active' %}badge-green{% else %}badge-gray{% endif %}">
+          {{ qr.status }}
+        </span>
+      </a>
+      {% empty %}
+      <div class="text-center py-6">
+        <p class="text-sm text-gray-400">No QR codes yet.</p>
+        <a href="{% url 'qrcodes:create' %}" class="text-sm text-primary-600 font-medium hover:underline mt-1 inline-block">Create your first →</a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Quick actions -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+  {% for item in quick_actions %}
+  <a href="{{ item.url }}" class="card p-4 hover:shadow-card-hover transition-shadow group">
+    <div class="w-10 h-10 {{ item.bg }} rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+      {{ item.icon|safe }}
+    </div>
+    <p class="text-sm font-semibold text-gray-800">{{ item.label }}</p>
+    <p class="text-xs text-gray-400 mt-0.5">{{ item.desc }}</p>
+  </a>
+  {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const weeklyData = {{ weekly_stats|safe }};
+  const labels = weeklyData.map(d => new Date(d.date).toLocaleDateString('en', {weekday:'short', month:'short', day:'numeric'}));
+  const totals = weeklyData.map(d => d.total_scans);
+  const uniques = weeklyData.map(d => d.unique_scans);
+
+  document.getElementById('weeklyTotal').textContent = totals.reduce((a,b)=>a+b,0).toLocaleString();
+  document.getElementById('weeklyUnique').textContent = uniques.reduce((a,b)=>a+b,0).toLocaleString();
+
+  const ctx = document.getElementById('scanChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Total Scans',
+          data: totals,
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99,102,241,0.08)',
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: '#6366f1',
+        },
+        {
+          label: 'Unique Scans',
+          data: uniques,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16,185,129,0.06)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: '#10b981',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { size: 12 } } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+</script>
+{% endblock %}

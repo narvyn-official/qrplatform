@@ -1,0 +1,60 @@
+{% extends "dashboard/layout.html" %}
+{% block title %}{{ barcode.name }} — {{ PLATFORM_NAME }}{% endblock %}
+{% block page_title %}{{ barcode.name }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'barcodes:download' barcode.id 'png' %}" class="btn-secondary">
+  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+  Download PNG
+</a>
+<a href="{% url 'barcodes:download' barcode.id 'svg' %}" class="btn-secondary">SVG</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Barcode image -->
+  <div class="card p-6 flex items-center justify-center min-h-[180px]">
+    {% if barcode.image_png %}
+    <img src="{{ barcode.image_png.url }}" alt="{{ barcode.name }}" class="max-w-full max-h-48">
+    {% else %}
+    <div class="text-center text-gray-400">
+      <svg class="w-12 h-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
+      <p class="text-sm">Image not yet generated</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Details -->
+  <div class="card p-6">
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Details</h2>
+    <dl class="space-y-3 text-sm">
+      <div class="flex justify-between">
+        <dt class="text-gray-500">Format</dt>
+        <dd class="font-medium text-gray-800">{{ barcode.get_barcode_format_display }}</dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-gray-500">Content</dt>
+        <dd class="font-mono text-xs text-gray-800 truncate max-w-[180px]">{{ barcode.content }}</dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-gray-500">Size</dt>
+        <dd class="text-gray-800">{{ barcode.width }} × {{ barcode.height }} px</dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-gray-500">Created</dt>
+        <dd class="text-gray-600">{{ barcode.created_at|date:"M d, Y" }}</dd>
+      </div>
+    </dl>
+
+    <div class="mt-6 pt-5 border-t border-surface-100">
+      <form method="post" action="{% url 'barcodes:delete' barcode.id %}"
+            onsubmit="return confirm('Delete {{ barcode.name }}? This cannot be undone.')">
+        {% csrf_token %}
+        <button type="submit" class="text-sm text-red-500 hover:text-red-700 hover:underline">Delete barcode</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

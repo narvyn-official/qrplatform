@@ -1,0 +1,142 @@
+version: "3.9"
+
+x-common-env: &common-env
+  DJANGO_SETTINGS_MODULE: qrplatform.settings.production
+  DB_HOST: db
+  DB_PORT: 5432
+  DB_NAME: ${DB_NAME:-qrplatform}
+  DB_USER: ${DB_USER:-qrplatform}
+  DB_PASSWORD: ${DB_PASSWORD}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  SECRET_KEY: ${SECRET_KEY}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost}
+
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      POSTGRES_DB: ${DB_NAME:-qrplatform}
+      POSTGRES_USER: ${DB_USER:-qrplatform}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-qrplatform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [backend]
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [backend]
+
+  # ── Django app ───────────────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *common-env
+    volumes:
+      - media_files:/app/media
+      - static_files:/app/staticfiles
+      - app_logs:/app/logs
+    expose:
+      - "8000"
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn --bind 0.0.0.0:8000 --workers 4 --worker-class gthread --threads 4
+             --timeout 120 --max-requests 1000 --max-requests-jitter 100
+             qrplatform.wsgi:application"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks: [backend, frontend]
+
+  # ── Celery worker ────────────────────────────────────────────────────────────
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *common-env
+    volumes:
+      - media_files:/app/media
+      - app_logs:/app/logs
+    command: celery -A qrplatform worker -l info --concurrency=4 -Q default,analytics,images
+    networks: [backend]
+
+  # ── Celery Beat (scheduler) ──────────────────────────────────────────────────
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *common-env
+    volumes:
+      - app_logs:/app/logs
+    command: celery -A qrplatform beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    networks: [backend]
+
+  # ── Nginx ────────────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - static_files:/app/staticfiles:ro
+      - media_files:/app/media:ro
+      - ./nginx/ssl:/etc/ssl/qrplatform:ro
+    networks: [frontend]
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_files:
+  static_files:
+  app_logs:
+
+networks:
+  backend:
+    driver: bridge
+  frontend:
+    driver: bridge

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Bulk Barcodes — {{ PLATFORM_NAME }}{% endblock %}
+{% block body %}
+<div class="max-w-xl mx-auto px-6 py-10">
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">Bulk Barcode Generator</h1>
+  {% for message in messages %}<div class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-700 text-sm">{{ message }}</div>{% endfor %}
+  <form method="post" enctype="multipart/form-data" class="space-y-4">
+    {% csrf_token %}
+    {% for field in form %}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<p class="text-red-500 text-xs mt-1">{{ field.errors|join:", " }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    <button type="submit" class="bg-primary-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-700">Start bulk job</button>
+  </form>
+  {% if jobs %}
+  <h2 class="text-lg font-semibold text-gray-800 mt-8 mb-3">Recent Jobs</h2>
+  {% for job in jobs %}
+  <div class="bg-white rounded-xl border border-gray-200 px-4 py-3 mb-2">
+    <div class="flex items-center justify-between text-sm">
+      <span class="font-medium text-gray-800">{{ job.name }}</span>
+      <span class="text-xs px-2 py-0.5 rounded-full {% if job.status == 'completed' %}bg-green-100 text-green-700{% elif job.status == 'failed' %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">{{ job.get_status_display }}</span>
+    </div>
+    <p class="text-xs text-gray-500 mt-1">{{ job.processed_count }}/{{ job.total_count }} processed</p>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

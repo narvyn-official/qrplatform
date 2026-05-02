@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Forbidden - {{ PLATFORM_NAME }}{% endblock %}
+{% block body %}
+<main class="min-h-screen bg-surface-50 flex items-center justify-center px-6">
+  <section class="card max-w-md w-full p-6 text-center">
+    <p class="text-sm font-semibold text-rose-600">403</p>
+    <h1 class="mt-2 text-2xl font-bold text-gray-950">Access denied</h1>
+    <p class="mt-2 text-sm text-gray-500">You do not have permission to view this page.</p>
+    <a href="{% url 'qrcodes:dashboard' %}" class="btn-primary mt-5 justify-center">Open dashboard</a>
+  </section>
+</main>
+{% endblock %}

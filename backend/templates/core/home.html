@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ PLATFORM_NAME }} — Dynamic QR Code & Analytics Platform{% endblock %}
+
+{% block body %}
+<nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b border-surface-100">
+  <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/></svg>
+      </div>
+      <span class="font-bold text-gray-900">{{ PLATFORM_NAME }}</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="{% url 'accounts:login' %}" class="text-sm font-medium text-gray-600 hover:text-gray-900">Sign in</a>
+      <a href="{% url 'accounts:signup' %}" class="btn-primary">Get started free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="pt-32 pb-20 px-6 bg-gradient-to-b from-primary-50 to-white text-center">
+  <div class="max-w-3xl mx-auto">
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium mb-6">
+      ⚡ Dynamic QR Codes — edit destination anytime
+    </span>
+    <h1 class="text-5xl font-black text-gray-900 mb-6 leading-tight">
+      The smartest way to create and<br class="hidden md:block"> <span class="text-primary-600">track QR codes</span>
+    </h1>
+    <p class="text-xl text-gray-600 mb-10 max-w-xl mx-auto">
+      Generate dynamic QR codes, track scans with real-time analytics, and never reprint again.
+    </p>
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+      <a href="{% url 'accounts:signup' %}" class="btn-primary text-lg px-8 py-4 shadow-glow">
+        Start for free →
+      </a>
+      <a href="{% url 'core:pricing' %}" class="btn-secondary text-base px-6 py-3.5">
+        View pricing
+      </a>
+    </div>
+    <p class="text-sm text-gray-400 mt-4">Free tier available. No credit card required.</p>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="py-20 px-6 max-w-6xl mx-auto">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    {% for feature in features %}
+    <div class="text-center">
+      <div class="w-14 h-14 {{ feature.bg }} rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">
+        {{ feature.icon }}
+      </div>
+      <h3 class="text-lg font-bold text-gray-900 mb-2">{{ feature.title }}</h3>
+      <p class="text-gray-500">{{ feature.desc }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

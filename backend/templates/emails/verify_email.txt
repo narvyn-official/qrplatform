@@ -1,0 +1,8 @@
+Verify your {{ platform_name }} account
+
+Hi {{ user.display_name }},
+
+Click the link below to verify your email:
+{{ verify_url }}
+
+This link expires in 24 hours.

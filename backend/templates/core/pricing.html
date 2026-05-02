@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Pricing — {{ PLATFORM_NAME }}{% endblock %}
+{% block body %}
+<div class="max-w-4xl mx-auto px-6 py-16">
+  <h1 class="text-3xl font-bold text-center text-gray-900 mb-2">Simple, transparent pricing</h1>
+  <p class="text-center text-gray-500 mb-10">Start free, upgrade when you need more.</p>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 class="text-lg font-bold text-gray-900 mb-1">Free</h2>
+      <p class="text-3xl font-bold text-gray-900 mb-4">$0<span class="text-sm font-normal text-gray-500">/mo</span></p>
+      <ul class="text-sm text-gray-600 space-y-2 mb-6">
+        <li>5 QR codes</li><li>500 scans/month</li><li>Basic analytics</li>
+      </ul>
+      <a href="{% url 'accounts:signup' %}" class="block text-center bg-gray-100 text-gray-800 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">Get started</a>
+    </div>
+    <div class="bg-primary-600 rounded-xl p-6 text-white">
+      <h2 class="text-lg font-bold mb-1">Pro</h2>
+      <p class="text-3xl font-bold mb-4">$19<span class="text-sm font-normal opacity-75">/mo</span></p>
+      <ul class="text-sm opacity-90 space-y-2 mb-6">
+        <li>500 QR codes</li><li>50,000 scans/month</li><li>Full analytics</li><li>Custom branding</li>
+      </ul>
+      <a href="{% url 'accounts:signup' %}" class="block text-center bg-white text-primary-700 py-2 rounded-lg text-sm font-medium hover:bg-primary-50">Start free trial</a>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 class="text-lg font-bold text-gray-900 mb-1">Enterprise</h2>
+      <p class="text-3xl font-bold text-gray-900 mb-4">Custom</p>
+      <ul class="text-sm text-gray-600 space-y-2 mb-6">
+        <li>Unlimited QR codes</li><li>Unlimited scans</li><li>API access</li><li>Dedicated support</li>
+      </ul>
+      <a href="mailto:sales@qrplatform.io" class="block text-center bg-gray-100 text-gray-800 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">Contact sales</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

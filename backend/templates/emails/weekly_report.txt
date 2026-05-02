@@ -1,0 +1,15 @@
+Your weekly {{ platform_name }} report
+======================================
+
+Hi {{ user.display_name }},
+
+Here's your scan summary for the past 7 days:
+
+Total Scans:  {{ total_scans }}
+Unique Scans: {{ unique_scans }}
+
+View your full dashboard: {{ platform_url }}/dashboard/
+
+---
+You're receiving this because you opted in to weekly reports.
+Unsubscribe: {{ platform_url }}/accounts/profile/
