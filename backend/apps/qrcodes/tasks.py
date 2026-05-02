@@ -36,9 +36,9 @@ def generate_qr_images(qr):
     """Generate and persist PNG, SVG, and PDF files for one QR code."""
     from apps.qrcodes.utils import (
         generate_qr_image,
-        generate_qr_svg,
         generate_qr_pdf,
         image_to_bytes,
+        image_to_svg,
     )
 
     logo_path = qr.logo.path if qr.logo else None
@@ -54,6 +54,7 @@ def generate_qr_images(qr):
         logo_size_ratio=qr.logo_size_ratio,
         frame_text=qr.frame_text,
         frame_color=qr.frame_color,
+        outer_shape=qr.outer_shape,
     )
 
     png_bytes = image_to_bytes(img, "PNG")
@@ -63,11 +64,7 @@ def generate_qr_images(qr):
         save=False,
     )
 
-    qr.image_svg = generate_qr_svg(
-        content=qr.encoded_content,
-        foreground_color=qr.foreground_color,
-        background_color=qr.background_color,
-    )
+    qr.image_svg = image_to_svg(img, qr.name)
 
     pdf_bytes = generate_qr_pdf(img, qr.name)
     qr.image_pdf.save(

@@ -7,6 +7,7 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("qrcodes/", views.qrcode_list, name="list"),
     path("qrcodes/create/", views.qrcode_create, name="create"),
+    path("scan/", views.qrcode_scan, name="scan"),
     path("qrcodes/<uuid:pk>/", views.qrcode_detail, name="detail"),
     path("qrcodes/<uuid:pk>/edit/", views.qrcode_edit, name="edit"),
     path("qrcodes/<uuid:pk>/delete/", views.qrcode_delete, name="delete"),

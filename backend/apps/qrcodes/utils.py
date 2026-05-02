@@ -4,6 +4,7 @@ QR Code generation engine — supports customization, logos, and multiple format
 import io
 import os
 import logging
+import base64
 import urllib.parse
 from typing import Optional, Tuple
 
@@ -17,7 +18,7 @@ from qrcode.image.styles.moduledrawers.pil import (
 )
 from qrcode.image.styles.colormasks import SolidFillColorMask
 from qrcode import constants as qr_constants
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import qrcode.image.svg
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ def generate_qr_image(
     logo_size_ratio: float = 0.2,
     frame_text: str = "",
     frame_color: str = "#000000",
+    outer_shape: str = "square",
 ) -> Image.Image:
     """
     Generate a styled PIL QR code image.
@@ -93,12 +95,19 @@ def generate_qr_image(
         color_mask=color_mask,
     ).convert("RGBA")
 
-    # Resize to desired output size
-    img = img.resize((size, size), Image.LANCZOS)
+    shape = outer_shape or "square"
+    qr_core_size = size if shape == "square" else max(150, int(size * 0.64))
+
+    # Resize to desired QR core size. Non-square shapes use a safe outer shell
+    # so finder patterns and quiet zones remain intact for scanners.
+    img = img.resize((qr_core_size, qr_core_size), Image.LANCZOS)
 
     # Embed logo if provided
     if logo_path and os.path.exists(logo_path):
         img = _embed_logo(img, logo_path, logo_size_ratio)
+
+    if shape != "square":
+        img = _apply_outer_shape(img, shape, size, background_color, foreground_color)
 
     # Add frame / caption below QR
     if frame_text:
@@ -130,6 +139,100 @@ def _embed_logo(qr_img: Image.Image, logo_path: str, size_ratio: float) -> Image
     qr_img.paste(background, pos, background)
 
     return qr_img
+
+
+def _rgba(hex_color: str, alpha: int = 255) -> Tuple[int, int, int, int]:
+    return hex_to_rgb(hex_color) + (alpha,)
+
+
+def _shape_bbox(size: int, margin_ratio: float = 0.035) -> Tuple[int, int, int, int]:
+    margin = max(4, int(size * margin_ratio))
+    return margin, margin, size - margin, size - margin
+
+
+def _draw_shape(draw: ImageDraw.ImageDraw, shape: str, size: int, fill, outline) -> None:
+    bbox = _shape_bbox(size)
+    if shape == "rounded":
+        draw.rounded_rectangle(bbox, radius=int(size * 0.18), fill=fill, outline=outline, width=max(2, size // 120))
+    elif shape == "circle":
+        draw.ellipse(bbox, fill=fill, outline=outline, width=max(2, size // 120))
+    elif shape == "capsule":
+        x0, y0, x1, y1 = bbox
+        inset = int(size * 0.08)
+        draw.rounded_rectangle((x0 + inset, y0, x1 - inset, y1), radius=int(size * 0.32), fill=fill, outline=outline, width=max(2, size // 120))
+    elif shape == "ticket":
+        draw.rounded_rectangle(bbox, radius=int(size * 0.1), fill=fill, outline=outline, width=max(2, size // 120))
+        notch = int(size * 0.075)
+        for x, y in ((bbox[0], size // 2), (bbox[2], size // 2)):
+            draw.ellipse((x - notch, y - notch, x + notch, y + notch), fill=(0, 0, 0, 0))
+    elif shape == "apple":
+        x0, y0, x1, y1 = bbox
+        draw.ellipse((x0 + int(size * .08), y0 + int(size * .17), x1 - int(size * .08), y1), fill=fill, outline=outline, width=max(2, size // 120))
+        draw.ellipse((x0 + int(size * .16), y0 + int(size * .05), x0 + int(size * .52), y0 + int(size * .42)), fill=fill)
+        draw.ellipse((x1 - int(size * .52), y0 + int(size * .05), x1 - int(size * .16), y0 + int(size * .42)), fill=fill)
+        draw.polygon([(size * .53, size * .1), (size * .66, size * .02), (size * .75, size * .12), (size * .61, size * .18)], fill=_rgba("#10b981", 220))
+        draw.line([(size * .52, size * .17), (size * .48, size * .08)], fill=outline, width=max(2, size // 90))
+    elif shape == "duck":
+        x0, y0, x1, y1 = bbox
+        draw.ellipse((x0 + int(size * .08), y0 + int(size * .28), x1 - int(size * .02), y1 - int(size * .05)), fill=fill, outline=outline, width=max(2, size // 120))
+        draw.ellipse((x0 + int(size * .08), y0 + int(size * .08), x0 + int(size * .42), y0 + int(size * .42)), fill=fill, outline=outline, width=max(2, size // 120))
+        draw.polygon([(x0 + int(size * .38), y0 + int(size * .24)), (x0 + int(size * .55), y0 + int(size * .28)), (x0 + int(size * .39), y0 + int(size * .34))], fill=_rgba("#f59e0b", 230))
+        eye = max(3, size // 80)
+        cx, cy = x0 + int(size * .28), y0 + int(size * .22)
+        draw.ellipse((cx - eye, cy - eye, cx + eye, cy + eye), fill=_rgba("#111827", 255))
+    elif shape == "shield":
+        points = [
+            (size * .5, size * .03), (size * .88, size * .17),
+            (size * .82, size * .62), (size * .5, size * .96),
+            (size * .18, size * .62), (size * .12, size * .17),
+        ]
+        draw.polygon(points, fill=fill, outline=outline)
+    else:
+        points = [
+            (size * .18, size * .13), (size * .62, size * .05),
+            (size * .9, size * .34), (size * .82, size * .78),
+            (size * .45, size * .95), (size * .08, size * .72),
+            (size * .06, size * .32),
+        ]
+        draw.polygon(points, fill=fill, outline=outline)
+
+
+def _apply_outer_shape(
+    qr_img: Image.Image,
+    shape: str,
+    size: int,
+    bg_color: str,
+    fg_color: str,
+) -> Image.Image:
+    """Place a complete QR core inside a decorative, scan-safe outer shell."""
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    shadow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow, "RGBA")
+    _draw_shape(shadow_draw, shape, size, _rgba("#0f172a", 28), _rgba("#0f172a", 0))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(8))
+    canvas.alpha_composite(shadow)
+
+    layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer, "RGBA")
+    _draw_shape(draw, shape, size, _rgba(bg_color, 255), _rgba(fg_color, 46))
+    canvas.alpha_composite(layer)
+
+    card_padding = max(6, int(size * .025))
+    card_size = qr_img.size[0] + card_padding * 2
+    card = Image.new("RGBA", (card_size, card_size), (0, 0, 0, 0))
+    card_draw = ImageDraw.Draw(card, "RGBA")
+    card_draw.rounded_rectangle(
+        (0, 0, card_size - 1, card_size - 1),
+        radius=max(10, int(size * .055)),
+        fill=_rgba(bg_color, 245),
+        outline=_rgba(fg_color, 30),
+        width=max(1, size // 220),
+    )
+    card.alpha_composite(qr_img, (card_padding, card_padding))
+
+    pos = ((size - card_size) // 2, (size - card_size) // 2)
+    canvas.alpha_composite(card, pos)
+    return canvas
 
 
 def _add_frame_text(
@@ -167,6 +270,21 @@ def _add_frame_text(
     draw.text((text_x, text_y), text, fill=hex_to_rgb(text_color), font=font)
 
     return new_img
+
+
+def image_to_svg(img: Image.Image, title: str = "QR Code") -> str:
+    """Wrap the styled PNG output in an SVG so SVG downloads match PNG styling."""
+    png = image_to_bytes(img, "PNG")
+    encoded = base64.b64encode(png).decode("ascii")
+    width, height = img.size
+    safe_title = (title or "QR Code").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}" role="img" aria-label="{safe_title}">'
+        f"<title>{safe_title}</title>"
+        f'<image width="{width}" height="{height}" href="data:image/png;base64,{encoded}"/>'
+        "</svg>"
+    )
 
 
 def generate_qr_svg(
@@ -287,5 +405,3 @@ def build_email_content(to: str, subject: str = "", body: str = "") -> str:
     if params:
         parts.append("?" + "&".join(params))
     return "".join(parts)
-
-

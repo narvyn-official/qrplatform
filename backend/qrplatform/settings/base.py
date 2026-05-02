@@ -226,6 +226,7 @@ EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@qrplatform.io")
 SERVER_EMAIL = config("SERVER_EMAIL", default="errors@qrplatform.io")
+EMAIL_VERIFICATION_REQUIRED = config("EMAIL_VERIFICATION_REQUIRED", default=False, cast=bool)
 
 # ── Static & Media ────────────────────────────────────────────────────────────
 

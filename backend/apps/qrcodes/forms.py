@@ -35,7 +35,7 @@ class QRCodeForm(forms.ModelForm):
             "name", "qr_type", "content", "destination_url",
             "campaign", "tags",
             "foreground_color", "background_color",
-            "dot_style", "corner_style",
+            "dot_style", "corner_style", "outer_shape",
             "logo", "logo_size_ratio",
             "frame_text", "frame_color",
             "error_correction", "qr_size",

@@ -310,8 +310,7 @@ class SignupViewTests(TestCase):
         resp = self.client.get(reverse("accounts:signup"))
         self.assertEqual(resp.status_code, 200)
 
-    @patch("apps.accounts.views._send_verification_email")
-    def test_successful_signup_redirects_to_login(self, mock_send):
+    def test_successful_signup_redirects_to_login_without_verification_email(self):
         resp = self.client.post(reverse("accounts:signup"), {
             "full_name": "Alice",
             "email": "alice@example.com",
@@ -320,7 +319,11 @@ class SignupViewTests(TestCase):
             "agree_terms": True,
         })
         self.assertRedirects(resp, reverse("accounts:login"))
-        self.assertTrue(User.objects.filter(email="alice@example.com").exists())
+        user = User.objects.get(email="alice@example.com")
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.is_email_verified)
+        self.assertEqual(EmailVerificationToken.objects.filter(user=user).count(), 0)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_signup_with_invalid_data_shows_form(self):
         resp = self.client.post(reverse("accounts:signup"), {
@@ -390,6 +393,7 @@ class LoginViewTests(TestCase):
         })
         self.assertEqual(resp.status_code, 200)
 
+    @override_settings(EMAIL_VERIFICATION_REQUIRED=True)
     @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
     def test_unverified_email_blocked(self, mock_ip):
         self.user.is_email_verified = False
@@ -459,13 +463,13 @@ class VerifyEmailViewTests(TestCase):
 @override_settings(CACHES=CACHE_OVERRIDE)
 class ResendVerificationViewTests(TestCase):
 
-    def test_resend_for_unverified_user_sends_email(self):
+    def test_resend_when_verification_disabled_does_not_send_email(self):
         user = User.objects.create_user(email="pending@example.com", password="pass123456")
         resp = self.client.post(reverse("accounts:resend_verification"), {"email": user.email})
 
         self.assertRedirects(resp, reverse("accounts:login"))
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertTrue(EmailVerificationToken.objects.filter(user=user).exists())
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(EmailVerificationToken.objects.filter(user=user).exists())
 
     def test_resend_for_unknown_email_does_not_reveal(self):
         resp = self.client.post(reverse("accounts:resend_verification"), {"email": "missing@example.com"})

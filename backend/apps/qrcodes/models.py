@@ -73,6 +73,17 @@ class QRCode(models.Model):
         DOT = "dot", _("Dot")
         EXTRA_ROUNDED = "extra_rounded", _("Extra Rounded")
 
+    class OuterShape(models.TextChoices):
+        SQUARE = "square", _("Square")
+        ROUNDED = "rounded", _("Rounded Square")
+        CIRCLE = "circle", _("Circle")
+        CAPSULE = "capsule", _("Capsule")
+        TICKET = "ticket", _("Ticket")
+        APPLE = "apple", _("Apple")
+        DUCK = "duck", _("Duck")
+        SHIELD = "shield", _("Shield")
+        BLOB = "blob", _("Blob")
+
     class Status(models.TextChoices):
         ACTIVE = "active", _("Active")
         PAUSED = "paused", _("Paused")
@@ -100,6 +111,7 @@ class QRCode(models.Model):
     background_color = models.CharField(max_length=7, default="#FFFFFF")
     dot_style = models.CharField(max_length=20, choices=DotStyle.choices, default=DotStyle.SQUARE)
     corner_style = models.CharField(max_length=20, choices=CornerStyle.choices, default=CornerStyle.SQUARE)
+    outer_shape = models.CharField(max_length=20, choices=OuterShape.choices, default=OuterShape.SQUARE)
     logo = models.ImageField(upload_to=qr_logo_path, null=True, blank=True)
     logo_size_ratio = models.FloatField(default=0.2, validators=[MinValueValidator(0.1)])
     frame_text = models.CharField(max_length=50, blank=True, default="")  # e.g. "Scan Me"

@@ -11,7 +11,7 @@
   <title>{% block title %}{{ PLATFORM_NAME }}{% endblock %}</title>
   <link rel="manifest" href="{% url 'core:manifest' %}">
   <link rel="icon" href="/static/pwa/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/static/pwa/icon.svg">
+  <link rel="apple-touch-icon" href="/static/pwa/icon-192.png">
 
   <!-- Tailwind CSS CDN (replace with compiled in production) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -228,6 +228,9 @@
       .mobile-tabbar {
         padding-bottom: max(.5rem, env(safe-area-inset-bottom));
       }
+      [data-pwa-install][hidden] {
+        display: none !important;
+      }
       @media (min-width: 1024px) {
         .auth-grid { grid-template-columns: minmax(460px, 52vw) minmax(360px, 1fr); }
       }
@@ -361,8 +364,45 @@
 
       if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+          navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
         });
+      }
+
+      let deferredInstallPrompt = null;
+      const installButtons = () => Array.from(document.querySelectorAll('[data-pwa-install]'));
+      const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      const syncInstallButtons = () => {
+        installButtons().forEach((button) => {
+          const available = Boolean(deferredInstallPrompt) && !isStandalone();
+          button.hidden = !available;
+          button.disabled = !available;
+        });
+      };
+
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        syncInstallButtons();
+      });
+
+      document.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-pwa-install]');
+        if (!button || !deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice.catch(() => null);
+        deferredInstallPrompt = null;
+        syncInstallButtons();
+      });
+
+      window.addEventListener('appinstalled', () => {
+        deferredInstallPrompt = null;
+        syncInstallButtons();
+      });
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', syncInstallButtons);
+      } else {
+        syncInstallButtons();
       }
     })();
   </script>

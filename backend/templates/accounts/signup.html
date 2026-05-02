@@ -29,17 +29,13 @@
 
     <section class="mx-auto w-full max-w-md">
       <a href="{% url 'core:home' %}" class="mb-7 flex items-center justify-center gap-2.5 lg:justify-start">
-        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600 text-white shadow-glow">
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/>
-          </svg>
-        </span>
+        <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-10 w-10 rounded-lg shadow-glow">
         <span class="text-xl font-bold text-gray-950">{{ PLATFORM_NAME }}</span>
       </a>
 
       <div class="auth-panel p-6 sm:p-8">
         <h2 class="text-2xl font-bold text-gray-950">Create your account</h2>
-        <p class="mt-2 text-sm leading-6 text-gray-500">Free forever. Verify your email before first login.</p>
+        <p class="mt-2 text-sm leading-6 text-gray-500">Free forever. Start designing and scanning right after sign in.</p>
 
         {% if form.non_field_errors %}
         <div class="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

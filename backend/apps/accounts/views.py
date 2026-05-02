@@ -59,8 +59,14 @@ def _safe_next_url(request):
     return settings.LOGIN_REDIRECT_URL
 
 
+def _email_verification_required():
+    return bool(getattr(settings, "EMAIL_VERIFICATION_REQUIRED", False))
+
+
 def _login_context(request, form, verification_email=None):
-    pending_email = verification_email or request.session.get("pending_verification_email", "")
+    pending_email = ""
+    if _email_verification_required():
+        pending_email = verification_email or request.session.get("pending_verification_email", "")
     next_url = request.GET.get("next", "")
     if next_url and not url_has_allowed_host_and_scheme(
         next_url,
@@ -85,9 +91,17 @@ def signup(request):
         form = SignupForm(request.POST)
         if form.is_valid():
             user = form.save()
-            _send_verification_email(user, request)
-            request.session["pending_verification_email"] = user.email
-            messages.info(request, "Account created! Check your email to verify.")
+            if _email_verification_required():
+                _send_verification_email(user, request)
+                request.session["pending_verification_email"] = user.email
+                messages.info(request, "Account created! Check your email to verify.")
+            else:
+                user.is_active = True
+                user.is_email_verified = True
+                user.save(update_fields=["is_active", "is_email_verified"])
+                UserProfile.objects.get_or_create(user=user)
+                request.session.pop("pending_verification_email", None)
+                messages.success(request, "Account created. You can sign in now.")
             return redirect("accounts:login")
     else:
         form = SignupForm()
@@ -96,6 +110,14 @@ def signup(request):
 
 
 def _send_verification_email(user, request):
+    if not _email_verification_required():
+        user.is_active = True
+        user.is_email_verified = True
+        user.save(update_fields=["is_active", "is_email_verified"])
+        UserProfile.objects.get_or_create(user=user)
+        EmailVerificationToken.objects.filter(user=user).delete()
+        return
+
     token_obj, _ = EmailVerificationToken.objects.update_or_create(
         user=user,
         defaults={
@@ -161,7 +183,7 @@ def login_view(request):
             verification_email = None
 
             if user is not None:
-                if not user.is_email_verified:
+                if _email_verification_required() and not user.is_email_verified:
                     verification_email = user.email
                     request.session["pending_verification_email"] = user.email
                     _log_audit(user, AuditLog.Action.LOGIN_FAILED, request, email=email, reason="email_unverified")
@@ -180,7 +202,27 @@ def login_view(request):
                 _log_audit(None, AuditLog.Action.LOGIN_FAILED, request, email=email)
                 try:
                     unverified = User.objects.get(email=email)
-                    if not unverified.is_email_verified and unverified.check_password(password):
+                    if (
+                        not _email_verification_required()
+                        and unverified.check_password(password)
+                    ):
+                        unverified.is_active = True
+                        unverified.is_email_verified = True
+                        unverified.save(update_fields=["is_active", "is_email_verified"])
+                        if form.cleaned_data.get("remember_me"):
+                            request.session.set_expiry(60 * 60 * 24 * 7)
+                        else:
+                            request.session.set_expiry(0)
+                        login(request, unverified, backend=settings.AUTHENTICATION_BACKENDS[0])
+                        unverified.update_last_activity()
+                        _log_audit(unverified, AuditLog.Action.LOGIN, request)
+                        request.session.pop("pending_verification_email", None)
+                        return redirect(_safe_next_url(request))
+                    if (
+                        _email_verification_required()
+                        and not unverified.is_email_verified
+                        and unverified.check_password(password)
+                    ):
                         verification_email = unverified.email
                         request.session["pending_verification_email"] = unverified.email
                         messages.warning(request, "Please verify your email before logging in.")
@@ -199,6 +241,11 @@ def login_view(request):
 @never_cache
 @require_POST
 def resend_verification(request):
+    if not _email_verification_required():
+        request.session.pop("pending_verification_email", None)
+        messages.info(request, "Email verification is currently disabled. You can log in directly.")
+        return redirect("accounts:login")
+
     form = ResendVerificationForm(request.POST)
     if form.is_valid():
         email = form.cleaned_data["email"]
@@ -312,6 +359,7 @@ def profile(request):
         "api_keys": api_keys,
         "new_api_key": new_api_key,
         "active_tab": "profile",
+        "email_verification_required": _email_verification_required(),
     }
     return render(request, "accounts/profile.html", context)
 

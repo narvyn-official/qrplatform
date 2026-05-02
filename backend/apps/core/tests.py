@@ -35,6 +35,8 @@ class CorePageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/manifest+json")
         self.assertEqual(response.json()["display"], "standalone")
+        self.assertTrue(any(icon["src"].endswith("icon-512.png") for icon in response.json()["icons"]))
+        self.assertTrue(any(shortcut["url"] == "/dashboard/scan/" for shortcut in response.json()["shortcuts"]))
 
     def test_service_worker_renders_javascript(self):
         response = self.client.get(reverse("core:service_worker"))
@@ -42,6 +44,7 @@ class CorePageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("application/javascript", response["Content-Type"])
         self.assertContains(response, "CACHE_NAME")
+        self.assertContains(response, "icon-512.png")
 
     def test_health_check_reports_database_status(self):
         response = self.client.get(reverse("core:health"))

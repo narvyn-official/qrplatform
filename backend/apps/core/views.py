@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.db import connection
 from django.shortcuts import render
@@ -55,16 +56,31 @@ def offline(request):
 def manifest(request):
     start_url = reverse("core:home")
     return JsonResponse({
-        "name": "QRFlow",
-        "short_name": "QRFlow",
+        "id": "/",
+        "name": settings.PLATFORM_NAME,
+        "short_name": settings.PLATFORM_NAME,
         "description": "Create dynamic QR codes, barcodes, and scan analytics.",
         "start_url": start_url,
         "scope": "/",
         "display": "standalone",
+        "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
         "background_color": "#f8fafc",
         "theme_color": "#4f46e5",
         "orientation": "portrait-primary",
+        "categories": ["productivity", "business", "utilities"],
         "icons": [
+            {
+                "src": "/static/pwa/icon-192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable",
+            },
+            {
+                "src": "/static/pwa/icon-512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable",
+            },
             {
                 "src": "/static/pwa/icon.svg",
                 "sizes": "any",
@@ -75,16 +91,19 @@ def manifest(request):
         "shortcuts": [
             {"name": "New QR Code", "url": "/dashboard/qrcodes/create/", "description": "Create a QR code"},
             {"name": "New Barcode", "url": "/barcodes/create/", "description": "Create a barcode"},
+            {"name": "Scan QR", "url": "/dashboard/scan/", "description": "Open the QR scanner"},
         ],
     }, content_type="application/manifest+json")
 
 
 def service_worker(request):
     script = """
-const CACHE_NAME = 'qrflow-shell-v1';
+const CACHE_NAME = 'qrflow-shell-v2';
 const OFFLINE_URL = '/offline/';
 const CORE_ASSETS = [
   OFFLINE_URL,
+  '/static/pwa/icon-192.png',
+  '/static/pwa/icon-512.png',
   '/static/pwa/icon.svg'
 ];
 

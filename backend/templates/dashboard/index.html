@@ -126,7 +126,7 @@
 </div>
 
 <!-- Quick actions -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
   {% for item in quick_actions %}
   <a href="{{ item.url }}" class="card interactive-card p-4 hover:shadow-card-hover group">
     <div class="w-10 h-10 {{ item.bg }} rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
@@ -136,6 +136,47 @@
     <p class="text-xs text-gray-400 mt-0.5">{{ item.desc }}</p>
   </a>
   {% endfor %}
+</div>
+
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+  <section class="card p-5">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 class="font-semibold text-gray-900">Premium shape lab</h2>
+        <p class="mt-1 text-sm leading-6 text-gray-500">Create scan-safe QR shells including circle, apple, duck, shield, ticket, and blob presets.</p>
+      </div>
+      <div class="icon-tile h-10 w-10 text-primary-600">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 9a5 5 0 019-3 5 5 0 017 5c0 5-6 9-8 9s-8-4-8-9V9z"/></svg>
+      </div>
+    </div>
+    <a href="{% url 'qrcodes:create' %}" class="btn-secondary mt-4 w-full justify-center">Open designer</a>
+  </section>
+
+  <section class="card p-5">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 class="font-semibold text-gray-900">Installable workspace</h2>
+        <p class="mt-1 text-sm leading-6 text-gray-500">Launch as a PWA with offline shell caching, app icons, and quick shortcuts.</p>
+      </div>
+      <div class="icon-tile h-10 w-10 text-emerald-600">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"/></svg>
+      </div>
+    </div>
+    <button type="button" data-pwa-install class="btn-secondary mt-4 w-full justify-center">Install app</button>
+  </section>
+
+  <section class="card p-5">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 class="font-semibold text-gray-900">QR scanner</h2>
+        <p class="mt-1 text-sm leading-6 text-gray-500">Scan with camera, upload a QR image, inspect the result, then open or copy it.</p>
+      </div>
+      <div class="icon-tile h-10 w-10 text-sky-600">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2M3 17v2a2 2 0 002 2h2m10 0h2a2 2 0 002-2v-2M8 12h8m-4-4v8"/></svg>
+      </div>
+    </div>
+    <a href="{% url 'qrcodes:scan' %}" class="btn-secondary mt-4 w-full justify-center">Open scanner</a>
+  </section>
 </div>
 
 {% endblock %}

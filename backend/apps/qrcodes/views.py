@@ -73,6 +73,7 @@ def dashboard(request):
     quick_actions = [
         {"url": "/dashboard/qrcodes/create/", "label": "New QR Code", "desc": "URL, vCard, WiFi…", "bg": "bg-primary-50", "icon": '<svg class="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>'},
         {"url": "/barcodes/create/", "label": "New Barcode", "desc": "Code128, EAN, QR…", "bg": "bg-blue-50", "icon": '<svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>'},
+        {"url": "/dashboard/scan/", "label": "Scan QR", "desc": "Camera & upload", "bg": "bg-emerald-50", "icon": '<svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2M3 17v2a2 2 0 002 2h2m10 0h2a2 2 0 002-2v-2M8 12h8m-4-4v8"/></svg>'},
         {"url": "/dashboard/qrcodes/", "label": "My QR Codes", "desc": "Manage & analyse", "bg": "bg-green-50", "icon": '<svg class="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>'},
         {"url": "/accounts/profile/", "label": "Profile & API", "desc": "Settings & keys", "bg": "bg-purple-50", "icon": '<svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>'},
     ]
@@ -147,6 +148,11 @@ def qrcode_create(request):
         "qr_types": QRCode.QRType.choices,
     }
     return render(request, "qrcodes/create.html", context)
+
+
+@login_required
+def qrcode_scan(request):
+    return render(request, "qrcodes/scan.html", {"active_tab": "scan_qr"})
 
 
 @login_required

@@ -178,6 +178,7 @@ class QRCodeFormTest(TestCase):
         "background_color": "#FFFFFF",
         "dot_style": "square",
         "corner_style": "square",
+        "outer_shape": "square",
         "logo_size_ratio": "0.2",
         "frame_color": "#000000",
         "frame_text": "",
@@ -328,6 +329,11 @@ class DashboardViewTest(TestCase):
         resp = self.client.get(reverse("qrcodes:dashboard"))
         self.assertRedirects(resp, f"{reverse('accounts:login')}?next={reverse('qrcodes:dashboard')}")
 
+    def test_scan_page_renders(self):
+        resp = self.client.get(reverse("qrcodes:scan"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Read QR codes from camera or image")
+
     def test_dashboard_renders(self):
         resp = self.client.get(reverse("qrcodes:dashboard"))
         self.assertEqual(resp.status_code, 200)
@@ -405,6 +411,7 @@ class QRCodeCreateViewTest(TestCase):
             "background_color": "#FFFFFF",
             "dot_style": "square",
             "corner_style": "square",
+            "outer_shape": "circle",
             "error_correction": "M",
             "qr_size": 300,
             "logo_size_ratio": 0.2,
@@ -412,6 +419,7 @@ class QRCodeCreateViewTest(TestCase):
             "tags": "[]",
         })
         self.assertEqual(QRCode.objects.filter(user=self.user, name="New URL QR").count(), 1)
+        self.assertEqual(QRCode.objects.get(user=self.user, name="New URL QR").outer_shape, "circle")
         self.assertEqual(resp.status_code, 302)
         mock_generate.assert_called_once()
 
@@ -472,6 +480,7 @@ class QRCodeEditViewTest(TestCase):
             "background_color": "#FFFFFF",
             "dot_style": "square",
             "corner_style": "square",
+            "outer_shape": "duck",
             "error_correction": "M",
             "qr_size": 300,
             "logo_size_ratio": 0.2,
@@ -481,6 +490,7 @@ class QRCodeEditViewTest(TestCase):
         self.assertEqual(resp.status_code, 302)
         qr.refresh_from_db()
         self.assertEqual(qr.name, "Updated Name")
+        self.assertEqual(qr.outer_shape, "duck")
         mock_generate.assert_called_once()
 
     def test_deleted_qr_raises_404(self):
@@ -538,6 +548,15 @@ class QRCodeDownloadViewTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "image/svg+xml")
         qr.refresh_from_db()
+        self.assertTrue(qr.image_svg)
+        self.assertIn("<svg", qr.image_svg)
+
+    def test_shaped_qr_generates_downloads(self):
+        qr = make_qrcode(self.user, outer_shape=QRCode.OuterShape.DUCK)
+        resp = self.client.get(reverse("qrcodes:download", args=[qr.id, "png"]))
+        self.assertEqual(resp.status_code, 200)
+        qr.refresh_from_db()
+        self.assertTrue(qr.image_png)
         self.assertTrue(qr.image_svg)
 
     def test_download_invalid_format(self):

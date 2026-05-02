@@ -1,17 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#4f46e5"/>
-  <rect x="96" y="96" width="112" height="112" rx="22" fill="#fff"/>
-  <rect x="128" y="128" width="48" height="48" rx="10" fill="#4f46e5"/>
-  <rect x="304" y="96" width="112" height="112" rx="22" fill="#fff"/>
-  <rect x="336" y="128" width="48" height="48" rx="10" fill="#4f46e5"/>
-  <rect x="96" y="304" width="112" height="112" rx="22" fill="#fff"/>
-  <rect x="128" y="336" width="48" height="48" rx="10" fill="#4f46e5"/>
-  <rect x="256" y="256" width="48" height="48" rx="12" fill="#fff"/>
-  <rect x="336" y="256" width="80" height="48" rx="12" fill="#fff"/>
-  <rect x="256" y="336" width="48" height="80" rx="12" fill="#fff"/>
-  <rect x="336" y="352" width="32" height="32" rx="8" fill="#fff"/>
-  <rect x="400" y="336" width="32" height="80" rx="8" fill="#fff"/>
-  <rect x="224" y="128" width="40" height="40" rx="10" fill="#fff"/>
-  <rect x="224" y="192" width="72" height="40" rx="10" fill="#fff"/>
-  <rect x="128" y="240" width="88" height="40" rx="10" fill="#fff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QRFlow logo">
+  <defs>
+    <linearGradient id="bg" x1="76" y1="45" x2="452" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5"/>
+      <stop offset=".52" stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="scan" x1="122" y1="132" x2="380" y2="380" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DBEAFE"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <path d="M133 137c0-18 15-33 33-33h62c18 0 33 15 33 33v62c0 18-15 33-33 33h-62c-18 0-33-15-33-33v-62Zm223 0c0-18 15-33 33-33h17c18 0 33 15 33 33v62c0 18-15 33-33 33h-62c-18 0-33-15-33-33v-17c0-18 15-33 33-33h45v-45h-33Zm-223 223c0-18 15-33 33-33h62c18 0 33 15 33 33v17c0 18-15 33-33 33h-45v45h-17c-18 0-33-15-33-33v-62Z" fill="#fff" opacity=".95"/>
+  <rect x="166" y="137" width="62" height="62" rx="18" fill="#1E1B4B"/>
+  <rect x="344" y="137" width="62" height="62" rx="18" fill="#1E1B4B"/>
+  <rect x="166" y="360" width="62" height="62" rx="18" fill="#1E1B4B"/>
+  <path d="M274 132h45v45h-45v-45Zm-44 133h45v44h-45v-44Zm89 0h89v44h-89v-44Zm-45 89h44v88h-44v-88Zm89 0h45v44h-45v-44Zm-178-89h45v44h-45v-44Z" fill="url(#scan)" opacity=".95"/>
+  <path d="M392 306c-50 62-108 97-171 105" fill="none" stroke="#F8FAFC" stroke-width="24" stroke-linecap="round" opacity=".78"/>
+  <path d="M403 294l-17 68-50-48 67-20Z" fill="#F8FAFC" opacity=".86"/>
 </svg>

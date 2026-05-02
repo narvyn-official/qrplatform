@@ -27,7 +27,7 @@
         </div>
         <div class="rounded-lg bg-white/80 px-4 py-3 shadow-sm">
           <p class="text-xs text-gray-500">Email</p>
-          <p class="mt-1 font-bold text-emerald-700">{% if request.user.is_email_verified %}Verified{% else %}Pending{% endif %}</p>
+          <p class="mt-1 font-bold text-emerald-700">{% if email_verification_required %}{% if request.user.is_email_verified %}Verified{% else %}Pending{% endif %}{% else %}Ready{% endif %}</p>
         </div>
         <div class="rounded-lg bg-white/80 px-4 py-3 shadow-sm col-span-2 sm:col-span-1">
           <p class="text-xs text-gray-500">API keys</p>
