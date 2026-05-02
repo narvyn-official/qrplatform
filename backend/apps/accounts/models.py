@@ -78,6 +78,24 @@ class User(AbstractBaseUser, PermissionsMixin):
     def is_pro(self):
         return self.role in (self.Role.PRO, self.Role.ENTERPRISE, self.Role.ADMIN)
 
+    @property
+    def plan_limits(self):
+        unlimited = dict(
+            max_qr=-1, max_scans=-1, logo=True, custom_shapes=True,
+            utm=True, export=True, api=True, scheduled=True, clone=True,
+        )
+        if self.role in (self.Role.ADMIN, self.Role.ENTERPRISE):
+            return unlimited
+        if self.role == self.Role.PRO:
+            return dict(
+                max_qr=100, max_scans=50_000, logo=True, custom_shapes=True,
+                utm=True, export=True, api=True, scheduled=True, clone=True,
+            )
+        return dict(
+            max_qr=5, max_scans=1_000, logo=False, custom_shapes=False,
+            utm=False, export=False, api=False, scheduled=False, clone=True,
+        )
+
     def update_last_activity(self):
         User.objects.filter(pk=self.pk).update(last_activity=timezone.now())
 

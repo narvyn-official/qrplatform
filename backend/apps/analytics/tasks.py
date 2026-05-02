@@ -63,11 +63,12 @@ def process_scan_event(self, scan_event_id: str):
         fingerprint = compute_scan_fingerprint(
             event.ip_address or "", event.user_agent_raw, day_str
         )
+        # Exclude self so first-scan-of-day is always unique
         is_unique = not QRScanEvent.objects.filter(
             qrcode=event.qrcode,
             fingerprint=fingerprint,
             is_unique=True,
-        ).exists()
+        ).exclude(id=event.id).exists()
         event.fingerprint = fingerprint
         event.is_unique = is_unique
         event.is_processed = True
@@ -78,6 +79,12 @@ def process_scan_event(self, scan_event_id: str):
 
         # 5. Update aggregated stats asynchronously
         update_daily_stats.delay(str(event.qrcode.id), day_str)
+
+        # 6. Scan alert — fire when threshold is first crossed
+        try:
+            _maybe_send_scan_alert(event.qrcode)
+        except Exception:
+            pass
 
     except Exception as exc:
         logger.exception("Error processing scan %s: %s", scan_event_id, exc)
@@ -241,6 +248,69 @@ def send_weekly_reports():
             _send_weekly_report_email(user)
         except Exception as exc:
             logger.error("Failed to send weekly report to %s: %s", user.email, exc)
+
+
+def _maybe_send_scan_alert(qr):
+    """Send a one-time scan milestone alert when threshold is first crossed."""
+    try:
+        profile = qr.user.profile
+    except Exception:
+        return
+    if not profile.email_scan_alerts or not profile.scan_alert_threshold:
+        return
+    qr.refresh_from_db(fields=["total_scans"])
+    threshold = profile.scan_alert_threshold
+    # Fire only on the exact crossing scan (±1 window to absorb concurrent tasks)
+    if threshold <= qr.total_scans < threshold + 5:
+        send_scan_alert_email.delay(str(qr.id), threshold)
+
+
+@shared_task
+def send_scan_alert_email(qrcode_id: str, threshold: int):
+    from apps.qrcodes.models import QRCode as QR
+    from django.conf import settings
+    from django.core.mail import send_mail
+
+    try:
+        qr = QR.objects.select_related("user").get(id=qrcode_id)
+    except QR.DoesNotExist:
+        return
+
+    send_mail(
+        subject=f'🎉 Your QR code "{qr.name}" hit {threshold:,} scans!',
+        message=(
+            f"Great news!\n\n"
+            f'Your QR code "{qr.name}" has now been scanned {qr.total_scans:,} times.\n\n'
+            f"View analytics: {settings.PLATFORM_URL}/analytics/{qr.id}/\n\n"
+            f"— The {settings.PLATFORM_NAME} team"
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[qr.user.email],
+        fail_silently=True,
+    )
+
+
+@shared_task
+def check_scheduled_qr_codes():
+    """Activate or expire QR codes based on their scheduled window."""
+    from apps.qrcodes.models import QRCode as QR
+    from django.db.models import F
+    now = timezone.now()
+
+    # Activate QRs whose window just opened (status=paused, active_from in past)
+    QR.objects.filter(
+        status=QR.Status.PAUSED,
+        scheduled_active_from__lte=now,
+        scheduled_active_until__gt=now,
+    ).update(status=QR.Status.ACTIVE)
+
+    # Expire QRs whose window just closed
+    QR.objects.filter(
+        status=QR.Status.ACTIVE,
+        scheduled_active_until__lte=now,
+    ).exclude(scheduled_active_until=None).update(status=QR.Status.EXPIRED)
+
+    logger.info("Scheduled QR check complete at %s", now)
 
 
 def _send_weekly_report_email(user):

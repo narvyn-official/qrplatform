@@ -132,6 +132,13 @@ class QRCode(models.Model):
     expires_at = models.DateTimeField(null=True, blank=True)
     scan_limit = models.PositiveIntegerField(null=True, blank=True)  # None = unlimited
 
+    # Scheduled activation window (premium)
+    scheduled_active_from = models.DateTimeField(null=True, blank=True)
+    scheduled_active_until = models.DateTimeField(null=True, blank=True)
+
+    # UTM auto-append (premium) — appended to redirect destination
+    utm_params = models.JSONField(default=dict, blank=True)
+
     # Password protection
     is_password_protected = models.BooleanField(default=False)
     access_password_hash = models.CharField(max_length=128, blank=True)
@@ -181,16 +188,31 @@ class QRCode(models.Model):
 
     @property
     def is_expired(self):
-        if self.expires_at and timezone.now() > self.expires_at:
+        now = timezone.now()
+        if self.expires_at and now > self.expires_at:
             return True
         if self.scan_limit and self.total_scans >= self.scan_limit:
+            return True
+        if self.scheduled_active_until and now > self.scheduled_active_until:
+            return True
+        return False
+
+    @property
+    def is_scheduled_inactive(self):
+        """True before the scheduled activation window opens."""
+        if self.scheduled_active_from and timezone.now() < self.scheduled_active_from:
             return True
         return False
 
     @property
     def encoded_content(self):
-        """Return actual content to embed in QR image."""
-        if self.is_dynamic:
+        """Content to embed in QR image.
+
+        URL and Dynamic types both encode the platform redirect URL so every
+        scan is tracked, regardless of whether the user chose 'URL' or
+        'Dynamic URL' in the create form.
+        """
+        if self.qr_type in (self.QRType.DYNAMIC, self.QRType.URL):
             return self.redirect_url
         return self.content
 

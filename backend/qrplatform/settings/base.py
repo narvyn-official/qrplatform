@@ -215,6 +215,24 @@ CELERY_TASK_SOFT_TIME_LIMIT = 240
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_ACKS_LATE = True
+CELERY_BEAT_SCHEDULE = {
+    "aggregate-daily-analytics": {
+        "task": "apps.analytics.tasks.aggregate_daily_analytics",
+        "schedule": 3600,  # every hour
+    },
+    "check-scheduled-qr-codes": {
+        "task": "apps.analytics.tasks.check_scheduled_qr_codes",
+        "schedule": 300,  # every 5 minutes
+    },
+    "send-weekly-reports": {
+        "task": "apps.analytics.tasks.send_weekly_reports",
+        "schedule": 604800,  # weekly
+    },
+    "cleanup-old-raw-events": {
+        "task": "apps.analytics.tasks.cleanup_old_raw_events",
+        "schedule": 86400,  # daily
+    },
+}
 
 # ── Email ─────────────────────────────────────────────────────────────────────
 

@@ -138,6 +138,35 @@
   {% endfor %}
 </div>
 
+<!-- Plan usage bar -->
+{% with limits=request.user.plan_limits %}
+{% if not request.user.is_pro and limits.max_qr > 0 %}
+<div class="card p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center justify-between mb-1">
+      <span class="text-sm font-medium text-gray-700">Free plan — QR codes used</span>
+      <span class="text-sm font-semibold {% if total_qr >= limits.max_qr %}text-red-600{% else %}text-gray-900{% endif %}">{{ total_qr }} / {{ limits.max_qr }}</span>
+    </div>
+    <div class="w-full bg-surface-100 rounded-full h-2">
+      <div class="h-2 rounded-full {% if total_qr >= limits.max_qr %}bg-red-500{% elif total_qr >= limits.max_qr|add:"-1" %}bg-yellow-400{% else %}bg-primary-500{% endif %}"
+           style="width: {% widthratio total_qr limits.max_qr 100 %}%"></div>
+    </div>
+    <p class="text-xs text-gray-400 mt-1">Export, UTM auto-append, custom shapes, and API access require Pro.</p>
+  </div>
+  <a href="{% url 'core:home' %}" class="btn-primary whitespace-nowrap">Upgrade to Pro</a>
+</div>
+{% endif %}
+{% endwith %}
+
+<!-- Bulk export shortcut (pro) -->
+{% if request.user.is_pro %}
+<div class="mb-6 flex items-center gap-3 flex-wrap">
+  <a href="{% url 'qrcodes:export_zip' %}" class="btn-secondary text-sm">
+    ⬇ Export All QR Codes (ZIP)
+  </a>
+</div>
+{% endif %}
+
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
   <section class="card p-5">
     <div class="flex items-start justify-between gap-4">

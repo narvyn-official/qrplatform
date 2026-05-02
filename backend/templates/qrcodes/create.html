@@ -243,6 +243,68 @@
             </div>
           </div>
         </section>
+
+        <!-- UTM Auto-Append (pro) -->
+        <section class="card p-5" x-show="['url','dynamic'].includes(qrType)" x-cloak>
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-base font-semibold text-gray-950">UTM Parameters</h2>
+              <p class="text-sm text-gray-500 mt-0.5">Auto-appended to the destination on every scan.</p>
+            </div>
+            {% if not request.user.is_pro %}
+            <span class="badge badge-purple">Pro</span>
+            {% endif %}
+          </div>
+          {% if not request.user.is_pro %}
+          <p class="text-sm text-gray-400 italic">Upgrade to Pro to auto-append UTM parameters.</p>
+          {% else %}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">utm_source</label>
+              <input type="text" name="utm_source" class="input" placeholder="qrcode" value="{{ form.utm_source.value|default:'' }}">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">utm_medium</label>
+              <input type="text" name="utm_medium" class="input" placeholder="print" value="{{ form.utm_medium.value|default:'' }}">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">utm_campaign</label>
+              <input type="text" name="utm_campaign" class="input" placeholder="summer_promo" value="{{ form.utm_campaign.value|default:'' }}">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">utm_content</label>
+              <input type="text" name="utm_content" class="input" placeholder="flyer_v1" value="{{ form.utm_content.value|default:'' }}">
+            </div>
+          </div>
+          {% endif %}
+        </section>
+
+        <!-- Scheduled Activation (pro) -->
+        <section class="card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-base font-semibold text-gray-950">Scheduled Activation</h2>
+              <p class="text-sm text-gray-500 mt-0.5">Automatically activate and deactivate on a schedule.</p>
+            </div>
+            {% if not request.user.is_pro %}
+            <span class="badge badge-purple">Pro</span>
+            {% endif %}
+          </div>
+          {% if not request.user.is_pro %}
+          <p class="text-sm text-gray-400 italic">Upgrade to Pro to schedule activation windows.</p>
+          {% else %}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Active From</label>
+              <input type="datetime-local" name="scheduled_active_from" class="input" value="{{ form.scheduled_active_from.value|default:'' }}">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Active Until</label>
+              <input type="datetime-local" name="scheduled_active_until" class="input" value="{{ form.scheduled_active_until.value|default:'' }}">
+            </div>
+          </div>
+          {% endif %}
+        </section>
       </div>
 
       <aside class="lg:col-span-5">

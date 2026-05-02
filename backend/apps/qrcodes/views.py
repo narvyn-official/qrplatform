@@ -1,7 +1,12 @@
 """
 QR Code views — dashboard CRUD and dynamic redirect handler.
 """
+import io
+import csv
 import logging
+import zipfile
+from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -251,7 +256,11 @@ def qr_redirect(request, short_code):
     """
     qr = get_object_or_404(QRCode, short_code=short_code, status__in=["active", "paused"])
 
-    # Check expiry
+    # Check scheduled window — not yet open
+    if qr.is_scheduled_inactive:
+        return render(request, "qrcodes/scheduled.html", {"qr": qr}, status=200)
+
+    # Check expiry / scan limit / scheduled end
     if qr.is_expired:
         return render(request, "qrcodes/expired.html", {"qr": qr}, status=410)
 
@@ -292,8 +301,116 @@ def qr_redirect(request, short_code):
     # Process asynchronously (geolocation, dedup, aggregation)
     process_scan_event.delay(str(scan.id))
 
-    # Redirect to destination
+    # Resolve destination (dynamic uses destination_url; URL/static uses content)
     destination = (qr.destination_url if qr.is_dynamic else qr.content) or ""
     if not destination:
         return render(request, "qrcodes/expired.html", {"qr": qr}, status=410)
+
+    # Apply UTM auto-append (pro feature)
+    if qr.utm_params:
+        try:
+            parsed = urlparse(destination)
+            qs = parse_qs(parsed.query, keep_blank_values=True)
+            for k, v in qr.utm_params.items():
+                if v:
+                    qs[k] = [v]
+            destination = urlunparse(parsed._replace(query=urlencode(qs, doseq=True)))
+        except Exception:
+            pass
+
     return redirect(destination, permanent=False)
+
+
+# ── Premium / utility views ──────────────────────────────────────────────────
+
+@login_required
+@require_POST
+def qrcode_clone(request, pk):
+    """Duplicate a QR code with the same settings (resets stats and images)."""
+    src = get_object_or_404(QRCode, id=pk, user=request.user)
+    src.pk = None
+    src.id = None
+    src.short_code = ""
+    src.name = f"Copy of {src.name}"
+    src.total_scans = 0
+    src.unique_scans = 0
+    src.last_scanned_at = None
+    src.image_png = None
+    src.image_svg = ""
+    src.image_pdf = None
+    src.logo = None
+    src.save()
+    _generate_qr_now(src)
+    messages.success(request, f'"{src.name}" cloned successfully.')
+    return redirect("qrcodes:detail", pk=src.id)
+
+
+@login_required
+@require_POST
+def qrcode_regenerate(request, pk):
+    """Force-regenerate QR images (useful after plan upgrade or URL change)."""
+    qr = get_object_or_404(QRCode, id=pk, user=request.user)
+    qr.image_png = None
+    qr.image_svg = ""
+    qr.image_pdf = None
+    qr.save(update_fields=["image_png", "image_svg", "image_pdf"])
+    if _generate_qr_now(qr):
+        messages.success(request, "QR images regenerated.")
+    else:
+        messages.error(request, "Image generation failed — check logs.")
+    return redirect("qrcodes:detail", pk=qr.id)
+
+
+@login_required
+def qrcode_export_zip(request):
+    """Bulk-download all (or selected) QR codes as a ZIP of PNG files."""
+    if not request.user.plan_limits["export"]:
+        messages.error(request, "ZIP export requires a Pro plan.")
+        return redirect("qrcodes:list")
+
+    ids = request.GET.getlist("ids")
+    qs = QRCode.objects.filter(user=request.user).exclude(status="deleted")
+    if ids:
+        qs = qs.filter(id__in=ids)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for qr in qs:
+            if not qr.image_png:
+                _generate_qr_now(qr)
+                qr.refresh_from_db(fields=["image_png"])
+            if qr.image_png:
+                try:
+                    zf.writestr(f"{qr.name}_{qr.short_code}.png", qr.image_png.read())
+                except Exception as exc:
+                    logger.warning("ZIP: skipping %s — %s", qr.short_code, exc)
+
+    buf.seek(0)
+    response = HttpResponse(buf.read(), content_type="application/zip")
+    response["Content-Disposition"] = 'attachment; filename="qrcodes_export.zip"'
+    return response
+
+
+@login_required
+def qrcode_analytics_csv(request, pk):
+    """Export per-QR daily analytics as CSV (pro feature)."""
+    if not request.user.plan_limits["export"]:
+        messages.error(request, "CSV export requires a Pro plan.")
+        return redirect("qrcodes:detail", pk=pk)
+
+    from apps.analytics.models import DailyQRStats
+    qr = get_object_or_404(QRCode, id=pk, user=request.user)
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="analytics_{qr.short_code}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(["date", "total_scans", "unique_scans", "mobile", "desktop", "tablet",
+                     "top_countries", "top_browsers"])
+    for s in DailyQRStats.objects.filter(qrcode_id=qr.id).order_by("date"):
+        writer.writerow([
+            s.date, s.total_scans, s.unique_scans,
+            s.mobile_scans, s.desktop_scans, s.tablet_scans,
+            str(s.country_breakdown), str(s.browser_breakdown),
+        ])
+    return response

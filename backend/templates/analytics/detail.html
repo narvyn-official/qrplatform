@@ -2,6 +2,13 @@
 {% block title %}Analytics: {{ qr.name }} — {{ PLATFORM_NAME }}{% endblock %}
 {% block page_title %}Analytics: {{ qr.name }}{% endblock %}
 
+{% block header_actions %}
+<a href="{% url 'qrcodes:analytics_csv' qr.id %}" class="btn-secondary text-sm">
+  ⬇ Export CSV
+</a>
+<a href="{% url 'qrcodes:detail' qr.id %}" class="btn-secondary text-sm">← QR Detail</a>
+{% endblock %}
+
 {% block content %}
 
 <!-- Summary cards -->

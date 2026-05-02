@@ -28,6 +28,15 @@ class QRCodeForm(forms.ModelForm):
         ),
         help_text="Only needed when password protection is enabled or when changing the password.",
     )
+    # UTM fields (rendered separately; stored into utm_params JSON)
+    utm_source = forms.CharField(required=False, max_length=100,
+                                  widget=forms.TextInput(attrs={"placeholder": "e.g. qrcode"}))
+    utm_medium = forms.CharField(required=False, max_length=100,
+                                  widget=forms.TextInput(attrs={"placeholder": "e.g. print"}))
+    utm_campaign = forms.CharField(required=False, max_length=100,
+                                    widget=forms.TextInput(attrs={"placeholder": "e.g. summer_promo"}))
+    utm_content = forms.CharField(required=False, max_length=100,
+                                   widget=forms.TextInput(attrs={"placeholder": "e.g. flyer_v1"}))
 
     class Meta:
         model = QRCode
@@ -40,6 +49,7 @@ class QRCodeForm(forms.ModelForm):
             "frame_text", "frame_color",
             "error_correction", "qr_size",
             "expires_at", "scan_limit",
+            "scheduled_active_from", "scheduled_active_until",
             "is_password_protected",
         ]
         widgets = {
@@ -50,6 +60,8 @@ class QRCodeForm(forms.ModelForm):
             "background_color": forms.TextInput(attrs={"type": "color"}),
             "frame_color": forms.TextInput(attrs={"type": "color"}),
             "expires_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "scheduled_active_from": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "scheduled_active_until": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "tags": forms.HiddenInput(),
         }
 
@@ -64,6 +76,16 @@ class QRCodeForm(forms.ModelForm):
         self.fields["expires_at"].required = False
         self.fields["scan_limit"].required = False
         self.fields["tags"].required = False
+        self.fields["scheduled_active_from"].required = False
+        self.fields["scheduled_active_until"].required = False
+
+        # Pre-populate UTM fields from existing utm_params JSON
+        if self.instance and self.instance.pk and self.instance.utm_params:
+            p = self.instance.utm_params
+            self.fields["utm_source"].initial = p.get("utm_source", "")
+            self.fields["utm_medium"].initial = p.get("utm_medium", "")
+            self.fields["utm_campaign"].initial = p.get("utm_campaign", "")
+            self.fields["utm_content"].initial = p.get("utm_content", "")
 
         input_class = (
             "block w-full px-3.5 py-2.5 border border-surface-200 rounded-lg text-sm "
@@ -158,6 +180,14 @@ class QRCodeForm(forms.ModelForm):
                 qr.set_access_password(access_password)
         else:
             qr.access_password_hash = ""
+
+        # Collect UTM params into JSON field
+        utm = {}
+        for key in ("utm_source", "utm_medium", "utm_campaign", "utm_content"):
+            val = (self.cleaned_data.get(key) or "").strip()
+            if val:
+                utm[key] = val
+        qr.utm_params = utm
 
         if commit:
             qr.save()

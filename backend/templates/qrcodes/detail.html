@@ -7,16 +7,28 @@
   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
   Edit
 </a>
+<!-- Clone -->
+<form method="post" action="{% url 'qrcodes:clone' qr.id %}" class="inline">
+  {% csrf_token %}
+  <button type="submit" class="btn-secondary" title="Duplicate this QR code">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+    Clone
+  </button>
+</form>
+<!-- Download + extras dropdown -->
 <div x-data="{ open: false }" class="relative">
   <button @click="open=!open" class="btn-secondary">
     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-    Download ▾
+    Export ▾
   </button>
   <div x-show="open" @click.away="open=false" x-cloak
-       class="absolute right-0 top-10 bg-white border border-surface-200 rounded-xl shadow-lg p-1 z-20 min-w-[110px]">
-    <a href="{% url 'qrcodes:download' qr.id 'png' %}" class="block px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">PNG</a>
-    <a href="{% url 'qrcodes:download' qr.id 'svg' %}" class="block px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">SVG</a>
-    <a href="{% url 'qrcodes:download' qr.id 'pdf' %}" class="block px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">PDF</a>
+       class="absolute right-0 top-10 bg-white border border-surface-200 rounded-xl shadow-lg p-1 z-20 min-w-[150px]">
+    <a href="{% url 'qrcodes:download' qr.id 'png' %}" class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">⬇ PNG</a>
+    <a href="{% url 'qrcodes:download' qr.id 'svg' %}" class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">⬇ SVG</a>
+    <a href="{% url 'qrcodes:download' qr.id 'pdf' %}" class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">⬇ PDF</a>
+    <hr class="my-1 border-surface-100">
+    <a href="{% url 'qrcodes:analytics_csv' qr.id %}" class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">📊 Analytics CSV</a>
+    <a href="{% url 'analytics:detail' qr.id %}" class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface-50 rounded-lg">📈 Full Analytics</a>
   </div>
 </div>
 {% endblock %}
@@ -69,16 +81,35 @@
         <dt class="text-gray-500">Unique Scans</dt>
         <dd class="font-semibold text-2xl text-gray-900 mt-0.5">{{ qr.unique_scans }}</dd>
       </div>
-      {% if qr.is_dynamic %}
+      {% if qr.qr_type == 'url' or qr.is_dynamic %}
       <div class="col-span-2">
-        <dt class="text-gray-500">Destination URL</dt>
+        <dt class="text-gray-500">{% if qr.is_dynamic %}Destination URL{% else %}URL{% endif %}</dt>
         <dd class="font-mono text-xs text-primary-700 break-all mt-0.5">
-          <a href="{{ qr.destination_url }}" target="_blank" rel="noopener noreferrer" class="hover:underline">{{ qr.destination_url }}</a>
+          <a href="{{ qr.destination_url|default:qr.content }}" target="_blank" rel="noopener noreferrer" class="hover:underline">{{ qr.destination_url|default:qr.content }}</a>
         </dd>
       </div>
       <div class="col-span-2">
-        <dt class="text-gray-500">QR Scan URL</dt>
+        <dt class="text-gray-500">Scan Tracking URL <span class="text-xs text-green-600 font-normal">(encoded in QR)</span></dt>
         <dd class="font-mono text-xs text-gray-700 break-all mt-0.5">{{ qr.redirect_url }}</dd>
+      </div>
+      {% endif %}
+      {% if qr.utm_params %}
+      <div class="col-span-2">
+        <dt class="text-gray-500">UTM Auto-Append</dt>
+        <dd class="mt-0.5 flex flex-wrap gap-1">
+          {% for k, v in qr.utm_params.items %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 font-mono">{{ k }}={{ v }}</span>
+          {% endfor %}
+        </dd>
+      </div>
+      {% endif %}
+      {% if qr.scheduled_active_from or qr.scheduled_active_until %}
+      <div class="col-span-2">
+        <dt class="text-gray-500">Scheduled Window</dt>
+        <dd class="text-sm text-gray-800 mt-0.5">
+          {% if qr.scheduled_active_from %}From {{ qr.scheduled_active_from|date:"M d, Y H:i" }}{% endif %}
+          {% if qr.scheduled_active_until %} → Until {{ qr.scheduled_active_until|date:"M d, Y H:i" }}{% endif %}
+        </dd>
       </div>
       {% endif %}
       {% if qr.expires_at %}
@@ -87,13 +118,27 @@
         <dd class="text-gray-800 mt-0.5">{{ qr.expires_at|date:"M d, Y H:i" }}</dd>
       </div>
       {% endif %}
+      {% if qr.scan_limit %}
+      <div>
+        <dt class="text-gray-500">Scan Limit</dt>
+        <dd class="text-gray-800 mt-0.5">{{ qr.total_scans }} / {{ qr.scan_limit }}</dd>
+      </div>
+      {% endif %}
+      <div>
+        <dt class="text-gray-500">Last Scanned</dt>
+        <dd class="text-gray-600 mt-0.5">{{ qr.last_scanned_at|date:"M d, Y H:i"|default:"Never" }}</dd>
+      </div>
       <div>
         <dt class="text-gray-500">Created</dt>
         <dd class="text-gray-600 mt-0.5">{{ qr.created_at|date:"M d, Y" }}</dd>
       </div>
     </dl>
 
-    <div class="mt-6 pt-5 border-t border-surface-100">
+    <div class="mt-6 pt-5 border-t border-surface-100 flex items-center gap-4 flex-wrap">
+      <form method="post" action="{% url 'qrcodes:regenerate' qr.id %}">
+        {% csrf_token %}
+        <button type="submit" class="text-sm text-indigo-600 hover:underline">↻ Regenerate images</button>
+      </form>
       <form method="post" action="{% url 'qrcodes:delete' qr.id %}"
             onsubmit="return confirm('Delete {{ qr.name }}? This cannot be undone.')">
         {% csrf_token %}
