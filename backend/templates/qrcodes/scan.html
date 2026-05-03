@@ -2,6 +2,10 @@
 {% block title %}Scan QR - {{ PLATFORM_NAME }}{% endblock %}
 {% block page_title %}Scan QR{% endblock %}
 
+{% block extra_head %}
+<script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+{% endblock %}
+
 {% block header_actions %}
 <a href="{% url 'qrcodes:create' %}" class="btn-secondary hidden sm:inline-flex">
   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -10,61 +14,83 @@
 {% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 gap-6 lg:grid-cols-12" x-data="qrScanner()" x-init="init()">
-  <section class="mesh-panel p-5 sm:p-6 lg:col-span-5">
-    <div class="relative z-10">
-      <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">Scanner</p>
-      <h2 class="mt-2 text-2xl font-bold text-gray-950">Read QR codes from camera or image.</h2>
-      <p class="mt-3 text-sm leading-6 text-gray-600">Use the device camera for live scanning, upload a QR image, or paste a value to inspect links before opening them.</p>
+<div class="grid grid-cols-1 gap-5 lg:grid-cols-12" x-data="qrScanner()" x-init="init()">
+  <section class="card overflow-hidden lg:col-span-7">
+    <div class="relative bg-gray-950">
+      <video x-ref="video" class="min-h-[360px] w-full bg-gray-950 object-cover sm:aspect-[4/3] sm:min-h-0" playsinline muted></video>
+      <canvas x-ref="canvas" class="hidden"></canvas>
 
-      <div class="mt-5 flex flex-wrap gap-2">
-        <button type="button" class="btn-primary" @click="startCamera()" x-show="!cameraOn">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h4l2-3h6l2 3h4v13H3V7zm9 10a4 4 0 100-8 4 4 0 000 8z"/></svg>
-          Start Camera
-        </button>
-        <button type="button" class="btn-secondary" @click="stopCamera()" x-show="cameraOn" x-cloak>Stop Camera</button>
-        <label class="btn-secondary cursor-pointer">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0-12l4 4m-4-4L8 8"/></svg>
-          Upload Image
-          <input type="file" accept="image/*" class="hidden" @change="scanFile($event)">
-        </label>
+      <div class="pointer-events-none absolute inset-0 grid place-items-center p-8">
+        <div class="relative h-56 w-56 max-w-[78vw] rounded-[28px] border-2 border-white/90 shadow-[0_0_0_999px_rgba(15,23,42,.36)]">
+          <div class="absolute -left-1 -top-1 h-10 w-10 rounded-tl-[28px] border-l-4 border-t-4 border-emerald-300"></div>
+          <div class="absolute -right-1 -top-1 h-10 w-10 rounded-tr-[28px] border-r-4 border-t-4 border-emerald-300"></div>
+          <div class="absolute -bottom-1 -left-1 h-10 w-10 rounded-bl-[28px] border-b-4 border-l-4 border-emerald-300"></div>
+          <div class="absolute -bottom-1 -right-1 h-10 w-10 rounded-br-[28px] border-b-4 border-r-4 border-emerald-300"></div>
+        </div>
       </div>
 
-      <p class="mt-4 rounded-lg border border-surface-200 bg-white/75 px-3 py-2 text-xs leading-5 text-gray-500">
-        Camera access is handled by your browser. The page scans locally and only opens a result when you choose to.
-      </p>
+      <div class="absolute left-3 right-3 top-3 flex flex-wrap items-center justify-between gap-2">
+        <span class="rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-gray-800" x-text="cameraOn ? 'Live scan' : 'Ready'"></span>
+        <button type="button" class="rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-gray-800 disabled:opacity-40" @click="toggleTorch()" :disabled="!torchSupported" x-show="cameraOn" x-cloak>Torch</button>
+      </div>
+
+      <div class="absolute bottom-3 left-3 right-3 rounded-lg bg-white/92 px-3 py-2 text-sm font-semibold text-gray-800 shadow-sm backdrop-blur" aria-live="polite" x-text="status"></div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 border-t border-surface-100 bg-white p-3 sm:grid-cols-4">
+      <button type="button" class="btn-primary justify-center py-3" @click="startCamera()" x-show="!cameraOn">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h4l2-3h6l2 3h4v13H3V7zm9 10a4 4 0 100-8 4 4 0 000 8z"/></svg>
+        Start
+      </button>
+      <button type="button" class="btn-secondary justify-center py-3" @click="stopCamera()" x-show="cameraOn" x-cloak>Stop</button>
+      <label class="btn-secondary cursor-pointer justify-center py-3">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0-12l4 4m-4-4L8 8"/></svg>
+        Upload
+        <input type="file" accept="image/*" capture="environment" class="hidden" @change="scanFile($event)">
+      </label>
+      <button type="button" class="btn-secondary justify-center py-3" @click="switchCamera()" :disabled="!cameraOn">Switch</button>
+      <button type="button" class="btn-secondary justify-center py-3" @click="clearResult()">Clear</button>
     </div>
   </section>
 
-  <section class="card p-5 sm:p-6 lg:col-span-7">
-    <div class="relative overflow-hidden rounded-lg border border-surface-200 bg-gray-950">
-      <video x-ref="video" class="aspect-video w-full bg-gray-950 object-cover" playsinline muted></video>
-      <div class="pointer-events-none absolute inset-0 grid place-items-center">
-        <div class="h-48 w-48 rounded-2xl border-2 border-white/80 shadow-[0_0_0_999px_rgba(15,23,42,.28)]"></div>
-      </div>
-      <div class="absolute bottom-3 left-3 right-3 rounded-lg bg-white/90 px-3 py-2 text-xs font-semibold text-gray-700 backdrop-blur" x-text="status"></div>
-    </div>
+  <aside class="space-y-5 lg:col-span-5">
+    <section class="mesh-panel p-5">
+      <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">Phone optimized</p>
+      <h2 class="mt-2 text-2xl font-bold text-gray-950">Fast local QR scanning.</h2>
+      <p class="mt-3 text-sm leading-6 text-gray-600">Scan with camera, upload a QR image, or paste a value. Results stay local until you open or copy them.</p>
+    </section>
 
-    <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div class="rounded-lg border border-surface-200 bg-surface-50 p-4">
-        <label class="block text-sm font-semibold text-gray-800">Manual value</label>
-        <textarea x-model="manualValue" rows="4" class="input mt-2" placeholder="Paste a QR result to inspect it"></textarea>
-        <button type="button" class="btn-secondary mt-3 w-full justify-center" @click="useManual()">Inspect Value</button>
+    <section class="card p-5">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-sm font-semibold text-gray-900">Result</h3>
+        <span class="badge" :class="result ? 'badge-green' : 'badge-gray'" x-text="result ? resultType : 'Waiting'"></span>
       </div>
+      <p class="mt-3 min-h-24 break-all rounded-lg bg-surface-50 px-3 py-3 font-mono text-xs leading-5 text-gray-700" x-text="result || 'No QR result yet'"></p>
+      <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <a :href="isUrl(result) ? result : '#'" target="_blank" rel="noopener noreferrer" class="btn-primary justify-center" :class="isUrl(result) ? '' : 'pointer-events-none opacity-50'">Open</a>
+        <button type="button" class="btn-secondary justify-center" @click="copyResult()" :disabled="!result">Copy</button>
+      </div>
+    </section>
 
-      <div class="rounded-lg border border-surface-200 bg-white p-4">
-        <div class="flex items-center justify-between gap-3">
-          <h3 class="text-sm font-semibold text-gray-900">Result</h3>
-          <span class="badge" :class="result ? 'badge-green' : 'badge-gray'" x-text="result ? 'Ready' : 'Waiting'"></span>
-        </div>
-        <p class="mt-3 min-h-20 break-all rounded-lg bg-surface-50 px-3 py-2 font-mono text-xs text-gray-700" x-text="result || 'No QR result yet'"></p>
-        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <a :href="isUrl(result) ? result : '#'" target="_blank" rel="noopener noreferrer" class="btn-primary justify-center" :class="isUrl(result) ? '' : 'pointer-events-none opacity-50'">Open Link</a>
-          <button type="button" class="btn-secondary justify-center" @click="copyResult()" :disabled="!result">Copy</button>
-        </div>
+    <section class="card p-5">
+      <label class="block text-sm font-semibold text-gray-800">Manual inspect</label>
+      <textarea x-model="manualValue" rows="4" class="input mt-2" placeholder="Paste QR text or URL"></textarea>
+      <button type="button" class="btn-secondary mt-3 w-full justify-center" @click="useManual()">Inspect value</button>
+    </section>
+
+    <section class="card p-5">
+      <h3 class="text-sm font-semibold text-gray-900">Recent scans</h3>
+      <div class="mt-3 space-y-2">
+        <template x-for="item in history" :key="item.value + item.time">
+          <button type="button" class="w-full rounded-lg border border-surface-200 bg-white p-3 text-left hover:bg-surface-50" @click="setResult(item.value)">
+            <p class="truncate font-mono text-xs text-gray-800" x-text="item.value"></p>
+            <p class="mt-1 text-[11px] text-gray-500" x-text="item.time"></p>
+          </button>
+        </template>
+        <p x-show="!history.length" class="text-sm text-gray-500">Recent scan results will appear here.</p>
       </div>
-    </div>
-  </section>
+    </section>
+  </aside>
 </div>
 {% endblock %}
 
@@ -74,35 +100,51 @@ function qrScanner() {
   return {
     detector: null,
     stream: null,
+    activeTrack: null,
     cameraOn: false,
     result: '',
+    resultType: 'Text',
     manualValue: '',
-    status: 'Ready. Start the camera or upload a QR image.',
+    status: 'Ready. Start the camera, upload an image, or paste a value.',
     scanFrame: null,
+    cameraFacing: 'environment',
+    torchSupported: false,
+    history: [],
 
     async init() {
       if ('BarcodeDetector' in window) {
         try {
           this.detector = new BarcodeDetector({ formats: ['qr_code'] });
         } catch (error) {
-          this.status = 'QR detection is not available in this browser.';
+          this.detector = null;
         }
-      } else {
-        this.status = 'This browser does not support built-in QR detection. Use manual paste or try Chrome/Edge.';
+      }
+      if (!this.detector && !window.jsQR) {
+        this.status = 'Camera support is limited here. Upload or manual inspect will still work.';
       }
     },
 
     async startCamera() {
-      if (!this.detector || !navigator.mediaDevices?.getUserMedia) {
+      if (!navigator.mediaDevices?.getUserMedia) {
         this.status = 'Camera scanning is unavailable in this browser.';
         return;
       }
       try {
-        this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        this.stopCamera();
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: this.cameraFacing },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
         this.$refs.video.srcObject = this.stream;
         await this.$refs.video.play();
+        this.activeTrack = this.stream.getVideoTracks()[0] || null;
+        this.torchSupported = Boolean(this.activeTrack?.getCapabilities?.().torch);
         this.cameraOn = true;
-        this.status = 'Scanning... hold a QR inside the frame.';
+        this.status = 'Scanning... fill the square with the QR code.';
         this.scanLoop();
       } catch (error) {
         this.status = 'Camera permission was blocked or no camera was found.';
@@ -113,17 +155,33 @@ function qrScanner() {
       if (this.scanFrame) cancelAnimationFrame(this.scanFrame);
       if (this.stream) this.stream.getTracks().forEach(track => track.stop());
       this.stream = null;
+      this.activeTrack = null;
       this.cameraOn = false;
-      this.status = 'Camera stopped.';
+      this.torchSupported = false;
+      this.scanFrame = null;
+    },
+
+    async switchCamera() {
+      this.cameraFacing = this.cameraFacing === 'environment' ? 'user' : 'environment';
+      if (this.cameraOn) await this.startCamera();
+    },
+
+    async toggleTorch() {
+      if (!this.activeTrack || !this.torchSupported) return;
+      const settings = this.activeTrack.getSettings?.() || {};
+      await this.activeTrack.applyConstraints({ advanced: [{ torch: !settings.torch }] }).catch(() => {
+        this.status = 'Torch is not available on this camera.';
+      });
     },
 
     async scanLoop() {
-      if (!this.cameraOn || !this.detector) return;
+      if (!this.cameraOn) return;
       try {
-        const codes = await this.detector.detect(this.$refs.video);
-        if (codes.length) {
-          this.setResult(codes[0].rawValue || '');
+        const value = await this.detectFromElement(this.$refs.video);
+        if (value) {
+          this.setResult(value);
           this.status = 'QR detected.';
+          navigator.vibrate?.(80);
           this.stopCamera();
           return;
         }
@@ -134,18 +192,14 @@ function qrScanner() {
     async scanFile(event) {
       const file = event.target.files?.[0];
       if (!file) return;
-      if (!this.detector) {
-        this.status = 'Image QR detection is unavailable in this browser.';
-        return;
-      }
       try {
         const bitmap = await createImageBitmap(file);
-        const codes = await this.detector.detect(bitmap);
-        if (codes.length) {
-          this.setResult(codes[0].rawValue || '');
+        const value = await this.detectFromElement(bitmap);
+        if (value) {
+          this.setResult(value);
           this.status = 'QR detected from image.';
         } else {
-          this.status = 'No QR code found in that image.';
+          this.status = 'No QR code found. Try a sharper, brighter image.';
         }
       } catch (error) {
         this.status = 'Could not scan that image.';
@@ -154,14 +208,44 @@ function qrScanner() {
       }
     },
 
+    async detectFromElement(source) {
+      if (this.detector) {
+        try {
+          const codes = await this.detector.detect(source);
+          if (codes.length) return codes[0].rawValue || '';
+        } catch (error) {}
+      }
+      if (!window.jsQR) return '';
+      const canvas = this.$refs.canvas;
+      const width = source.videoWidth || source.width || 0;
+      const height = source.videoHeight || source.height || 0;
+      if (!width || !height) return '';
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(source, 0, 0, width, height);
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const code = window.jsQR(imageData.data, width, height, { inversionAttempts: 'attemptBoth' });
+      return code?.data || '';
+    },
+
     useManual() {
       this.setResult(this.manualValue.trim());
       this.status = this.result ? 'Manual value ready.' : 'Paste a value first.';
     },
 
     setResult(value) {
+      if (!value) return;
       this.result = value;
       this.manualValue = value;
+      this.resultType = this.isUrl(value) ? 'URL' : 'Text';
+      this.history = [{ value, time: new Date().toLocaleTimeString() }, ...this.history.filter(item => item.value !== value)].slice(0, 5);
+    },
+
+    clearResult() {
+      this.result = '';
+      this.manualValue = '';
+      this.status = 'Ready for the next scan.';
     },
 
     isUrl(value) {

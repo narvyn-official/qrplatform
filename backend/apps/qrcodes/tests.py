@@ -12,7 +12,14 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.http import QueryDict
 
-from apps.qrcodes.models import QRCode, QRCodeCampaign, QRScanEvent
+from apps.qrcodes.models import (
+    QRCode,
+    QRCodeCampaign,
+    QRScanEvent,
+    QRDestinationRule,
+    QRLandingPage,
+    QRConversionEvent,
+)
 from apps.qrcodes.forms import QRCodeForm
 from apps.qrcodes.views import _qrcode_form_data
 
@@ -78,7 +85,7 @@ class QRCodeModelTest(TestCase):
 
     def test_encoded_content_static(self):
         qr = make_qrcode(self.user, content="https://example.com")
-        self.assertEqual(qr.encoded_content, "https://example.com")
+        self.assertIn(qr.short_code, qr.encoded_content)
 
     def test_encoded_content_dynamic_uses_redirect_url(self):
         qr = make_qrcode(
@@ -332,7 +339,7 @@ class DashboardViewTest(TestCase):
     def test_scan_page_renders(self):
         resp = self.client.get(reverse("qrcodes:scan"))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Read QR codes from camera or image")
+        self.assertContains(resp, "Fast local QR scanning")
 
     def test_dashboard_renders(self):
         resp = self.client.get(reverse("qrcodes:dashboard"))
@@ -643,3 +650,88 @@ class QRRedirectViewTest(TestCase):
         )
         resp = self.client.get(f"/r/{qr.short_code}/")
         self.assertEqual(resp.status_code, 410)
+
+    def test_redirect_updates_scan_count_without_celery_worker(self):
+        qr = make_qrcode(self.user, content="https://destination.com")
+        resp = self.client.get(
+            f"/r/{qr.short_code}/",
+            HTTP_USER_AGENT="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+            REMOTE_ADDR="127.0.0.1",
+        )
+        self.assertEqual(resp.status_code, 302)
+        qr.refresh_from_db()
+        self.assertEqual(qr.total_scans, 1)
+        self.assertEqual(qr.unique_scans, 1)
+
+    def test_smart_destination_device_rule_redirects_and_counts_hits(self):
+        qr = make_qrcode(self.user, content="https://default.example")
+        rule = QRDestinationRule.objects.create(
+            qrcode=qr,
+            name="Mobile route",
+            rule_type=QRDestinationRule.RuleType.DEVICE,
+            match_value="mobile",
+            destination_url="https://m.example",
+        )
+        resp = self.client.get(
+            f"/r/{qr.short_code}/",
+            HTTP_USER_AGENT="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "https://m.example")
+        rule.refresh_from_db()
+        self.assertEqual(rule.hits, 1)
+
+
+@override_settings(CACHES=CACHE_OVERRIDE, AXES_ENABLED=False)
+class QRPremiumFeatureTest(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.user = make_active_user(email="premium@example.com")
+        self.client.force_login(self.user)
+
+    def test_scan_page_renders_phone_scanner_fallbacks(self):
+        resp = self.client.get(reverse("qrcodes:scan"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "jsQR")
+        self.assertContains(resp, "Recent scans")
+        self.assertContains(resp, "capture=\"environment\"")
+
+    def test_premium_studio_renders(self):
+        make_qrcode(self.user, name="Studio QR")
+        resp = self.client.get(reverse("qrcodes:premium"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Smart destinations")
+        self.assertContains(resp, "Studio QR")
+
+    @patch("apps.qrcodes.premium.requests.head")
+    def test_preflight_health_check_saves_result(self, mock_head):
+        qr = make_qrcode(self.user, content="https://healthy.example")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.url = "https://healthy.example/"
+        mock_head.return_value = mock_response
+
+        resp = self.client.post(reverse("qrcodes:preflight", args=[qr.id]), {"action": "health"})
+        self.assertEqual(resp.status_code, 302)
+        qr.refresh_from_db()
+        self.assertEqual(qr.health_check.status, "ok")
+        self.assertEqual(qr.health_check.status_code, 200)
+
+    def test_landing_page_and_conversion_tracking(self):
+        qr = make_qrcode(self.user, content="https://default.example")
+        QRLandingPage.objects.create(
+            qrcode=qr,
+            title="Menu",
+            body="Fresh menu",
+            primary_label="Open menu",
+            primary_url="https://restaurant.example/menu",
+        )
+        resp = self.client.get(f"/p/{qr.short_code}/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Open menu")
+
+        resp = self.client.get(f"/c/{qr.short_code}/review/?next=https%3A%2F%2Freviews.example")
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp["Location"], "https://reviews.example")
+        self.assertTrue(QRConversionEvent.objects.filter(qrcode=qr, event_type="review").exists())

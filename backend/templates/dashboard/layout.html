@@ -52,6 +52,12 @@
         My QR Codes
       </a>
 
+      <a href="{% url 'qrcodes:premium' %}"
+         class="sidebar-link {% if active_tab == 'premium' %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Premium Studio
+      </a>
+
       <a href="{% url 'barcodes:list' %}"
          class="sidebar-link {% if active_tab == 'barcodes' %}active{% endif %}">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21H3a2 2 0 01-2-2V5a2 2 0 012-2h4m10 18h4a2 2 0 002-2V5a2 2 0 00-2-2h-4M9 3h6v18H9z"/></svg>
@@ -161,6 +167,7 @@
         <a href="{% url 'barcodes:create' %}" class="sidebar-link {% if active_tab == 'create_barcode' %}active{% endif %}">New Barcode</a>
         <a href="{% url 'qrcodes:scan' %}" class="sidebar-link {% if active_tab == 'scan_qr' %}active{% endif %}">Scan QR</a>
         <a href="{% url 'qrcodes:list' %}" class="sidebar-link {% if active_tab == 'qrcodes' %}active{% endif %}">My QR Codes</a>
+        <a href="{% url 'qrcodes:premium' %}" class="sidebar-link {% if active_tab == 'premium' %}active{% endif %}">Premium Studio</a>
         <a href="{% url 'barcodes:list' %}" class="sidebar-link {% if active_tab == 'barcodes' %}active{% endif %}">My Barcodes</a>
         <a href="{% url 'accounts:profile' %}" class="sidebar-link {% if active_tab == 'profile' %}active{% endif %}">Profile & API Keys</a>
       </nav>

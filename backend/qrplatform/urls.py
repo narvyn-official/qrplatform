@@ -6,6 +6,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from apps.qrcodes import views as qrcode_views
 
 urlpatterns = [
     # Admin
@@ -17,6 +18,8 @@ urlpatterns = [
     path("dashboard/", include("apps.qrcodes.urls", namespace="qrcodes")),
     path("barcodes/", include("apps.barcodes.urls", namespace="barcodes")),
     path("analytics/", include("apps.analytics.urls", namespace="analytics")),
+    path("p/<str:short_code>/", qrcode_views.public_landing_page, name="public_landing"),
+    path("c/<str:short_code>/<str:event_type>/", qrcode_views.conversion_redirect, name="conversion_redirect"),
 
     # Dynamic QR redirect (short URL — must be kept last for /r/<code>)
     path("r/", include("apps.qrcodes.redirect_urls")),

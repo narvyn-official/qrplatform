@@ -280,3 +280,110 @@ class QRScanEvent(models.Model):
 
     def __str__(self):
         return f"Scan({self.qrcode.short_code} @ {self.timestamp})"
+
+
+class QRDestinationRule(models.Model):
+    """Smart redirect rule for device, language, country, time, or A/B routing."""
+
+    class RuleType(models.TextChoices):
+        DEVICE = "device", _("Device")
+        LANGUAGE = "language", _("Language")
+        COUNTRY = "country", _("Country")
+        TIME = "time", _("Time Window")
+        AB = "ab", _("A/B Test")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    qrcode = models.ForeignKey(QRCode, on_delete=models.CASCADE, related_name="destination_rules")
+    name = models.CharField(max_length=120)
+    rule_type = models.CharField(max_length=20, choices=RuleType.choices, default=RuleType.DEVICE)
+    match_value = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Examples: mobile, en, US, 09:00-17:00. A/B rules can leave this blank.",
+    )
+    destination_url = models.URLField(max_length=2000)
+    weight = models.PositiveSmallIntegerField(default=50, validators=[MinValueValidator(1)])
+    is_active = models.BooleanField(default=True)
+    hits = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "qrcodes_destination_rule"
+        ordering = ["rule_type", "name"]
+        indexes = [models.Index(fields=["qrcode", "rule_type", "is_active"])]
+
+    def __str__(self):
+        return f"Rule({self.qrcode.short_code}: {self.name})"
+
+
+class QRHealthCheck(models.Model):
+    """Latest destination health and trust scan for a QR code."""
+
+    class Status(models.TextChoices):
+        UNKNOWN = "unknown", _("Unknown")
+        OK = "ok", _("OK")
+        WARNING = "warning", _("Warning")
+        BROKEN = "broken", _("Broken")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    qrcode = models.OneToOneField(QRCode, on_delete=models.CASCADE, related_name="health_check")
+    checked_at = models.DateTimeField(default=timezone.now)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.UNKNOWN)
+    status_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    final_url = models.URLField(max_length=2000, blank=True)
+    response_ms = models.PositiveIntegerField(default=0)
+    is_safe = models.BooleanField(default=True)
+    issue = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "qrcodes_health_check"
+
+    def __str__(self):
+        return f"Health({self.qrcode.short_code}: {self.status})"
+
+
+class QRLandingPage(models.Model):
+    """Built-in mobile page used when a user does not have a website."""
+
+    class Mode(models.TextChoices):
+        LANDING = "landing", _("Landing Page")
+        MENU = "menu", _("Menu")
+        REVIEW = "review", _("Review")
+        VCARD = "vcard", _("vCard")
+        FILE = "file", _("File")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    qrcode = models.OneToOneField(QRCode, on_delete=models.CASCADE, related_name="landing_page")
+    mode = models.CharField(max_length=20, choices=Mode.choices, default=Mode.LANDING)
+    title = models.CharField(max_length=160)
+    body = models.TextField(blank=True)
+    primary_label = models.CharField(max_length=80, default="Open")
+    primary_url = models.URLField(max_length=2000, blank=True)
+    items = models.JSONField(default=list, blank=True)
+    published = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "qrcodes_landing_page"
+
+    def __str__(self):
+        return f"Landing({self.qrcode.short_code}: {self.title})"
+
+
+class QRConversionEvent(models.Model):
+    """Business conversion attached to a scan: click, form, review, purchase, etc."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    qrcode = models.ForeignKey(QRCode, on_delete=models.CASCADE, related_name="conversion_events")
+    event_type = models.CharField(max_length=60, db_index=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        db_table = "qrcodes_conversion_event"
+        ordering = ["-timestamp"]
+        indexes = [models.Index(fields=["qrcode", "event_type", "timestamp"])]
+
+    def __str__(self):
+        return f"Conversion({self.qrcode.short_code}: {self.event_type})"

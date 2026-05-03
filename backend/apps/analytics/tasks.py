@@ -17,82 +17,7 @@ from apps.analytics.utils import parse_user_agent, geolocate_ip, compute_scan_fi
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def process_scan_event(self, scan_event_id: str):
-    """
-    Process a raw scan event:
-    - Parse user agent
-    - Geolocate IP
-    - Set deduplication flag
-    - Update QR counters
-    """
-    try:
-        event = QRScanEvent.objects.select_related("qrcode").get(id=scan_event_id)
-    except QRScanEvent.DoesNotExist:
-        logger.error("ScanEvent %s not found", scan_event_id)
-        return
-
-    if event.is_processed:
-        return
-
-    try:
-        # 1. Parse user agent
-        ua_info = parse_user_agent(event.user_agent_raw)
-        event.device_type = ua_info["device_type"]
-        event.os_family = ua_info["os_family"]
-        event.browser_family = ua_info["browser_family"]
-
-        # 2. Skip bot scans (don't count, don't geolocate)
-        if event.device_type == "bot":
-            event.is_processed = True
-            event.save(update_fields=["device_type", "os_family", "browser_family", "is_processed"])
-            return
-
-        # 3. Geolocate
-        if event.ip_address:
-            geo = geolocate_ip(event.ip_address)
-            event.country_code = geo["country_code"]
-            event.country_name = geo["country_name"]
-            event.region = geo["region"]
-            event.city = geo["city"]
-            event.latitude = geo["latitude"]
-            event.longitude = geo["longitude"]
-
-        # 4. Deduplication fingerprint
-        day_str = event.timestamp.strftime("%Y-%m-%d")
-        fingerprint = compute_scan_fingerprint(
-            event.ip_address or "", event.user_agent_raw, day_str
-        )
-        # Exclude self so first-scan-of-day is always unique
-        is_unique = not QRScanEvent.objects.filter(
-            qrcode=event.qrcode,
-            fingerprint=fingerprint,
-            is_unique=True,
-        ).exclude(id=event.id).exists()
-        event.fingerprint = fingerprint
-        event.is_unique = is_unique
-        event.is_processed = True
-
-        with transaction.atomic():
-            event.save()
-            event.qrcode.increment_scan(is_unique=is_unique)
-
-        # 5. Update aggregated stats asynchronously
-        update_daily_stats.delay(str(event.qrcode.id), day_str)
-
-        # 6. Scan alert — fire when threshold is first crossed
-        try:
-            _maybe_send_scan_alert(event.qrcode)
-        except Exception:
-            pass
-
-    except Exception as exc:
-        logger.exception("Error processing scan %s: %s", scan_event_id, exc)
-        raise self.retry(exc=exc)
-
-
-@shared_task
-def update_daily_stats(qrcode_id: str, date_str: str):
+def update_daily_stats_now(qrcode_id: str, date_str: str):
     """Recompute DailyQRStats for a given QR + date from raw events."""
     from apps.qrcodes.models import QRCode as QR
 
@@ -179,6 +104,93 @@ def update_daily_stats(qrcode_id: str, date_str: str):
 
     # Update user daily stats
     _update_user_daily_stats(str(qr.user_id), date_str)
+
+
+def process_scan_event_now(scan_event_id: str, *, geolocate: bool = False, update_aggregates: bool = True):
+    """
+    Process a scan immediately.
+
+    Redirects should not depend on a running Celery worker for scan counts.
+    Heavy geolocation remains opt-in so the request path stays fast. The same
+    helper powers the Celery task, which can enrich events later.
+    """
+    try:
+        event = QRScanEvent.objects.select_related("qrcode").get(id=scan_event_id)
+    except QRScanEvent.DoesNotExist:
+        logger.error("ScanEvent %s not found", scan_event_id)
+        return
+
+    if event.is_processed:
+        return
+
+    try:
+        # 1. Parse user agent
+        ua_info = parse_user_agent(event.user_agent_raw)
+        event.device_type = ua_info["device_type"]
+        event.os_family = ua_info["os_family"]
+        event.browser_family = ua_info["browser_family"]
+
+        # 2. Skip bot scans (don't count, don't geolocate)
+        if event.device_type == "bot":
+            event.is_processed = True
+            event.save(update_fields=["device_type", "os_family", "browser_family", "is_processed"])
+            return
+
+        # 3. Geolocate
+        if geolocate and event.ip_address:
+            geo = geolocate_ip(event.ip_address)
+            event.country_code = geo["country_code"]
+            event.country_name = geo["country_name"]
+            event.region = geo["region"]
+            event.city = geo["city"]
+            event.latitude = geo["latitude"]
+            event.longitude = geo["longitude"]
+
+        # 4. Deduplication fingerprint
+        day_str = event.timestamp.strftime("%Y-%m-%d")
+        fingerprint = compute_scan_fingerprint(
+            event.ip_address or "", event.user_agent_raw, day_str
+        )
+        # Exclude self so first-scan-of-day is always unique
+        is_unique = not QRScanEvent.objects.filter(
+            qrcode=event.qrcode,
+            fingerprint=fingerprint,
+            is_unique=True,
+        ).exclude(id=event.id).exists()
+        event.fingerprint = fingerprint
+        event.is_unique = is_unique
+        event.is_processed = True
+
+        with transaction.atomic():
+            event.save()
+            event.qrcode.increment_scan(is_unique=is_unique)
+
+        # 5. Update aggregated stats
+        if update_aggregates:
+            update_daily_stats_now(str(event.qrcode.id), day_str)
+
+        # 6. Scan alert — fire when threshold is first crossed
+        try:
+            _maybe_send_scan_alert(event.qrcode)
+        except Exception:
+            pass
+
+    except Exception as exc:
+        logger.exception("Error processing scan %s: %s", scan_event_id, exc)
+        raise
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def process_scan_event(self, scan_event_id: str):
+    try:
+        process_scan_event_now(scan_event_id, geolocate=True, update_aggregates=True)
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
+
+@shared_task
+def update_daily_stats(qrcode_id: str, date_str: str):
+    update_daily_stats_now(qrcode_id, date_str)
 
 
 def _update_user_daily_stats(user_id: str, date_str: str):

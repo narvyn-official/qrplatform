@@ -20,11 +20,20 @@ from django.db.models import Q, Sum
 from django.utils import timezone
 from django.conf import settings
 
-from apps.qrcodes.models import QRCode, QRScanEvent, QRCodeCampaign
+from apps.qrcodes.models import (
+    QRCode,
+    QRScanEvent,
+    QRCodeCampaign,
+    QRDestinationRule,
+    QRHealthCheck,
+    QRLandingPage,
+    QRConversionEvent,
+)
 from apps.qrcodes.forms import QRCodeForm
+from apps.qrcodes.premium import assess_destination, build_preprint_check, resolve_smart_destination
 from apps.qrcodes.tasks import generate_qr_images
 from apps.analytics.utils import get_client_ip, compute_scan_fingerprint
-from apps.analytics.tasks import process_scan_event
+from apps.analytics.tasks import process_scan_event, process_scan_event_now
 
 logger = logging.getLogger(__name__)
 
@@ -298,13 +307,20 @@ def qr_redirect(request, short_code):
         referer=referer[:2000],
     )
 
-    # Process asynchronously (geolocation, dedup, aggregation)
-    process_scan_event.delay(str(scan.id))
+    # Process immediately so local deployments without Celery still count scans.
+    try:
+        process_scan_event_now(str(scan.id), geolocate=False, update_aggregates=True)
+    except Exception:
+        logger.exception("Immediate scan processing failed for %s; queueing background retry", scan.id)
+        process_scan_event.delay(str(scan.id))
 
     # Resolve destination (dynamic uses destination_url; URL/static uses content)
     destination = (qr.destination_url if qr.is_dynamic else qr.content) or ""
     if not destination:
         return render(request, "qrcodes/expired.html", {"qr": qr}, status=410)
+
+    resolution = resolve_smart_destination(qr, request, destination)
+    destination = resolution.url
 
     # Apply UTM auto-append (pro feature)
     if qr.utm_params:
@@ -414,3 +430,111 @@ def qrcode_analytics_csv(request, pk):
             str(s.country_breakdown), str(s.browser_breakdown),
         ])
     return response
+
+
+@login_required
+def premium_studio(request):
+    qrcodes = QRCode.objects.filter(user=request.user).exclude(status="deleted").order_by("-updated_at")[:12]
+    health_summary = QRHealthCheck.objects.filter(qrcode__user=request.user)
+    context = {
+        "active_tab": "premium",
+        "qrcodes": qrcodes,
+        "broken_count": health_summary.filter(status="broken").count(),
+        "warning_count": health_summary.filter(status="warning").count(),
+        "conversion_count": QRConversionEvent.objects.filter(qrcode__user=request.user).count(),
+        "rule_count": QRDestinationRule.objects.filter(qrcode__user=request.user, is_active=True).count(),
+    }
+    return render(request, "qrcodes/premium.html", context)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def qrcode_preflight(request, pk):
+    qr = get_object_or_404(QRCode, id=pk, user=request.user)
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "health":
+            destination = (qr.destination_url if qr.is_dynamic else qr.content) or ""
+            result = assess_destination(destination)
+            result["checked_at"] = timezone.now()
+            QRHealthCheck.objects.update_or_create(qrcode=qr, defaults=result)
+            messages.success(request, "Destination health check completed.")
+            return redirect("qrcodes:preflight", pk=qr.id)
+        if action == "rule":
+            name = request.POST.get("name", "").strip() or "Smart rule"
+            destination_url = request.POST.get("destination_url", "").strip()
+            rule_type = request.POST.get("rule_type", QRDestinationRule.RuleType.DEVICE)
+            if destination_url:
+                QRDestinationRule.objects.create(
+                    qrcode=qr,
+                    name=name[:120],
+                    rule_type=rule_type,
+                    match_value=request.POST.get("match_value", "").strip()[:120],
+                    destination_url=destination_url,
+                    weight=max(int(request.POST.get("weight") or 50), 1),
+                )
+                messages.success(request, "Smart destination rule added.")
+            else:
+                messages.error(request, "Destination URL is required for a rule.")
+            return redirect("qrcodes:preflight", pk=qr.id)
+        if action == "landing":
+            QRLandingPage.objects.update_or_create(
+                qrcode=qr,
+                defaults={
+                    "mode": request.POST.get("mode") or QRLandingPage.Mode.LANDING,
+                    "title": request.POST.get("title", "").strip() or qr.name,
+                    "body": request.POST.get("body", "").strip(),
+                    "primary_label": request.POST.get("primary_label", "").strip() or "Open",
+                    "primary_url": request.POST.get("primary_url", "").strip(),
+                    "published": True,
+                },
+            )
+            messages.success(request, "Built-in landing page saved.")
+            return redirect("qrcodes:preflight", pk=qr.id)
+
+    try:
+        health = qr.health_check
+    except QRHealthCheck.DoesNotExist:
+        health = None
+    try:
+        landing = qr.landing_page
+    except QRLandingPage.DoesNotExist:
+        landing = None
+    context = {
+        "active_tab": "qrcodes",
+        "qr": qr,
+        "health": health,
+        "preprint": build_preprint_check(qr, health),
+        "rules": qr.destination_rules.all(),
+        "landing": landing,
+        "landing_url": request.build_absolute_uri(f"/p/{qr.short_code}/"),
+        "conversion_url": request.build_absolute_uri(f"/c/{qr.short_code}/click/"),
+    }
+    return render(request, "qrcodes/preflight.html", context)
+
+
+def public_landing_page(request, short_code):
+    qr = get_object_or_404(QRCode, short_code=short_code, status=QRCode.Status.ACTIVE)
+    landing = get_object_or_404(QRLandingPage, qrcode=qr, published=True)
+    return render(request, "qrcodes/public_landing.html", {"qr": qr, "landing": landing})
+
+
+def conversion_redirect(request, short_code, event_type):
+    qr = get_object_or_404(QRCode, short_code=short_code)
+    QRConversionEvent.objects.create(
+        qrcode=qr,
+        event_type=event_type[:60],
+        metadata={
+            "referer": request.META.get("HTTP_REFERER", "")[:500],
+            "user_agent": request.META.get("HTTP_USER_AGENT", "")[:500],
+        },
+    )
+    try:
+        landing = qr.landing_page
+    except QRLandingPage.DoesNotExist:
+        landing = None
+    next_url = request.GET.get("next") or (landing.primary_url if landing else "")
+    if next_url and urlparse(next_url).scheme in ("http", "https"):
+        return redirect(next_url)
+    return redirect(f"/p/{short_code}/")

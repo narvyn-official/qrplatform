@@ -1,0 +1,119 @@
+{% extends "dashboard/layout.html" %}
+{% block title %}Preflight - {{ qr.name }}{% endblock %}
+{% block page_title %}QR Preflight{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'qrcodes:detail' qr.id %}" class="btn-secondary">Back to QR</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+  <section class="mesh-panel p-5 sm:p-6 lg:col-span-4">
+    <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">Print readiness</p>
+    <h2 class="mt-2 text-3xl font-bold text-gray-950">{{ preprint.score }}%</h2>
+    <p class="mt-2 text-sm text-gray-600">Pre-print checklist for {{ qr.name }}.</p>
+    <div class="mt-5 space-y-3">
+      {% for check in preprint.checks %}
+      <div class="rounded-lg border {% if check.ok %}border-emerald-200 bg-emerald-50{% else %}border-amber-200 bg-amber-50{% endif %} p-3">
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm font-semibold text-gray-900">{{ check.label }}</p>
+          <span class="badge {% if check.ok %}badge-green{% else %}badge-yellow{% endif %}">{% if check.ok %}Pass{% else %}Check{% endif %}</span>
+        </div>
+        <p class="mt-1 text-xs leading-5 text-gray-600">{{ check.detail }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="space-y-6 lg:col-span-8">
+    <section class="card p-5 sm:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="font-semibold text-gray-950">QR health monitor</h3>
+          <p class="mt-1 text-sm text-gray-500">Checks broken destinations, HTTPS risk, and phishing-style keywords.</p>
+        </div>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="health">
+          <button type="submit" class="btn-primary">Run check</button>
+        </form>
+      </div>
+      <div class="mt-4 rounded-lg border border-surface-200 bg-surface-50 p-4">
+        {% if health %}
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="badge {% if health.status == 'ok' %}badge-green{% elif health.status == 'broken' %}badge-red{% else %}badge-yellow{% endif %}">{{ health.get_status_display }}</span>
+          <span class="text-xs text-gray-500">{{ health.response_ms }}ms{% if health.status_code %} · HTTP {{ health.status_code }}{% endif %}</span>
+        </div>
+        <p class="mt-2 break-all text-sm text-gray-700">{{ health.final_url }}</p>
+        {% if health.issue %}<p class="mt-2 text-sm text-amber-700">{{ health.issue }}</p>{% endif %}
+        {% else %}
+        <p class="text-sm text-gray-500">No health check has been run yet.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card p-5 sm:p-6">
+      <h3 class="font-semibold text-gray-950">Smart destination rules</h3>
+      <form method="post" class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="rule">
+        <input class="input" name="name" placeholder="Rule name">
+        <select class="input" name="rule_type">
+          <option value="device">Device</option>
+          <option value="language">Language</option>
+          <option value="country">Country</option>
+          <option value="time">Time window</option>
+          <option value="ab">A/B test</option>
+        </select>
+        <input class="input" name="match_value" placeholder="mobile, en, US, 09:00-17:00">
+        <input class="input" name="weight" type="number" min="1" value="50" placeholder="A/B weight">
+        <input class="input sm:col-span-2" name="destination_url" inputmode="url" placeholder="https://campaign-destination.com">
+        <button type="submit" class="btn-primary justify-center sm:col-span-2">Add rule</button>
+      </form>
+      <div class="mt-4 divide-y divide-surface-100">
+        {% for rule in rules %}
+        <div class="flex items-center justify-between gap-4 py-3 text-sm">
+          <div class="min-w-0">
+            <p class="font-semibold text-gray-900">{{ rule.name }} <span class="text-xs font-normal text-gray-500">({{ rule.get_rule_type_display }}{% if rule.match_value %}: {{ rule.match_value }}{% endif %})</span></p>
+            <p class="truncate text-xs text-gray-500">{{ rule.destination_url }}</p>
+          </div>
+          <span class="badge badge-blue">{{ rule.hits }} hits</span>
+        </div>
+        {% empty %}
+        <p class="py-4 text-sm text-gray-500">No smart routing rules yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card p-5 sm:p-6">
+      <h3 class="font-semibold text-gray-950">Built-in landing page</h3>
+      <form method="post" class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="landing">
+        <select class="input" name="mode">
+          <option value="landing">Landing page</option>
+          <option value="menu">Menu QR mode</option>
+          <option value="review">Review QR mode</option>
+          <option value="vcard">Dynamic vCard</option>
+          <option value="file">Editable file/PDF</option>
+        </select>
+        <input class="input" name="title" value="{{ landing.title|default:qr.name }}" placeholder="Page title">
+        <input class="input" name="primary_label" value="{{ landing.primary_label|default:'Open' }}" placeholder="Button label">
+        <input class="input" name="primary_url" value="{{ landing.primary_url|default:'' }}" inputmode="url" placeholder="https://destination.com">
+        <textarea class="input sm:col-span-2" name="body" rows="4" placeholder="Mobile page text">{{ landing.body|default:'' }}</textarea>
+        <button type="submit" class="btn-primary justify-center sm:col-span-2">Save landing page</button>
+      </form>
+      <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div class="rounded-lg border border-surface-200 bg-surface-50 p-3">
+          <p class="text-xs font-semibold uppercase text-gray-500">Public page</p>
+          <p class="mt-1 break-all font-mono text-xs text-gray-700">{{ landing_url }}</p>
+        </div>
+        <div class="rounded-lg border border-surface-200 bg-surface-50 p-3">
+          <p class="text-xs font-semibold uppercase text-gray-500">Conversion URL</p>
+          <p class="mt-1 break-all font-mono text-xs text-gray-700">{{ conversion_url }}</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
