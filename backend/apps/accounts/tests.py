@@ -102,6 +102,12 @@ class UserModelTests(TestCase):
         self.user.refresh_from_db()
         self.assertIsNotNone(self.user.last_activity)
 
+    def test_google_sub_can_be_saved(self):
+        self.user.google_sub = "google-123"
+        self.user.save(update_fields=["google_sub"])
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.google_sub, "google-123")
+
     def test_str(self):
         self.assertEqual(str(self.user), self.user.email)
 
@@ -315,6 +321,8 @@ class SignupViewTests(TestCase):
     def test_get_signup_page(self):
         resp = self.client.get(reverse("accounts:signup"))
         self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Continue with Google")
+        self.assertContains(resp, "Dynamic links")
 
     def test_successful_signup_redirects_to_login_without_verification_email(self):
         resp = self.client.post(reverse("accounts:signup"), {
@@ -357,6 +365,8 @@ class LoginViewTests(TestCase):
     def test_get_login_page(self):
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Continue with Google")
+        self.assertContains(resp, "Forgot password?")
 
     @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
     def test_valid_login_redirects(self, mock_ip):
@@ -415,6 +425,91 @@ class LoginViewTests(TestCase):
         self.client.force_login(self.user)
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, 302)
+
+
+@override_settings(
+    CACHES=CACHE_OVERRIDE,
+    GOOGLE_OAUTH_CLIENT_ID="client-id.apps.googleusercontent.com",
+    GOOGLE_OAUTH_CLIENT_SECRET="client-secret",
+)
+class GoogleOAuthViewTests(TestCase):
+
+    def test_google_login_redirects_to_google_with_state(self):
+        resp = self.client.get(reverse("accounts:google_login"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("accounts.google.com", resp["Location"])
+        self.assertIn("scope=openid+email+profile", resp["Location"])
+        self.assertIn("google_oauth_state", self.client.session)
+
+    @override_settings(GOOGLE_OAUTH_CLIENT_ID="", GOOGLE_OAUTH_CLIENT_SECRET="")
+    def test_google_login_without_config_redirects_to_login(self):
+        resp = self.client.get(reverse("accounts:google_login"))
+        self.assertRedirects(resp, reverse("accounts:login"))
+
+    @patch("apps.accounts.views.requests.get")
+    @patch("apps.accounts.views.requests.post")
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_google_callback_creates_verified_user(self, mock_ip, mock_post, mock_get):
+        session = self.client.session
+        session["google_oauth_state"] = "state123"
+        session["google_oauth_next"] = "/dashboard/"
+        session.save()
+
+        token_response = MagicMock()
+        token_response.json.return_value = {"id_token": "id-token"}
+        token_response.raise_for_status.return_value = None
+        mock_post.return_value = token_response
+
+        profile_response = MagicMock()
+        profile_response.json.return_value = {
+            "aud": "client-id.apps.googleusercontent.com",
+            "sub": "google-sub-1",
+            "email": "newgoogle@example.com",
+            "email_verified": "true",
+            "name": "Google User",
+        }
+        profile_response.raise_for_status.return_value = None
+        mock_get.return_value = profile_response
+
+        resp = self.client.get(reverse("accounts:google_callback"), {"state": "state123", "code": "abc"})
+
+        self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
+        user = User.objects.get(email="newgoogle@example.com")
+        self.assertEqual(user.google_sub, "google-sub-1")
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.is_email_verified)
+        self.assertFalse(user.has_usable_password())
+
+    @patch("apps.accounts.views.requests.get")
+    @patch("apps.accounts.views.requests.post")
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_google_callback_links_existing_verified_email(self, mock_ip, mock_post, mock_get):
+        user = make_active_user(email="existinggoogle@example.com")
+        session = self.client.session
+        session["google_oauth_state"] = "state123"
+        session.save()
+
+        token_response = MagicMock()
+        token_response.json.return_value = {"id_token": "id-token"}
+        token_response.raise_for_status.return_value = None
+        mock_post.return_value = token_response
+
+        profile_response = MagicMock()
+        profile_response.json.return_value = {
+            "aud": "client-id.apps.googleusercontent.com",
+            "sub": "google-sub-2",
+            "email": user.email,
+            "email_verified": True,
+            "name": "Existing Google",
+        }
+        profile_response.raise_for_status.return_value = None
+        mock_get.return_value = profile_response
+
+        resp = self.client.get(reverse("accounts:google_callback"), {"state": "state123", "code": "abc"})
+
+        self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
+        user.refresh_from_db()
+        self.assertEqual(user.google_sub, "google-sub-2")
 
 
 @override_settings(CACHES=CACHE_OVERRIDE)

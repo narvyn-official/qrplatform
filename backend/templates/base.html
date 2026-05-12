@@ -65,6 +65,8 @@
       body { font-family: 'Inter', sans-serif; }
       img, video, canvas, svg { max-width: 100%; }
       * { min-width: 0; }
+      details > summary { list-style: none; }
+      details > summary::-webkit-details-marker { display: none; }
     }
 
     @layer components {

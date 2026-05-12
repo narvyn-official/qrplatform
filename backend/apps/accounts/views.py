@@ -3,6 +3,9 @@ Account views — signup, login, email verification, password reset, profile.
 """
 import logging
 import secrets
+from urllib.parse import urlencode
+
+import requests
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import (
     login, logout, authenticate, get_user_model, update_session_auth_hash,
@@ -28,6 +31,9 @@ from apps.analytics.utils import get_client_ip
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
 
 
 def axes_lockout_handler(request, credentials, *args, **kwargs):
@@ -63,6 +69,26 @@ def _email_verification_required():
     return bool(getattr(settings, "EMAIL_VERIFICATION_REQUIRED", False))
 
 
+def _google_oauth_configured():
+    return bool(
+        getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "")
+        and getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", "")
+    )
+
+
+def _google_redirect_uri(request):
+    return request.build_absolute_uri("/accounts/google/callback/")
+
+
+def _auth_context(request, extra=None):
+    context = {
+        "google_oauth_configured": _google_oauth_configured(),
+    }
+    if extra:
+        context.update(extra)
+    return context
+
+
 def _login_context(request, form, verification_email=None):
     pending_email = ""
     if _email_verification_required():
@@ -74,12 +100,12 @@ def _login_context(request, form, verification_email=None):
         require_https=request.is_secure(),
     ):
         next_url = ""
-    return {
+    return _auth_context(request, {
         "form": form,
         "resend_form": ResendVerificationForm(initial={"email": pending_email}),
         "verification_email": pending_email,
         "next_url": next_url,
-    }
+    })
 
 
 @never_cache
@@ -106,7 +132,142 @@ def signup(request):
     else:
         form = SignupForm()
 
-    return render(request, "accounts/signup.html", {"form": form})
+    return render(request, "accounts/signup.html", _auth_context(request, {"form": form}))
+
+
+@never_cache
+def google_login(request):
+    if request.user.is_authenticated:
+        return redirect("qrcodes:dashboard")
+    if not _google_oauth_configured():
+        messages.error(request, "Google sign-in is not configured yet.")
+        return redirect("accounts:login")
+
+    state = secrets.token_urlsafe(32)
+    request.session["google_oauth_state"] = state
+    request.session["google_oauth_next"] = _safe_next_url(request)
+
+    params = {
+        "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
+        "redirect_uri": _google_redirect_uri(request),
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "online",
+        "prompt": "select_account",
+    }
+    return redirect(f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
+
+
+@never_cache
+def google_callback(request):
+    if not _google_oauth_configured():
+        messages.error(request, "Google sign-in is not configured yet.")
+        return redirect("accounts:login")
+
+    error = request.GET.get("error")
+    if error:
+        messages.error(request, "Google sign-in was cancelled or denied.")
+        return redirect("accounts:login")
+
+    state = request.GET.get("state", "")
+    expected_state = request.session.pop("google_oauth_state", "")
+    if not state or state != expected_state:
+        messages.error(request, "Google sign-in could not be verified. Please try again.")
+        return redirect("accounts:login")
+
+    code = request.GET.get("code", "")
+    if not code:
+        messages.error(request, "Google did not return a sign-in code.")
+        return redirect("accounts:login")
+
+    try:
+        token_response = requests.post(
+            GOOGLE_TOKEN_URL,
+            data={
+                "code": code,
+                "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
+                "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
+                "redirect_uri": _google_redirect_uri(request),
+                "grant_type": "authorization_code",
+            },
+            timeout=10,
+        )
+        token_response.raise_for_status()
+        tokens = token_response.json()
+        id_token = tokens.get("id_token")
+        if not id_token:
+            raise ValueError("Missing Google ID token.")
+
+        profile_response = requests.get(
+            GOOGLE_TOKENINFO_URL,
+            params={"id_token": id_token},
+            timeout=10,
+        )
+        profile_response.raise_for_status()
+        profile = profile_response.json()
+    except Exception as exc:
+        logger.exception("Google sign-in failed: %s", exc)
+        messages.error(request, "Google sign-in failed. Please try email login or try again.")
+        return redirect("accounts:login")
+
+    if profile.get("aud") != settings.GOOGLE_OAUTH_CLIENT_ID:
+        messages.error(request, "Google sign-in response did not match this app.")
+        return redirect("accounts:login")
+    if profile.get("email_verified") not in (True, "true", "True", "1", 1):
+        messages.error(request, "Google did not confirm this email address.")
+        return redirect("accounts:login")
+
+    google_sub = profile.get("sub", "")
+    email = (profile.get("email") or "").lower().strip()
+    full_name = (profile.get("name") or "").strip()
+    if not google_sub or not email:
+        messages.error(request, "Google did not return enough account details.")
+        return redirect("accounts:login")
+
+    user = User.objects.filter(google_sub=google_sub).first()
+    if not user:
+        user = User.objects.filter(email=email).first()
+        if user:
+            user.google_sub = google_sub
+            user.is_active = True
+            user.is_email_verified = True
+            if full_name and not user.full_name:
+                user.full_name = full_name
+            user.save(update_fields=["google_sub", "is_active", "is_email_verified", "full_name"])
+        else:
+            user = User.objects.create_user(
+                email=email,
+                password=None,
+                full_name=full_name,
+                google_sub=google_sub,
+                is_active=True,
+                is_email_verified=True,
+            )
+            user.set_unusable_password()
+            user.save(update_fields=["password"])
+            UserProfile.objects.get_or_create(user=user)
+    else:
+        update_fields = []
+        if not user.is_active:
+            user.is_active = True
+            update_fields.append("is_active")
+        if not user.is_email_verified:
+            user.is_email_verified = True
+            update_fields.append("is_email_verified")
+        if full_name and not user.full_name:
+            user.full_name = full_name
+            update_fields.append("full_name")
+        if update_fields:
+            user.save(update_fields=update_fields)
+
+    UserProfile.objects.get_or_create(user=user)
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    user.update_last_activity()
+    _log_audit(user, AuditLog.Action.LOGIN, request, provider="google")
+    request.session.pop("pending_verification_email", None)
+    next_url = request.session.pop("google_oauth_next", settings.LOGIN_REDIRECT_URL)
+    return redirect(next_url)
 
 
 def _send_verification_email(user, request):

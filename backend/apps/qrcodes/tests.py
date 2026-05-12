@@ -471,6 +471,9 @@ class QRCodeCreateViewTest(TestCase):
         resp = self.client.get(reverse("qrcodes:create"))
         self.assertEqual(resp.status_code, 200)
         self.assertIn("form", resp.context)
+        self.assertContains(resp, "<details class=\"card group\"", count=4)
+        self.assertContains(resp, "Ready with the basic details?")
+        self.assertContains(resp, "Colors, dots, corners, logo, frame, and output size.")
 
     @patch("apps.qrcodes.views._generate_qr_now", return_value=True)
     def test_post_valid_creates_qr(self, mock_generate):

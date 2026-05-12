@@ -10,80 +10,126 @@
 {% endblock %}
 
 {% block body %}
-<nav class="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-slate-950/70 backdrop-blur">
-  <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3 sm:px-6">
-    <div class="flex items-center gap-2.5">
+<nav class="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur">
+  <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <a href="{% url 'core:home' %}" class="flex items-center gap-2.5">
       <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-8 w-8 rounded-lg shadow-glow">
       <span class="text-sm font-bold text-white sm:text-base">{{ PLATFORM_NAME }}</span>
-    </div>
-    <div class="flex items-center gap-3">
-      <a href="{% url 'accounts:login' %}" class="text-sm font-medium text-slate-200 hover:text-white">Sign in</a>
-      <a href="{% url 'accounts:signup' %}" class="btn-primary">Get started</a>
+    </a>
+    <div class="flex items-center gap-2 sm:gap-3">
+      <a href="{% url 'accounts:login' %}" class="btn-secondary border-white/15 bg-white/10 px-3 py-2 text-white hover:bg-white/15">Sign in</a>
+      <a href="{% url 'accounts:signup' %}" class="btn-primary px-3 py-2 sm:px-4">Start free</a>
     </div>
   </div>
 </nav>
 
-<section class="hero-scene min-h-[86vh] px-5 pb-14 pt-28 text-white sm:px-6 lg:pt-32">
+<section class="hero-scene min-h-[92vh] px-4 pb-12 pt-24 text-white sm:px-6 lg:pt-28">
   <canvas id="ambient-particles" class="ambient-canvas z-0" aria-hidden="true"></canvas>
-  <div class="relative z-10 mx-auto flex max-w-6xl flex-col items-center text-center">
-    <div class="visual-stage mb-8 h-44 w-full">
-      <div class="mx-auto qr-prism">
-        <div class="qr-prism__face">
-          <span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span>
+  <div class="relative z-10 mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_420px]">
+    <div>
+      <p class="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-100 backdrop-blur">
+        QR codes, barcodes, analytics, and UPI plans
+      </p>
+      <h1 class="max-w-3xl text-4xl font-black leading-tight text-white sm:text-6xl">
+        {{ PLATFORM_NAME }}
+      </h1>
+      <p class="mt-5 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
+        Create editable QR campaigns, scan them, track every visit, and export production-ready files from one clean dashboard.
+      </p>
+      <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+        <a href="{% url 'accounts:signup' %}" class="btn-primary justify-center px-7 py-3 text-base shadow-glow">
+          Create free account
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+        </a>
+        <a href="{% url 'accounts:login' %}" class="btn-secondary justify-center border-white/20 bg-white/10 px-6 py-3 text-white hover:bg-white/15">
+          Sign in
+        </a>
+      </div>
+      <div class="mt-8 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <div class="rounded-lg border border-white/10 bg-white/10 p-3 backdrop-blur">
+          <p class="font-bold">Dynamic QR</p>
+          <p class="mt-1 text-xs text-slate-300">Edit after print</p>
+        </div>
+        <div class="rounded-lg border border-white/10 bg-white/10 p-3 backdrop-blur">
+          <p class="font-bold">Scanner</p>
+          <p class="mt-1 text-xs text-slate-300">Open or copy result</p>
+        </div>
+        <div class="rounded-lg border border-white/10 bg-white/10 p-3 backdrop-blur">
+          <p class="font-bold">Analytics</p>
+          <p class="mt-1 text-xs text-slate-300">Total and unique scans</p>
+        </div>
+        <div class="rounded-lg border border-white/10 bg-white/10 p-3 backdrop-blur">
+          <p class="font-bold">Paytm UPI</p>
+          <p class="mt-1 text-xs text-slate-300">Plan checkout</p>
         </div>
       </div>
     </div>
 
-    <p class="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-100 backdrop-blur">
-      Dynamic QR codes
-    </p>
-    <h1 class="max-w-4xl text-4xl font-black leading-tight text-white sm:text-6xl">
-      Dynamic QR codes for editable campaigns
-    </h1>
-    <p class="mt-5 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
-      Create QR codes, change destinations after printing, export production files, and track scans from one polished workspace.
-    </p>
-    <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-      <a href="{% url 'accounts:signup' %}" class="btn-primary px-7 py-3 text-base shadow-glow">
-        Start free
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-        </svg>
-      </a>
-      <a href="{% url 'core:pricing' %}" class="btn-secondary border-white/20 bg-white/10 px-6 py-3 text-white hover:bg-white/15">
-        View pricing
-      </a>
+    <div class="rounded-lg border border-white/15 bg-white/10 p-4 shadow-depth backdrop-blur">
+      <div class="rounded-lg bg-white p-4 text-gray-900">
+        <div class="mb-4 flex items-center justify-between">
+          <span class="text-sm font-bold">{{ PLATFORM_NAME }} dashboard</span>
+          <span class="badge badge-green">Live</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="rounded-lg bg-primary-50 p-4">
+            <p class="text-xs font-semibold text-primary-700">Total scans</p>
+            <p class="mt-2 text-2xl font-black text-gray-950">12.8k</p>
+          </div>
+          <div class="rounded-lg bg-emerald-50 p-4">
+            <p class="text-xs font-semibold text-emerald-700">Unique</p>
+            <p class="mt-2 text-2xl font-black text-gray-950">8.4k</p>
+          </div>
+        </div>
+        <div class="mt-4 space-y-2">
+          <div class="h-3 rounded-full bg-surface-100"><div class="h-3 w-4/5 rounded-full bg-primary-500"></div></div>
+          <div class="h-3 rounded-full bg-surface-100"><div class="h-3 w-3/5 rounded-full bg-emerald-500"></div></div>
+          <div class="h-3 rounded-full bg-surface-100"><div class="h-3 w-2/3 rounded-full bg-sky-500"></div></div>
+        </div>
+        <div class="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-semibold">
+          <span class="rounded-lg bg-surface-50 px-2 py-2">PNG</span>
+          <span class="rounded-lg bg-surface-50 px-2 py-2">SVG</span>
+          <span class="rounded-lg bg-surface-50 px-2 py-2">PDF</span>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="-mt-10 px-5 pb-20 sm:px-6">
-  <div class="mx-auto grid max-w-6xl grid-cols-1 gap-4 md:grid-cols-3">
-    {% for feature in features %}
-    <article class="card interactive-card p-6">
-      <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-lg {{ feature.bg }}">
-        {% if feature.icon == "scan" %}
-        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V5a1 1 0 011-1h2m10 0h2a1 1 0 011 1v2M4 17v2a1 1 0 001 1h2m10 0h2a1 1 0 001-1v-2M7 8h2v2H7zM15 8h2v2h-2zM7 16h2v2H7zM13 14h4v4h-4z"/>
-        </svg>
-        {% elif feature.icon == "chart" %}
-        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V8m5 8V5m5 11v-6M5 20h14"/>
-        </svg>
-        {% else %}
-        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l7 4v5c0 4.5-2.9 7.7-7 9-4.1-1.3-7-4.5-7-9V7z"/>
-        </svg>
-        {% endif %}
+<section class="px-4 py-14 sm:px-6">
+  <div class="mx-auto max-w-6xl">
+    <div class="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">What users get</p>
+        <h2 class="mt-2 text-2xl font-bold text-gray-950">The main workflow is already inside the product.</h2>
       </div>
-      <h2 class="text-lg font-bold text-gray-950">{{ feature.title }}</h2>
-      <p class="mt-2 text-sm leading-6 text-gray-600">{{ feature.desc }}</p>
-    </article>
-    {% endfor %}
+      <a href="{% url 'core:pricing' %}" class="btn-secondary justify-center">View pricing</a>
+    </div>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {% for feature in features %}
+      <article class="card interactive-card p-6">
+        <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-lg {{ feature.bg }}">
+          {% if feature.icon == "scan" %}
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V5a1 1 0 011-1h2m10 0h2a1 1 0 011 1v2M4 17v2a1 1 0 001 1h2m10 0h2a1 1 0 001-1v-2M7 8h2v2H7zM15 8h2v2h-2zM7 16h2v2H7zM13 14h4v4h-4z"/>
+          </svg>
+          {% elif feature.icon == "chart" %}
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V8m5 8V5m5 11v-6M5 20h14"/>
+          </svg>
+          {% else %}
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l7 4v5c0 4.5-2.9 7.7-7 9-4.1-1.3-7-4.5-7-9V7z"/>
+          </svg>
+          {% endif %}
+        </div>
+        <h2 class="text-lg font-bold text-gray-950">{{ feature.title }}</h2>
+        <p class="mt-2 text-sm leading-6 text-gray-600">{{ feature.desc }}</p>
+      </article>
+      {% endfor %}
+    </div>
   </div>
 </section>
 {% endblock %}

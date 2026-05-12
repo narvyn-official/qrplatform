@@ -2,48 +2,72 @@
 {% block title %}Create Account — {{ PLATFORM_NAME }}{% endblock %}
 
 {% block body %}
-<main class="auth-shell px-4 py-10 sm:px-6">
-  <div class="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-8 lg:grid-cols-[1fr_440px]">
-    <section class="hidden lg:block">
-      <div class="mesh-panel p-8">
-        <div class="visual-stage mb-8 flex h-44 items-center justify-center">
-          <div class="qr-prism">
-            <div class="qr-prism__face">
-              <span></span><span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span><span></span>
-              <span></span><span></span><span></span><span></span><span></span>
-            </div>
+<main class="auth-shell px-4 py-8 sm:px-6">
+  <div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-8 lg:grid-cols-[1fr_460px]">
+    <section class="order-2 lg:order-1">
+      <div class="mesh-panel p-6 sm:p-8">
+        <a href="{% url 'core:home' %}" class="mb-6 flex items-center gap-2.5">
+          <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-10 w-10 rounded-lg shadow-glow">
+          <span class="text-xl font-bold text-gray-950">{{ PLATFORM_NAME }}</span>
+        </a>
+        <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">Start free</p>
+        <h1 class="mt-2 max-w-xl text-3xl font-black leading-tight text-gray-950 sm:text-4xl">Create dynamic QR codes, barcodes, and scan reports in minutes.</h1>
+        <p class="mt-4 max-w-lg text-sm leading-6 text-gray-600">Your account opens the full dashboard: QR design, scanner, analytics, exports, API keys, and membership controls.</p>
+        <div class="mt-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:grid-cols-2">
+          <div class="rounded-lg border border-surface-200 bg-white/80 p-4">
+            <p class="font-bold text-gray-950">Dynamic links</p>
+            <p class="mt-1 text-xs leading-5 text-gray-500">Update destinations after printing.</p>
           </div>
-        </div>
-        <h1 class="max-w-xl text-4xl font-black leading-tight text-gray-950">Launch a cleaner QR and barcode workspace.</h1>
-        <p class="mt-4 max-w-lg text-sm leading-6 text-gray-600">Create dynamic QR codes, track scans, generate barcodes, and keep API access under control from one responsive dashboard.</p>
-        <div class="mt-6 grid grid-cols-3 gap-3 text-center text-xs font-semibold">
-          <span class="rounded-lg bg-primary-50 px-3 py-2 text-primary-700">QR exports</span>
-          <span class="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-700">Analytics</span>
-          <span class="rounded-lg bg-sky-50 px-3 py-2 text-sky-700">API keys</span>
+          <div class="rounded-lg border border-surface-200 bg-white/80 p-4">
+            <p class="font-bold text-gray-950">Scan analytics</p>
+            <p class="mt-1 text-xs leading-5 text-gray-500">Track totals, unique visits, and weekly trend.</p>
+          </div>
+          <div class="rounded-lg border border-surface-200 bg-white/80 p-4">
+            <p class="font-bold text-gray-950">Exports</p>
+            <p class="mt-1 text-xs leading-5 text-gray-500">Download PNG, SVG, PDF, and ZIP files.</p>
+          </div>
+          <div class="rounded-lg border border-surface-200 bg-white/80 p-4">
+            <p class="font-bold text-gray-950">Protected QR</p>
+            <p class="mt-1 text-xs leading-5 text-gray-500">Use limits, expiry, and passwords.</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="mx-auto w-full max-w-md">
-      <a href="{% url 'core:home' %}" class="mb-7 flex items-center justify-center gap-2.5 lg:justify-start">
-        <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-10 w-10 rounded-lg shadow-glow">
-        <span class="text-xl font-bold text-gray-950">{{ PLATFORM_NAME }}</span>
-      </a>
-
+    <section class="order-1 mx-auto w-full max-w-md lg:order-2">
       <div class="auth-panel p-6 sm:p-8">
-        <h2 class="text-2xl font-bold text-gray-950">Create your account</h2>
-        <p class="mt-2 text-sm leading-6 text-gray-500">Free forever. Start designing and scanning right after sign in.</p>
+        <div class="mb-6">
+          <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">New workspace</p>
+          <h2 class="mt-2 text-2xl font-bold text-gray-950">Create your account</h2>
+          <p class="mt-2 text-sm leading-6 text-gray-500">Use Google for the quickest start, or create an email login.</p>
+        </div>
 
         {% if form.non_field_errors %}
-        <div class="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div class="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {{ form.non_field_errors|join:", " }}
         </div>
         {% endif %}
 
-        <form method="post" class="mt-6 space-y-4">
+        {% if google_oauth_configured %}
+        <a href="{% url 'accounts:google_login' %}" class="btn-secondary w-full justify-center py-3 text-base">
+          <span class="font-bold text-[#4285F4]">G</span>
+          Continue with Google
+        </a>
+        {% else %}
+        <button type="button" class="btn-secondary w-full justify-center py-3 text-base opacity-70" disabled>
+          <span class="font-bold text-[#4285F4]">G</span>
+          Continue with Google
+          <span class="text-xs text-gray-400">(setup pending)</span>
+        </button>
+        {% endif %}
+
+        <div class="my-5 flex items-center gap-3">
+          <span class="h-px flex-1 bg-surface-200"></span>
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">or email</span>
+          <span class="h-px flex-1 bg-surface-200"></span>
+        </div>
+
+        <form method="post" class="space-y-4">
           {% csrf_token %}
           <div>
             <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="id_full_name">Full name</label>

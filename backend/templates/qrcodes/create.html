@@ -144,8 +144,26 @@
           </div>
         </section>
 
-        <section class="card p-5">
-          <h2 class="text-base font-semibold text-gray-950 mb-5">Design</h2>
+        <section class="card p-4 lg:hidden">
+          <p class="text-sm font-semibold text-gray-900">Ready with the basic details?</p>
+          <p class="mt-1 text-xs text-gray-500">You can generate now, or open optional settings below only if you need them.</p>
+          <button type="submit" class="btn-primary mt-3 w-full justify-center py-3">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Create QR Code
+          </button>
+        </section>
+
+        <details class="card group" {% if form.logo.errors %}open{% endif %}>
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
+            <div>
+              <h2 class="text-base font-semibold text-gray-950">Design</h2>
+              <p class="mt-1 text-sm text-gray-500">Colors, dots, corners, logo, frame, and output size.</p>
+            </div>
+            <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-200 text-gray-500 group-open:rotate-180">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </span>
+          </summary>
+          <div class="px-5 pb-5">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Foreground</label>
@@ -217,10 +235,20 @@
               <input type="color" name="frame_color" value="{{ form.frame_color.value|default:'#000000' }}" class="h-10 w-full rounded-lg border border-surface-200 cursor-pointer bg-white">
             </div>
           </div>
-        </section>
+          </div>
+        </details>
 
-        <section class="card p-5">
-          <h2 class="text-base font-semibold text-gray-950 mb-5">Access Rules</h2>
+        <details class="card group" {% if form.expires_at.errors or form.scan_limit.errors or form.access_password.errors or form.is_password_protected.value %}open{% endif %}>
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
+            <div>
+              <h2 class="text-base font-semibold text-gray-950">Access Rules</h2>
+              <p class="mt-1 text-sm text-gray-500">Expiry, scan limit, and password protection.</p>
+            </div>
+            <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-200 text-gray-500 group-open:rotate-180">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </span>
+          </summary>
+          <div class="px-5 pb-5">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Expires At</label>
@@ -242,19 +270,26 @@
               {% if form.access_password.errors %}<p class="text-rose-600 text-xs mt-1">{{ form.access_password.errors|join:", " }}</p>{% endif %}
             </div>
           </div>
-        </section>
+          </div>
+        </details>
 
         <!-- UTM Auto-Append (pro) -->
-        <section class="card p-5" x-show="['url','dynamic'].includes(qrType)" x-cloak>
-          <div class="flex items-center justify-between mb-4">
+        <details class="card group" x-show="['url','dynamic'].includes(qrType)" x-cloak>
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
             <div>
               <h2 class="text-base font-semibold text-gray-950">UTM Parameters</h2>
-              <p class="text-sm text-gray-500 mt-0.5">Auto-appended to the destination on every scan.</p>
+              <p class="text-sm text-gray-500 mt-1">Auto-appended to the destination on every scan.</p>
             </div>
+            <div class="flex items-center gap-2">
             {% if not request.user.is_pro %}
             <span class="badge badge-purple">Pro</span>
             {% endif %}
-          </div>
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-200 text-gray-500 group-open:rotate-180">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </span>
+            </div>
+          </summary>
+          <div class="px-5 pb-5">
           {% if not request.user.is_pro %}
           <p class="text-sm text-gray-400 italic">Upgrade to a paid plan to auto-append UTM parameters.</p>
           {% else %}
@@ -277,19 +312,26 @@
             </div>
           </div>
           {% endif %}
-        </section>
+          </div>
+        </details>
 
         <!-- Scheduled Activation (pro) -->
-        <section class="card p-5">
-          <div class="flex items-center justify-between mb-4">
+        <details class="card group">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
             <div>
               <h2 class="text-base font-semibold text-gray-950">Scheduled Activation</h2>
-              <p class="text-sm text-gray-500 mt-0.5">Automatically activate and deactivate on a schedule.</p>
+              <p class="text-sm text-gray-500 mt-1">Automatically activate and deactivate on a schedule.</p>
             </div>
+            <div class="flex items-center gap-2">
             {% if not request.user.is_pro %}
             <span class="badge badge-purple">Pro</span>
             {% endif %}
-          </div>
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-200 text-gray-500 group-open:rotate-180">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </span>
+            </div>
+          </summary>
+          <div class="px-5 pb-5">
           {% if not request.user.is_pro %}
           <p class="text-sm text-gray-400 italic">Upgrade to a paid plan to schedule activation windows.</p>
           {% else %}
@@ -304,7 +346,8 @@
             </div>
           </div>
           {% endif %}
-        </section>
+          </div>
+        </details>
       </div>
 
       <aside class="lg:col-span-5">

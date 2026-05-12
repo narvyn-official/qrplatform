@@ -246,6 +246,11 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@qrplatform.io
 SERVER_EMAIL = config("SERVER_EMAIL", default="errors@qrplatform.io")
 EMAIL_VERIFICATION_REQUIRED = config("EMAIL_VERIFICATION_REQUIRED", default=False, cast=bool)
 
+# Google OAuth sign-in. Add the callback URL in Google Cloud Console:
+# {PLATFORM_URL}/accounts/google/callback/
+GOOGLE_OAUTH_CLIENT_ID = config("GOOGLE_OAUTH_CLIENT_ID", default="")
+GOOGLE_OAUTH_CLIENT_SECRET = config("GOOGLE_OAUTH_CLIENT_SECRET", default="")
+
 # ── Static & Media ────────────────────────────────────────────────────────────
 
 STATIC_URL = "/static/"
