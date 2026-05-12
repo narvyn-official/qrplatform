@@ -39,21 +39,9 @@ if [ "$COLLECTSTATIC" = true ]; then
   docker compose run --rm web python manage.py collectstatic --noinput --clear
 fi
 
-# Rolling restart (zero downtime)
+# Restart application services.
 echo "→ Restarting services..."
-if docker compose config | awk '
-  $1 == "web:" { in_web = 1; next }
-  in_web && $0 ~ /^  [A-Za-z0-9_-]+:/ { in_web = 0 }
-  in_web && $1 == "ports:" { found = 1 }
-  END { exit found ? 0 : 1 }
-'; then
-  echo "→ Published web port detected; recreating the single web container..."
-  docker compose up -d --no-deps --force-recreate web
-else
-  docker compose up -d --no-deps --scale web=2 web
-  sleep 10
-  docker compose up -d --no-deps --scale web=1 web
-fi
+docker compose up -d --no-deps --scale web=1 --force-recreate web
 
 docker compose up -d --no-deps celery_worker celery_beat
 
