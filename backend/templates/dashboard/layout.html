@@ -87,8 +87,9 @@
         </div>
         <form method="post" action="{% url 'accounts:logout' %}">
           {% csrf_token %}
-          <button type="submit" class="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-surface-100 transition">
+          <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-gray-500 transition hover:bg-surface-100 hover:text-gray-800" aria-label="Log out">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            <span>Logout</span>
           </button>
         </form>
       </div>
@@ -116,6 +117,13 @@
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           New QR Code
         </a>
+        <form method="post" action="{% url 'accounts:logout' %}" class="hidden sm:block">
+          {% csrf_token %}
+          <button type="submit" class="btn-secondary px-3" aria-label="Log out">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            <span class="hidden lg:inline">Logout</span>
+          </button>
+        </form>
       </div>
     </header>
 
@@ -171,6 +179,24 @@
         <a href="{% url 'barcodes:list' %}" class="sidebar-link {% if active_tab == 'barcodes' %}active{% endif %}">My Barcodes</a>
         <a href="{% url 'accounts:profile' %}" class="sidebar-link {% if active_tab == 'profile' %}active{% endif %}">Profile & API Keys</a>
       </nav>
+      <div class="border-t border-surface-100 p-4">
+        <div class="mb-3 flex items-center gap-3">
+          <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
+            {{ request.user.display_name|first|upper }}
+          </div>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-semibold text-gray-900">{{ request.user.display_name }}</p>
+            <p class="text-xs capitalize text-gray-500">{{ request.user.role }}</p>
+          </div>
+        </div>
+        <form method="post" action="{% url 'accounts:logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn-secondary w-full justify-center text-rose-700 hover:bg-rose-50" aria-label="Log out">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            Logout
+          </button>
+        </form>
+      </div>
     </aside>
   </div>
 

@@ -350,6 +350,8 @@ class DashboardViewTest(TestCase):
         resp = self.client.get(reverse("qrcodes:dashboard"))
         self.assertEqual(resp.status_code, 200)
         self.assertIn("quick_actions", resp.context)
+        self.assertContains(resp, reverse("accounts:logout"))
+        self.assertContains(resp, "Logout")
 
     def test_dashboard_shows_recent_qrcodes(self):
         make_qrcode(self.user, name="Recent QR")

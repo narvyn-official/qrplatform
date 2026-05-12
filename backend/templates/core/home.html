@@ -17,8 +17,16 @@
       <span class="text-sm font-bold text-white sm:text-base">{{ PLATFORM_NAME }}</span>
     </a>
     <div class="flex items-center gap-2 sm:gap-3">
+      {% if request.user.is_authenticated %}
+      <a href="{% url 'qrcodes:dashboard' %}" class="btn-secondary border-white/15 bg-white/10 px-3 py-2 text-white hover:bg-white/15">Dashboard</a>
+      <form method="post" action="{% url 'accounts:logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-primary px-3 py-2 sm:px-4">Logout</button>
+      </form>
+      {% else %}
       <a href="{% url 'accounts:login' %}" class="btn-secondary border-white/15 bg-white/10 px-3 py-2 text-white hover:bg-white/15">Sign in</a>
       <a href="{% url 'accounts:signup' %}" class="btn-primary px-3 py-2 sm:px-4">Start free</a>
+      {% endif %}
     </div>
   </div>
 </nav>
@@ -37,6 +45,20 @@
         Create editable QR campaigns, scan them, track every visit, and export production-ready files from one clean dashboard.
       </p>
       <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+        {% if request.user.is_authenticated %}
+        <a href="{% url 'qrcodes:dashboard' %}" class="btn-primary justify-center px-7 py-3 text-base shadow-glow">
+          Open dashboard
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+        </a>
+        <form method="post" action="{% url 'accounts:logout' %}" class="sm:inline-flex">
+          {% csrf_token %}
+          <button type="submit" class="btn-secondary w-full justify-center border-white/20 bg-white/10 px-6 py-3 text-white hover:bg-white/15 sm:w-auto">
+            Logout
+          </button>
+        </form>
+        {% else %}
         <a href="{% url 'accounts:signup' %}" class="btn-primary justify-center px-7 py-3 text-base shadow-glow">
           Create free account
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -46,6 +68,7 @@
         <a href="{% url 'accounts:login' %}" class="btn-secondary justify-center border-white/20 bg-white/10 px-6 py-3 text-white hover:bg-white/15">
           Sign in
         </a>
+        {% endif %}
       </div>
       <div class="mt-8 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
         <div class="rounded-lg border border-white/10 bg-white/10 p-3 backdrop-blur">

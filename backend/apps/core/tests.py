@@ -1,6 +1,8 @@
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.accounts.tests import make_active_user
+
 
 class CorePageTests(TestCase):
     def test_home_page_renders_feature_content(self):
@@ -13,6 +15,16 @@ class CorePageTests(TestCase):
         self.assertContains(response, 'name="description"')
         self.assertContains(response, 'rel="canonical"')
         self.assertContains(response, 'application/ld+json')
+
+    def test_home_page_shows_logout_for_authenticated_users(self):
+        self.client.force_login(make_active_user())
+
+        response = self.client.get(reverse("core:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("qrcodes:dashboard"))
+        self.assertContains(response, reverse("accounts:logout"))
+        self.assertContains(response, "Logout")
 
     def test_pricing_page_renders(self):
         response = self.client.get(reverse("core:pricing"))
