@@ -85,18 +85,20 @@
         <dt class="text-gray-500">Unique Scans</dt>
         <dd class="font-semibold text-2xl text-gray-900 mt-0.5">{{ qr.unique_scans }}</dd>
       </div>
-      {% if qr.qr_type == 'url' or qr.is_dynamic %}
       <div class="sm:col-span-2">
-        <dt class="text-gray-500">{% if qr.is_dynamic %}Destination URL{% else %}URL{% endif %}</dt>
+        <dt class="text-gray-500">{% if qr.is_dynamic %}Destination URL{% elif qr.qr_type == 'url' %}URL{% else %}Stored Content{% endif %}</dt>
         <dd class="font-mono text-xs text-primary-700 break-all mt-0.5">
+          {% if qr.qr_type == 'url' or qr.is_dynamic %}
           <a href="{{ qr.destination_url|default:qr.content }}" target="_blank" rel="noopener noreferrer" class="hover:underline">{{ qr.destination_url|default:qr.content }}</a>
+          {% else %}
+          <span class="whitespace-pre-wrap">{{ qr.content|truncatechars:500 }}</span>
+          {% endif %}
         </dd>
       </div>
       <div class="sm:col-span-2">
         <dt class="text-gray-500">Scan Tracking URL <span class="text-xs text-green-600 font-normal">(encoded in QR)</span></dt>
         <dd class="font-mono text-xs text-gray-700 break-all mt-0.5">{{ qr.redirect_url }}</dd>
       </div>
-      {% endif %}
       {% if qr.utm_params %}
       <div class="sm:col-span-2">
         <dt class="text-gray-500">UTM Auto-Append</dt>

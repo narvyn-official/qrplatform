@@ -208,13 +208,11 @@ class QRCode(models.Model):
     def encoded_content(self):
         """Content to embed in QR image.
 
-        URL and Dynamic types both encode the platform redirect URL so every
-        scan is tracked, regardless of whether the user chose 'URL' or
-        'Dynamic URL' in the create form.
+        Every QR type encodes the platform redirect URL so scan counters,
+        limits, schedules, passwords, and analytics work consistently. The
+        redirect handler serves or forwards the stored content after counting.
         """
-        if self.qr_type in (self.QRType.DYNAMIC, self.QRType.URL):
-            return self.redirect_url
-        return self.content
+        return self.redirect_url
 
     def increment_scan(self, is_unique=False):
         """Thread-safe counter increment using F expressions."""

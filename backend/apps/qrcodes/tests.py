@@ -83,9 +83,13 @@ class QRCodeModelTest(TestCase):
         qr = make_qrcode(self.user)
         self.assertFalse(qr.is_dynamic)
 
-    def test_encoded_content_static(self):
+    def test_encoded_content_url_uses_tracking_redirect(self):
         qr = make_qrcode(self.user, content="https://example.com")
         self.assertIn(qr.short_code, qr.encoded_content)
+
+    def test_encoded_content_vcard_uses_tracking_redirect(self):
+        qr = make_qrcode(self.user, qr_type=QRCode.QRType.VCARD, content="BEGIN:VCARD\nFN:Test\nEND:VCARD")
+        self.assertEqual(qr.encoded_content, qr.redirect_url)
 
     def test_encoded_content_dynamic_uses_redirect_url(self):
         qr = make_qrcode(
@@ -727,6 +731,50 @@ class QRRedirectViewTest(TestCase):
         qr.refresh_from_db()
         self.assertEqual(qr.total_scans, 1)
         self.assertEqual(qr.unique_scans, 1)
+
+    def test_vcard_redirect_counts_and_serves_contact(self):
+        qr = make_qrcode(
+            self.user,
+            qr_type=QRCode.QRType.VCARD,
+            content="BEGIN:VCARD\nVERSION:3.0\nFN:Test Person\nEND:VCARD",
+        )
+        resp = self.client.get(
+            f"/r/{qr.short_code}/",
+            HTTP_USER_AGENT="Mozilla/5.0",
+            REMOTE_ADDR="127.0.0.1",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("text/vcard", resp["Content-Type"])
+        self.assertContains(resp, "BEGIN:VCARD")
+        qr.refresh_from_db()
+        self.assertEqual(qr.total_scans, 1)
+        self.assertEqual(qr.unique_scans, 1)
+
+    def test_text_redirect_counts_and_serves_content_page(self):
+        qr = make_qrcode(self.user, qr_type=QRCode.QRType.TEXT, content="Tracked note")
+        resp = self.client.get(
+            f"/r/{qr.short_code}/",
+            HTTP_USER_AGENT="Mozilla/5.0",
+            REMOTE_ADDR="127.0.0.1",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "qrcodes/tracked_content.html")
+        self.assertContains(resp, "Tracked note")
+        qr.refresh_from_db()
+        self.assertEqual(qr.total_scans, 1)
+
+    def test_email_redirect_counts_and_serves_action_page(self):
+        qr = make_qrcode(self.user, qr_type=QRCode.QRType.EMAIL, content="mailto:test@example.com")
+        resp = self.client.get(
+            f"/r/{qr.short_code}/",
+            HTTP_USER_AGENT="Mozilla/5.0",
+            REMOTE_ADDR="127.0.0.1",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "qrcodes/tracked_action.html")
+        self.assertContains(resp, "Open email app")
+        qr.refresh_from_db()
+        self.assertEqual(qr.total_scans, 1)
 
     def test_smart_destination_device_rule_redirects_and_counts_hits(self):
         qr = make_qrcode(self.user, content="https://default.example")

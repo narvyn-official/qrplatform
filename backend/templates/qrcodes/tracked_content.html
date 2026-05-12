@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+{% block body %}
+<main class="min-h-screen bg-surface-50 px-4 py-8">
+  <section class="mx-auto max-w-md rounded-lg border border-surface-200 bg-white p-5 shadow-card">
+    <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">{{ qr.get_qr_type_display }}</p>
+    <h1 class="mt-2 text-2xl font-bold text-gray-950">{{ title }}</h1>
+    <div class="mt-4 rounded-lg bg-surface-50 p-4 text-sm leading-6 text-gray-700 whitespace-pre-wrap break-words">{{ content }}</div>
+  </section>
+</main>
+{% endblock %}

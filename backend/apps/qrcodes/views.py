@@ -8,6 +8,7 @@ import zipfile
 from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
 
 from django.shortcuts import render, get_object_or_404, redirect
+from django.utils.text import slugify
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import (
@@ -71,6 +72,52 @@ def _active_qr_count(user):
 def _can_create_qr(user):
     max_qr = user.plan_limits["max_qr"]
     return max_qr < 0 or _active_qr_count(user) < max_qr
+
+
+def _tracked_content_response(request, qr):
+    """Return the stored QR payload after scan counting has completed."""
+    destination = (qr.destination_url if qr.is_dynamic else qr.content) or ""
+    if not destination:
+        return render(request, "qrcodes/expired.html", {"qr": qr}, status=410)
+
+    if qr.qr_type in (QRCode.QRType.URL, QRCode.QRType.DYNAMIC, QRCode.QRType.WHATSAPP):
+        resolution = resolve_smart_destination(qr, request, destination)
+        destination = resolution.url
+
+        if qr.utm_params:
+            try:
+                parsed = urlparse(destination)
+                qs = parse_qs(parsed.query, keep_blank_values=True)
+                for k, v in qr.utm_params.items():
+                    if v:
+                        qs[k] = [v]
+                destination = urlunparse(parsed._replace(query=urlencode(qs, doseq=True)))
+            except Exception:
+                pass
+
+        return redirect(destination, permanent=False)
+
+    if qr.qr_type == QRCode.QRType.VCARD:
+        filename = slugify(qr.name) or qr.short_code
+        response = HttpResponse(destination, content_type="text/vcard; charset=utf-8")
+        response["Content-Disposition"] = f'inline; filename="{filename}.vcf"'
+        return response
+
+    if qr.qr_type in (QRCode.QRType.EMAIL, QRCode.QRType.SMS):
+        label = "Open email app" if qr.qr_type == QRCode.QRType.EMAIL else "Open SMS app"
+        return render(request, "qrcodes/tracked_action.html", {
+            "qr": qr,
+            "title": qr.name,
+            "action_label": label,
+            "action_url": destination,
+            "content": destination,
+        })
+
+    return render(request, "qrcodes/tracked_content.html", {
+        "qr": qr,
+        "title": qr.name,
+        "content": destination,
+    })
 
 
 
@@ -340,27 +387,7 @@ def qr_redirect(request, short_code):
         logger.exception("Immediate scan processing failed for %s; queueing background retry", scan.id)
         process_scan_event.delay(str(scan.id))
 
-    # Resolve destination (dynamic uses destination_url; URL/static uses content)
-    destination = (qr.destination_url if qr.is_dynamic else qr.content) or ""
-    if not destination:
-        return render(request, "qrcodes/expired.html", {"qr": qr}, status=410)
-
-    resolution = resolve_smart_destination(qr, request, destination)
-    destination = resolution.url
-
-    # Apply UTM auto-append (pro feature)
-    if qr.utm_params:
-        try:
-            parsed = urlparse(destination)
-            qs = parse_qs(parsed.query, keep_blank_values=True)
-            for k, v in qr.utm_params.items():
-                if v:
-                    qs[k] = [v]
-            destination = urlunparse(parsed._replace(query=urlencode(qs, doseq=True)))
-        except Exception:
-            pass
-
-    return redirect(destination, permanent=False)
+    return _tracked_content_response(request, qr)
 
 
 # ── Premium / utility views ──────────────────────────────────────────────────
