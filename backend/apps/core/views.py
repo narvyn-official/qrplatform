@@ -162,7 +162,7 @@ def manifest(request):
 
 def service_worker(request):
     script = """
-const CACHE_NAME = 'qrflow-shell-v2';
+const CACHE_NAME = 'qrflow-shell-v3';
 const OFFLINE_URL = '/offline/';
 const CORE_ASSETS = [
   OFFLINE_URL,

@@ -1,21 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QRFlow logo">
   <defs>
-    <linearGradient id="bg" x1="76" y1="45" x2="452" y2="456" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#4F46E5"/>
-      <stop offset=".52" stop-color="#0EA5E9"/>
+    <linearGradient id="qrflow-bg" x1="74" y1="58" x2="438" y2="452" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#312E81"/>
+      <stop offset=".46" stop-color="#2563EB"/>
       <stop offset="1" stop-color="#10B981"/>
     </linearGradient>
-    <linearGradient id="scan" x1="122" y1="132" x2="380" y2="380" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#DBEAFE"/>
+    <linearGradient id="qrflow-flow" x1="160" y1="342" x2="372" y2="148" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#14B8A6"/>
+      <stop offset=".55" stop-color="#22C55E"/>
+      <stop offset="1" stop-color="#A7F3D0"/>
     </linearGradient>
+    <filter id="qrflow-shadow" x="56" y="62" width="400" height="400" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#0F172A" flood-opacity=".22"/>
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
-  <path d="M133 137c0-18 15-33 33-33h62c18 0 33 15 33 33v62c0 18-15 33-33 33h-62c-18 0-33-15-33-33v-62Zm223 0c0-18 15-33 33-33h17c18 0 33 15 33 33v62c0 18-15 33-33 33h-62c-18 0-33-15-33-33v-17c0-18 15-33 33-33h45v-45h-33Zm-223 223c0-18 15-33 33-33h62c18 0 33 15 33 33v17c0 18-15 33-33 33h-45v45h-17c-18 0-33-15-33-33v-62Z" fill="#fff" opacity=".95"/>
-  <rect x="166" y="137" width="62" height="62" rx="18" fill="#1E1B4B"/>
-  <rect x="344" y="137" width="62" height="62" rx="18" fill="#1E1B4B"/>
-  <rect x="166" y="360" width="62" height="62" rx="18" fill="#1E1B4B"/>
-  <path d="M274 132h45v45h-45v-45Zm-44 133h45v44h-45v-44Zm89 0h89v44h-89v-44Zm-45 89h44v88h-44v-88Zm89 0h45v44h-45v-44Zm-178-89h45v44h-45v-44Z" fill="url(#scan)" opacity=".95"/>
-  <path d="M392 306c-50 62-108 97-171 105" fill="none" stroke="#F8FAFC" stroke-width="24" stroke-linecap="round" opacity=".78"/>
-  <path d="M403 294l-17 68-50-48 67-20Z" fill="#F8FAFC" opacity=".86"/>
+  <rect width="512" height="512" rx="112" fill="url(#qrflow-bg)"/>
+  <path d="M88 156c0-37.6 30.4-68 68-68h200c37.6 0 68 30.4 68 68v200c0 37.6-30.4 68-68 68H156c-37.6 0-68-30.4-68-68V156Z" fill="#FFFFFF" opacity=".96" filter="url(#qrflow-shadow)"/>
+  <path d="M122 155c0-18.2 14.8-33 33-33h72c18.2 0 33 14.8 33 33v72c0 18.2-14.8 33-33 33h-72c-18.2 0-33-14.8-33-33v-72Zm30 5v62c0 4.4 3.6 8 8 8h62c4.4 0 8-3.6 8-8v-62c0-4.4-3.6-8-8-8h-62c-4.4 0-8 3.6-8 8Zm200-38c20.4 0 37 16.6 37 37v68c0 18.2-14.8 33-33 33h-68c-18.2 0-33-14.8-33-33v-68c0-20.4 16.6-37 37-37h60Zm7 38c0-4.4-3.6-8-8-8h-60c-4.4 0-8 3.6-8 8v62c0 4.4 3.6 8 8 8h60c4.4 0 8-3.6 8-8v-62ZM155 288h72c18.2 0 33 14.8 33 33v72c0 18.2-14.8 33-33 33h-72c-18.2 0-33-14.8-33-33v-72c0-18.2 14.8-33 33-33Zm5 30c-4.4 0-8 3.6-8 8v62c0 4.4 3.6 8 8 8h62c4.4 0 8-3.6 8-8v-62c0-4.4-3.6-8-8-8h-62Z" fill="#111827"/>
+  <rect x="176" y="176" width="30" height="30" rx="8" fill="#111827"/>
+  <rect x="305" y="176" width="32" height="30" rx="8" fill="#111827"/>
+  <rect x="176" y="342" width="30" height="30" rx="8" fill="#111827"/>
+  <path d="M287 288h38v38h-38v-38Zm62 0h39v38h-39v-38Zm-62 62h38v39h-38v-39Zm62 0h39v39h-39v-39Zm-62-124h38v38h-38v-38Zm-124 39h39v38h-39v-38Zm62 0h39v38h-39v-38Z" fill="#111827" opacity=".92"/>
+  <path d="M167 360c74-10 139-53 188-125" fill="none" stroke="url(#qrflow-flow)" stroke-width="34" stroke-linecap="round"/>
+  <path d="M353 187l18 91-88-28 70-63Z" fill="url(#qrflow-flow)"/>
+  <path d="M167 360c74-10 139-53 188-125" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" opacity=".62"/>
 </svg>
