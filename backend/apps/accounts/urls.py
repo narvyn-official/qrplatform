@@ -1,5 +1,6 @@
 from django.urls import path
 from apps.accounts import views
+from apps.accounts import billing_views
 
 app_name = "accounts"
 
@@ -15,4 +16,7 @@ urlpatterns = [
     path("change-password/", views.change_password, name="change_password"),
     path("api-keys/create/", views.create_api_key, name="create_api_key"),
     path("api-keys/<uuid:key_id>/revoke/", views.revoke_api_key, name="revoke_api_key"),
+    path("billing/checkout/<str:plan_code>/", billing_views.checkout, name="billing_checkout"),
+    path("billing/callback/", billing_views.billing_callback, name="billing_callback"),
+    path("billing/webhook/paytm/", billing_views.paytm_webhook, name="paytm_webhook"),
 ]

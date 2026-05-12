@@ -1,34 +1,90 @@
 {% extends "base.html" %}
-{% block title %}Pricing — {{ PLATFORM_NAME }}{% endblock %}
+{% block title %}Pricing - {{ PLATFORM_NAME }}{% endblock %}
+{% block meta_description %}Compare {{ PLATFORM_NAME }} Free, Pro, and Business plans for dynamic QR codes, UPI checkout, scan limits, analytics, exports, API access, and premium QR features.{% endblock %}
+{% block og_title %}{{ PLATFORM_NAME }} Pricing — Dynamic QR Membership Plans{% endblock %}
+{% block og_description %}Choose a Free, Pro, or Business plan for QR campaigns, scan analytics, exports, API keys, and higher usage limits.{% endblock %}
+{% block twitter_title %}{{ PLATFORM_NAME }} Pricing — Dynamic QR Membership Plans{% endblock %}
+{% block twitter_description %}Choose a Free, Pro, or Business plan for QR campaigns, scan analytics, exports, API keys, and higher usage limits.{% endblock %}
+{% block extra_head %}
+<script type="application/ld+json">{{ schema_json|safe }}</script>
+{% endblock %}
 {% block body %}
-<div class="max-w-4xl mx-auto px-6 py-16">
-  <h1 class="text-3xl font-bold text-center text-gray-900 mb-2">Simple, transparent pricing</h1>
-  <p class="text-center text-gray-500 mb-10">Start free, upgrade when you need more.</p>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <div class="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 class="text-lg font-bold text-gray-900 mb-1">Free</h2>
-      <p class="text-3xl font-bold text-gray-900 mb-4">$0<span class="text-sm font-normal text-gray-500">/mo</span></p>
-      <ul class="text-sm text-gray-600 space-y-2 mb-6">
-        <li>5 QR codes</li><li>500 scans/month</li><li>Basic analytics</li>
-      </ul>
-      <a href="{% url 'accounts:signup' %}" class="block text-center bg-gray-100 text-gray-800 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">Get started</a>
+<main class="min-h-screen bg-surface-50 px-4 py-10 sm:px-6">
+  <div class="mx-auto max-w-6xl">
+    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <a href="{% url 'core:home' %}" class="text-sm font-semibold text-primary-700">{{ PLATFORM_NAME }}</a>
+        <h1 class="mt-3 text-3xl font-bold text-gray-950 sm:text-4xl">Membership plans for serious QR campaigns</h1>
+        <p class="mt-3 max-w-2xl text-sm leading-6 text-gray-600">Start free, unlock UPI checkout when you need more QR codes, exports, campaign routing, API access, and higher scan capacity.</p>
+      </div>
+      {% if request.user.is_authenticated %}
+      <a href="{% url 'qrcodes:dashboard' %}" class="btn-secondary">Back to dashboard</a>
+      {% else %}
+      <a href="{% url 'accounts:signup' %}" class="btn-primary">Create account</a>
+      {% endif %}
     </div>
-    <div class="bg-primary-600 rounded-xl p-6 text-white">
-      <h2 class="text-lg font-bold mb-1">Pro</h2>
-      <p class="text-3xl font-bold mb-4">$19<span class="text-sm font-normal opacity-75">/mo</span></p>
-      <ul class="text-sm opacity-90 space-y-2 mb-6">
-        <li>500 QR codes</li><li>50,000 scans/month</li><li>Full analytics</li><li>Custom branding</li>
-      </ul>
-      <a href="{% url 'accounts:signup' %}" class="block text-center bg-white text-primary-700 py-2 rounded-lg text-sm font-medium hover:bg-primary-50">Start free trial</a>
+
+    {% if not gateway_configured %}
+    <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      Paytm checkout is not configured yet. Add live or test keys to enable UPI payments.
     </div>
-    <div class="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 class="text-lg font-bold text-gray-900 mb-1">Enterprise</h2>
-      <p class="text-3xl font-bold text-gray-900 mb-4">Custom</p>
-      <ul class="text-sm text-gray-600 space-y-2 mb-6">
-        <li>Unlimited QR codes</li><li>Unlimited scans</li><li>API access</li><li>Dedicated support</li>
-      </ul>
-      <a href="mailto:sales@qrplatform.io" class="block text-center bg-gray-100 text-gray-800 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">Contact sales</a>
+    {% endif %}
+
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {% for plan in plans %}
+      <section class="card p-5 sm:p-6 {% if plan.code == 'pro' %}border-primary-300 shadow-depth{% endif %}">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-bold text-gray-950">{{ plan.name }}</h2>
+            <p class="mt-1 text-sm text-gray-500">
+              {% if plan.code == 'free' %}For testing and low-volume personal use.{% elif plan.code == 'pro' %}Best for growing businesses and printed campaigns.{% else %}For agencies, teams, and high-volume usage.{% endif %}
+            </p>
+          </div>
+          {% if request.user.is_authenticated and request.user.active_plan_code == plan.code %}
+          <span class="badge badge-green">Current</span>
+          {% elif plan.code == 'pro' %}
+          <span class="badge badge-blue">Popular</span>
+          {% endif %}
+        </div>
+
+        <div class="mt-5">
+          {% if plan.monthly_price_inr %}
+          <p class="text-3xl font-black text-gray-950">Rs {{ plan.monthly_price_inr }}<span class="text-sm font-semibold text-gray-500">/mo</span></p>
+          <p class="mt-1 text-xs font-medium text-emerald-700">Yearly: Rs {{ plan.yearly_price_inr }} with built-in savings</p>
+          {% else %}
+          <p class="text-3xl font-black text-gray-950">Free</p>
+          <p class="mt-1 text-xs font-medium text-gray-500">No payment needed</p>
+          {% endif %}
+        </div>
+
+        <ul class="mt-5 space-y-2 text-sm text-gray-700">
+          {% for feature in plan.features %}
+          <li class="flex gap-2">
+            <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary-500"></span>
+            <span>{{ feature }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+
+        <div class="mt-6 space-y-2">
+          {% if plan.code == 'free' %}
+            {% if request.user.is_authenticated %}
+            <a href="{% url 'qrcodes:dashboard' %}" class="btn-secondary w-full">Use free plan</a>
+            {% else %}
+            <a href="{% url 'accounts:signup' %}" class="btn-secondary w-full">Start free</a>
+            {% endif %}
+          {% else %}
+            {% if request.user.is_authenticated %}
+            <a href="{% url 'accounts:billing_checkout' plan.code %}?billing=monthly" class="btn-primary w-full">Pay monthly with UPI</a>
+            <a href="{% url 'accounts:billing_checkout' plan.code %}?billing=yearly" class="btn-secondary w-full">Pay yearly with UPI</a>
+            {% else %}
+            <a href="{% url 'accounts:signup' %}" class="btn-primary w-full">Sign up to upgrade</a>
+            {% endif %}
+          {% endif %}
+        </div>
+      </section>
+      {% endfor %}
     </div>
   </div>
-</div>
+</main>
 {% endblock %}

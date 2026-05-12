@@ -19,11 +19,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
+    active_plan_code = serializers.ReadOnlyField()
+    plan_expires_at = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "email", "full_name", "role", "is_email_verified", "date_joined", "profile"]
-        read_only_fields = ["id", "email", "role", "is_email_verified", "date_joined"]
+        fields = ["id", "email", "full_name", "role", "active_plan_code", "plan_expires_at", "is_email_verified", "date_joined", "profile"]
+        read_only_fields = ["id", "email", "role", "active_plan_code", "plan_expires_at", "is_email_verified", "date_joined"]
 
 
 # ── QR Code ───────────────────────────────────────────────────────────────────
@@ -102,9 +104,24 @@ class QRCodeCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        user = self.context["request"].user
+        limits = user.plan_limits
+        max_qr = limits["max_qr"]
+        if max_qr > 0:
+            active_count = QRCode.objects.filter(
+                user=user,
+                status__in=[QRCode.Status.ACTIVE, QRCode.Status.PAUSED],
+            ).count()
+            if active_count >= max_qr:
+                raise serializers.ValidationError({"plan": f"Your current plan allows {max_qr} active QR codes."})
+
         qr_type = attrs.get("qr_type", QRCode.QRType.URL)
         if qr_type == QRCode.QRType.DYNAMIC and not attrs.get("destination_url"):
             raise serializers.ValidationError({"destination_url": "Required for dynamic QR codes."})
+        if attrs.get("outer_shape") not in (None, QRCode.OuterShape.SQUARE, QRCode.OuterShape.ROUNDED) and not limits["custom_shapes"]:
+            raise serializers.ValidationError({"outer_shape": "Custom QR shapes require a paid plan."})
+        if attrs.get("scan_limit") and limits["max_scans"] > 0 and attrs["scan_limit"] > limits["max_scans"]:
+            raise serializers.ValidationError({"scan_limit": f"Your current plan allows up to {limits['max_scans']:,} scans per QR."})
         return attrs
 
     def create(self, validated_data):

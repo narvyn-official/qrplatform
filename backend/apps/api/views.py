@@ -16,6 +16,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from apps.qrcodes.models import QRCode, QRCodeCampaign
 from apps.barcodes.models import Barcode, BulkBarcodeJob
 from apps.analytics.models import DailyQRStats, GeoStats
+from apps.analytics.selectors import account_daily_scan_series
 from apps.api.serializers import (
     QRCodeListSerializer, QRCodeDetailSerializer, QRCodeCreateSerializer,
     QRCodeUpdateDestinationSerializer,
@@ -166,18 +167,11 @@ class AnalyticsViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get"], url_path="summary")
     def summary(self, request):
         """Account-level analytics summary."""
-        from datetime import timedelta
-        from apps.analytics.models import UserDailyStats
-
         days = int(request.query_params.get("days", 30))
-        cutoff = (timezone.now() - timedelta(days=days)).date()
+        stats = account_daily_scan_series(request.user, days=days)
 
-        stats = UserDailyStats.objects.filter(
-            user_id=request.user.id, date__gte=cutoff
-        ).order_by("date")
-
-        total_scans = sum(s.total_scans for s in stats)
-        unique_scans = sum(s.unique_scans for s in stats)
+        total_scans = sum(s["total_scans"] for s in stats)
+        unique_scans = sum(s["unique_scans"] for s in stats)
         active_qr = QRCode.objects.filter(user=request.user, status="active").count()
 
         return Response({
@@ -185,7 +179,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             "unique_scans": unique_scans,
             "active_qr_count": active_qr,
             "daily_stats": [
-                {"date": str(s.date), "total_scans": s.total_scans, "unique_scans": s.unique_scans}
+                {"date": str(s["date"]), "total_scans": s["total_scans"], "unique_scans": s["unique_scans"]}
                 for s in stats
             ],
         })

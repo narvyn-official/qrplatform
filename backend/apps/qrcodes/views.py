@@ -34,6 +34,7 @@ from apps.qrcodes.premium import assess_destination, build_preprint_check, resol
 from apps.qrcodes.tasks import generate_qr_images
 from apps.analytics.utils import get_client_ip, compute_scan_fingerprint
 from apps.analytics.tasks import process_scan_event, process_scan_event_now
+from apps.analytics.selectors import account_daily_scan_series
 
 logger = logging.getLogger(__name__)
 
@@ -63,26 +64,30 @@ def _generate_qr_now(qr):
         return False
 
 
+def _active_qr_count(user):
+    return QRCode.objects.filter(user=user, status__in=[QRCode.Status.ACTIVE, QRCode.Status.PAUSED]).count()
+
+
+def _can_create_qr(user):
+    max_qr = user.plan_limits["max_qr"]
+    return max_qr < 0 or _active_qr_count(user) < max_qr
+
+
+
 # ── Dashboard views ──────────────────────────────────────────────────────────
 
 @login_required
 def dashboard(request):
     user = request.user
-    qrcodes = QRCode.objects.filter(user=user, status__in=["active", "paused"]).order_by("-created_at")
+    qrcodes = QRCode.objects.filter(user=user).exclude(status="deleted").order_by("-created_at")
+    active_qrcodes = qrcodes.filter(status__in=["active", "paused"])
 
-    total_qr = qrcodes.count()
+    total_qr = active_qrcodes.count()
     total_scans = qrcodes.aggregate(s=Sum("total_scans"))["s"] or 0
-
-    # Last 7 days stats
-    from datetime import date, timedelta
-    from apps.analytics.models import UserDailyStats
-    week_ago = (timezone.now() - timedelta(days=7)).date()
-    weekly_stats = UserDailyStats.objects.filter(
-        user_id=user.id, date__gte=week_ago
-    ).order_by("date")
 
     # Recent QR codes
     recent_qrcodes = qrcodes[:5]
+    top_qrcodes = qrcodes.order_by("-total_scans", "-created_at")[:5]
 
     quick_actions = [
         {"url": "/dashboard/qrcodes/create/", "label": "New QR Code", "desc": "URL, vCard, WiFi…", "bg": "bg-primary-50", "icon": '<svg class="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>'},
@@ -94,8 +99,9 @@ def dashboard(request):
     context = {
         "total_qr": total_qr,
         "total_scans": total_scans,
-        "weekly_stats": list(weekly_stats.values("date", "total_scans", "unique_scans")),
+        "weekly_stats": account_daily_scan_series(user, days=7),
         "recent_qrcodes": recent_qrcodes,
+        "top_qrcodes": top_qrcodes,
         "quick_actions": quick_actions,
         "active_tab": "dashboard",
     }
@@ -142,6 +148,11 @@ def qrcode_list(request):
 
 @login_required
 def qrcode_create(request):
+    if not _can_create_qr(request.user):
+        limits = request.user.plan_limits
+        messages.error(request, f"Your current plan allows {limits['max_qr']} active QR codes. Upgrade to create more.")
+        return redirect("core:pricing")
+
     if request.method == "POST":
         form = QRCodeForm(_qrcode_form_data(request.POST), request.FILES, user=request.user)
         if form.is_valid():
@@ -273,6 +284,10 @@ def qr_redirect(request, short_code):
     if qr.is_expired:
         return render(request, "qrcodes/expired.html", {"qr": qr}, status=410)
 
+    plan_scan_limit = qr.user.plan_limits["max_scans"]
+    if plan_scan_limit > 0 and qr.total_scans >= plan_scan_limit:
+        return render(request, "qrcodes/expired.html", {"qr": qr}, status=410)
+
     # Password gate
     if qr.is_password_protected:
         if request.method == "POST":
@@ -343,6 +358,11 @@ def qr_redirect(request, short_code):
 @require_POST
 def qrcode_clone(request, pk):
     """Duplicate a QR code with the same settings (resets stats and images)."""
+    if not _can_create_qr(request.user):
+        limits = request.user.plan_limits
+        messages.error(request, f"Your current plan allows {limits['max_qr']} active QR codes. Upgrade to clone more.")
+        return redirect("core:pricing")
+
     src = get_object_or_404(QRCode, id=pk, user=request.user)
     src.pk = None
     src.id = None
@@ -434,6 +454,10 @@ def qrcode_analytics_csv(request, pk):
 
 @login_required
 def premium_studio(request):
+    if not request.user.is_pro:
+        messages.error(request, "Premium Studio requires a paid membership.")
+        return redirect("core:pricing")
+
     qrcodes = QRCode.objects.filter(user=request.user).exclude(status="deleted").order_by("-updated_at")[:12]
     health_summary = QRHealthCheck.objects.filter(qrcode__user=request.user)
     context = {
@@ -450,6 +474,10 @@ def premium_studio(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def qrcode_preflight(request, pk):
+    if not request.user.is_pro:
+        messages.error(request, "Preflight, smart routing, and landing pages require a paid membership.")
+        return redirect("core:pricing")
+
     qr = get_object_or_404(QRCode, id=pk, user=request.user)
 
     if request.method == "POST":

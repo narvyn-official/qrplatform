@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
-from apps.qrcodes.models import QRCode, QRCodeCampaign
+from apps.qrcodes.models import QRCode, QRCodeCampaign, QRScanEvent
 from apps.barcodes.models import Barcode
 from apps.analytics.models import DailyQRStats
 
@@ -287,6 +287,33 @@ class AnalyticsViewSetTest(TestCase):
         self.assertIn("total_scans", resp.data)
         self.assertIn("unique_scans", resp.data)
         self.assertIn("daily_stats", resp.data)
+
+    def test_summary_counts_processed_scan_events(self):
+        qr = make_qrcode(self.user)
+        QRScanEvent.objects.create(
+            qrcode=qr,
+            ip_address="127.0.0.1",
+            user_agent_raw="Mozilla/5.0",
+            fingerprint="api-scan-1",
+            is_unique=True,
+            is_processed=True,
+            device_type="desktop",
+        )
+        QRScanEvent.objects.create(
+            qrcode=qr,
+            ip_address="127.0.0.1",
+            user_agent_raw="Mozilla/5.0",
+            fingerprint="api-scan-2",
+            is_unique=False,
+            is_processed=True,
+            device_type="desktop",
+        )
+
+        resp = self.client.get("/api/v1/analytics/summary/?days=7")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["total_scans"], 2)
+        self.assertEqual(resp.data["unique_scans"], 1)
 
     def test_summary_unauthenticated(self):
         self.client.force_authenticate(user=None)

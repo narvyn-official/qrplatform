@@ -10,12 +10,18 @@ class CorePageTests(TestCase):
         self.assertContains(response, "Dynamic destinations")
         self.assertContains(response, "Scan analytics")
         self.assertContains(response, "Access controls")
+        self.assertContains(response, 'name="description"')
+        self.assertContains(response, 'rel="canonical"')
+        self.assertContains(response, 'application/ld+json')
 
     def test_pricing_page_renders(self):
         response = self.client.get(reverse("core:pricing"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Simple, transparent pricing")
+        self.assertContains(response, "Membership plans")
+        self.assertContains(response, "UPI checkout")
+        self.assertContains(response, "Product")
+        self.assertContains(response, 'property="og:title"')
 
     def test_terms_page_renders(self):
         response = self.client.get(reverse("core:terms"))
@@ -45,6 +51,25 @@ class CorePageTests(TestCase):
         self.assertIn("application/javascript", response["Content-Type"])
         self.assertContains(response, "CACHE_NAME")
         self.assertContains(response, "icon-512.png")
+
+    def test_robots_txt_lists_sitemap_and_private_paths(self):
+        response = self.client.get(reverse("core:robots_txt"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/plain", response["Content-Type"])
+        self.assertContains(response, "Disallow: /dashboard/")
+        self.assertContains(response, "Disallow: /api/")
+        self.assertContains(response, "Sitemap:")
+
+    def test_sitemap_xml_lists_public_pages(self):
+        response = self.client.get(reverse("core:sitemap_xml"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/xml", response["Content-Type"])
+        self.assertContains(response, "<urlset")
+        self.assertContains(response, reverse("core:home"))
+        self.assertContains(response, reverse("core:pricing"))
+        self.assertContains(response, reverse("core:terms"))
 
     def test_health_check_reports_database_status(self):
         response = self.client.get(reverse("core:health"))

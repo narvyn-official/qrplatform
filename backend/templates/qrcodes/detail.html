@@ -38,7 +38,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+<div class="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6 mb-8">
 
   <!-- QR image -->
   <div class="card qr-art-card p-6 flex flex-col items-center justify-center">
@@ -56,7 +56,7 @@
   <!-- Stats -->
   <div class="card p-6 lg:col-span-2">
     <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Details</h2>
-    <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+    <dl class="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
       <div>
         <dt class="text-gray-500">Type</dt>
         <dd class="font-semibold text-gray-800 mt-0.5">{{ qr.get_qr_type_display }}</dd>
@@ -86,19 +86,19 @@
         <dd class="font-semibold text-2xl text-gray-900 mt-0.5">{{ qr.unique_scans }}</dd>
       </div>
       {% if qr.qr_type == 'url' or qr.is_dynamic %}
-      <div class="col-span-2">
+      <div class="sm:col-span-2">
         <dt class="text-gray-500">{% if qr.is_dynamic %}Destination URL{% else %}URL{% endif %}</dt>
         <dd class="font-mono text-xs text-primary-700 break-all mt-0.5">
           <a href="{{ qr.destination_url|default:qr.content }}" target="_blank" rel="noopener noreferrer" class="hover:underline">{{ qr.destination_url|default:qr.content }}</a>
         </dd>
       </div>
-      <div class="col-span-2">
+      <div class="sm:col-span-2">
         <dt class="text-gray-500">Scan Tracking URL <span class="text-xs text-green-600 font-normal">(encoded in QR)</span></dt>
         <dd class="font-mono text-xs text-gray-700 break-all mt-0.5">{{ qr.redirect_url }}</dd>
       </div>
       {% endif %}
       {% if qr.utm_params %}
-      <div class="col-span-2">
+      <div class="sm:col-span-2">
         <dt class="text-gray-500">UTM Auto-Append</dt>
         <dd class="mt-0.5 flex flex-wrap gap-1">
           {% for k, v in qr.utm_params.items %}
@@ -108,7 +108,7 @@
       </div>
       {% endif %}
       {% if qr.scheduled_active_from or qr.scheduled_active_until %}
-      <div class="col-span-2">
+      <div class="sm:col-span-2">
         <dt class="text-gray-500">Scheduled Window</dt>
         <dd class="text-sm text-gray-800 mt-0.5">
           {% if qr.scheduled_active_from %}From {{ qr.scheduled_active_from|date:"M d, Y H:i" }}{% endif %}
@@ -138,7 +138,7 @@
       </div>
     </dl>
 
-    <div class="mt-6 pt-5 border-t border-surface-100 flex items-center gap-4 flex-wrap">
+    <div class="mt-6 flex flex-col gap-3 border-t border-surface-100 pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
       <form method="post" action="{% url 'qrcodes:regenerate' qr.id %}">
         {% csrf_token %}
         <button type="submit" class="text-sm text-indigo-600 hover:underline">↻ Regenerate images</button>
@@ -154,8 +154,8 @@
 </div>
 
 {% if daily_stats %}
-<div class="card p-6">
-  <div class="flex items-center justify-between mb-4">
+<div class="card p-4 sm:p-6">
+  <div class="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
     <h2 class="font-semibold text-gray-900">Scan Activity — Last 30 Days</h2>
     <a href="{% url 'analytics:detail' qr.id %}" class="text-sm text-primary-600 hover:underline">Full analytics →</a>
   </div>

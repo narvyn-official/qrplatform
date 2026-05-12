@@ -12,22 +12,22 @@
 {% block content %}
 
 <!-- Summary cards -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <div class="card p-5">
+<div class="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+  <div class="card p-4 sm:p-5">
     <p class="text-xs font-medium text-gray-500 mb-2">Total Scans</p>
     <p class="text-3xl font-bold text-gray-900">{{ qr.total_scans }}</p>
   </div>
-  <div class="card p-5">
+  <div class="card p-4 sm:p-5">
     <p class="text-xs font-medium text-gray-500 mb-2">Unique Scans</p>
     <p class="text-3xl font-bold text-gray-900">{{ qr.unique_scans }}</p>
   </div>
-  <div class="card p-5">
+  <div class="card p-4 sm:p-5">
     <p class="text-xs font-medium text-gray-500 mb-2">Last Scanned</p>
     <p class="text-lg font-bold text-gray-900">
       {% if qr.last_scanned_at %}{{ qr.last_scanned_at|timesince }} ago{% else %}—{% endif %}
     </p>
   </div>
-  <div class="card p-5">
+  <div class="card p-4 sm:p-5">
     <p class="text-xs font-medium text-gray-500 mb-2">Status</p>
     <span class="badge {% if qr.status == 'active' %}badge-green{% elif qr.status == 'paused' %}badge-yellow{% else %}badge-red{% endif %} text-sm px-3 py-1">
       {{ qr.status|title }}
@@ -36,8 +36,8 @@
 </div>
 
 <!-- Date range selector -->
-<div class="flex gap-2 mb-6">
-  {% for d in "7,14,30,90" %}
+<div class="mb-6 flex flex-wrap gap-2">
+  {% for d in day_options %}
   <a href="?days={{ d }}"
      class="px-4 py-2 rounded-xl text-sm font-medium transition
        {% if days|stringformat:'s' == d %}bg-primary-600 text-white{% else %}bg-white border border-surface-200 text-gray-600 hover:bg-surface-50{% endif %}">
@@ -45,7 +45,7 @@
   </a>
   {% endfor %}
   <a href="{% url 'analytics:detail' qr.id %}?export=csv"
-     class="ml-auto btn-secondary">
+     class="btn-secondary sm:ml-auto">
     ↓ Export CSV
   </a>
 </div>
@@ -54,7 +54,7 @@
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
   <!-- Scans over time -->
-  <div class="card p-6 lg:col-span-2">
+  <div class="card p-4 sm:p-6 lg:col-span-2">
     <h2 class="font-semibold text-gray-900 mb-4">Scans Over Time</h2>
     <div class="h-64">
       <canvas id="scanTimeline"></canvas>
@@ -62,7 +62,7 @@
   </div>
 
   <!-- Device breakdown -->
-  <div class="card p-6">
+  <div class="card p-4 sm:p-6">
     <h2 class="font-semibold text-gray-900 mb-4">Device Breakdown</h2>
     <div class="h-48">
       <canvas id="deviceChart"></canvas>
@@ -70,13 +70,13 @@
   </div>
 
   <!-- Top Countries -->
-  <div class="card p-6">
+  <div class="card p-4 sm:p-6">
     <h2 class="font-semibold text-gray-900 mb-4">Top Countries</h2>
     <div class="space-y-3 overflow-y-auto max-h-52" id="geoList">
       {% for geo in geo_stats %}
       <div class="flex items-center gap-3">
         <span class="text-lg">{{ geo.country_code }}</span>
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between mb-1">
             <span class="text-sm font-medium text-gray-700">{{ geo.country_name|default:"Unknown" }}</span>
             <span class="text-sm text-gray-500">{{ geo.scans }}</span>
@@ -98,9 +98,9 @@
 </div>
 
 <!-- Heatmap -->
-<div class="card p-6 mb-6">
+<div class="card p-4 sm:p-6 mb-6">
   <h2 class="font-semibold text-gray-900 mb-4">Scan Heatmap (Day × Hour)</h2>
-  <div id="heatmap" class="overflow-x-auto">
+  <div id="heatmap" class="responsive-scroll">
     <!-- Rendered by JS -->
   </div>
 </div>

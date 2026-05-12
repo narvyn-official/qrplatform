@@ -4,6 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>{{ landing.title }}</title>
+  <meta name="description" content="{% if landing.body %}{{ landing.body|striptags|truncatechars:155 }}{% else %}{{ landing.title }}{% endif %}">
+  <meta name="robots" content="noindex, follow">
+  <link rel="canonical" href="{{ CANONICAL_URL }}">
+  <meta property="og:site_name" content="{{ PLATFORM_NAME }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ landing.title }}">
+  <meta property="og:description" content="{% if landing.body %}{{ landing.body|striptags|truncatechars:155 }}{% else %}{{ qr.name }}{% endif %}">
+  <meta property="og:url" content="{{ CANONICAL_URL }}">
+  <meta property="og:image" content="{{ SEO_DEFAULT_IMAGE }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ landing.title }}">
+  <meta name="twitter:description" content="{% if landing.body %}{{ landing.body|striptags|truncatechars:155 }}{% else %}{{ qr.name }}{% endif %}">
+  <meta name="twitter:image" content="{{ SEO_DEFAULT_IMAGE }}">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-white">

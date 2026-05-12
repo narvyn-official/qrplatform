@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 
 from apps.accounts.models import (
-    UserProfile, EmailVerificationToken, PasswordResetToken, APIKey, AuditLog
+    UserProfile, EmailVerificationToken, PasswordResetToken, APIKey, AuditLog, MembershipOrder
 )
 from apps.accounts.forms import (
     SignupForm, LoginForm, ProfileForm, ChangePasswordForm,
@@ -90,6 +90,12 @@ class UserModelTests(TestCase):
     def test_is_pro_false_for_user_role(self):
         self.user.role = User.Role.USER
         self.assertFalse(self.user.is_pro)
+
+    def test_plan_expiry_falls_back_to_free(self):
+        self.user.role = User.Role.PRO
+        self.user.plan = "pro"
+        self.user.plan_expires_at = timezone.now() - timedelta(days=1)
+        self.assertEqual(self.user.active_plan_code, "free")
 
     def test_update_last_activity(self):
         self.user.update_last_activity()
@@ -589,6 +595,9 @@ class APIKeyViewTests(TestCase):
 
     def setUp(self):
         self.user = make_active_user(email="apikey@example.com")
+        self.user.plan = "pro"
+        self.user.role = User.Role.PRO
+        self.user.save(update_fields=["plan", "role"])
         self.client.force_login(self.user)
 
     @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
@@ -616,3 +625,100 @@ class APIKeyViewTests(TestCase):
         key_obj, _ = APIKey.generate(other, "Other Key")
         resp = self.client.post(reverse("accounts:revoke_api_key", args=[key_obj.id]))
         self.assertEqual(resp.status_code, 404)
+
+
+@override_settings(
+    CACHES=CACHE_OVERRIDE,
+    PAYTM_ENVIRONMENT="staging",
+    PAYTM_MID="TESTMID123",
+    PAYTM_MERCHANT_KEY="testmerchantkey1",
+    PAYTM_WEBSITE_NAME="WEBSTAGING",
+)
+class MembershipBillingTests(TestCase):
+
+    def setUp(self):
+        self.user = make_active_user(email="billing@example.com")
+        self.client.force_login(self.user)
+
+    @patch("apps.accounts.billing_views.create_paytm_transaction")
+    def test_checkout_creates_membership_order(self, mock_create_transaction):
+        mock_create_transaction.return_value = {
+            "body": {"txnToken": "txn_token_123", "resultInfo": {"resultStatus": "S"}},
+            "head": {},
+        }
+
+        resp = self.client.get(reverse("accounts:billing_checkout", args=["pro"]) + "?billing=monthly")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Pay with Paytm / UPI")
+        self.assertContains(resp, "txn_token_123")
+        order = MembershipOrder.objects.get(provider="paytm")
+        self.assertEqual(order.plan_code, "pro")
+        self.assertEqual(order.amount_paise, 49900)
+        mock_create_transaction.assert_called_once()
+
+    @override_settings(PAYTM_MID="", PAYTM_MERCHANT_KEY="")
+    def test_checkout_requires_gateway_configuration(self):
+        resp = self.client.get(reverse("accounts:billing_checkout", args=["pro"]))
+
+        self.assertEqual(resp.status_code, 503)
+        self.assertContains(resp, "Paytm is not configured", status_code=503)
+
+    @patch("apps.accounts.billing_views.fetch_paytm_transaction_status")
+    def test_verified_callback_activates_membership(self, mock_status):
+        import paytmchecksum
+
+        order = MembershipOrder.objects.create(
+            user=self.user,
+            plan_code="pro",
+            billing_cycle="monthly",
+            amount_paise=49900,
+            provider="paytm",
+            provider_order_id="ORDER_VERIFIED",
+            receipt="receipt_verified",
+        )
+        mock_status.return_value = {
+            "body": {
+                "txnId": "TXN_VERIFIED",
+                "resultInfo": {"resultStatus": "TXN_SUCCESS", "resultCode": "01"},
+            }
+        }
+        params = {
+            "ORDERID": order.provider_order_id,
+            "TXNID": "TXN_VERIFIED",
+            "STATUS": "TXN_SUCCESS",
+            "RESPCODE": "01",
+        }
+        params["CHECKSUMHASH"] = paytmchecksum.generateSignature(params, "testmerchantkey1")
+
+        resp = self.client.post(reverse("accounts:billing_callback"), params)
+
+        self.assertRedirects(resp, reverse("qrcodes:dashboard"))
+        self.user.refresh_from_db()
+        order.refresh_from_db()
+        self.assertEqual(self.user.active_plan_code, "pro")
+        self.assertEqual(order.status, MembershipOrder.Status.PAID)
+
+    def test_invalid_callback_does_not_activate_membership(self):
+        order = MembershipOrder.objects.create(
+            user=self.user,
+            plan_code="pro",
+            billing_cycle="monthly",
+            amount_paise=49900,
+            provider="paytm",
+            provider_order_id="ORDER_INVALID",
+            receipt="receipt_invalid",
+        )
+
+        resp = self.client.post(reverse("accounts:billing_callback"), {
+            "ORDERID": order.provider_order_id,
+            "TXNID": "TXN_INVALID",
+            "STATUS": "TXN_FAILURE",
+            "CHECKSUMHASH": "bad",
+        })
+
+        self.assertRedirects(resp, reverse("core:pricing"))
+        self.user.refresh_from_db()
+        order.refresh_from_db()
+        self.assertEqual(self.user.active_plan_code, "free")
+        self.assertEqual(order.status, MembershipOrder.Status.FAILED)

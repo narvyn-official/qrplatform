@@ -33,6 +33,8 @@ user-agents==2.2.0
 geoip2==4.8.0
 requests==2.32.3
 django-ipware==7.0.1
+paytmchecksum==1.7.0
+pycryptodome==3.23.0
 
 # File & Storage
 django-storages==1.14.3

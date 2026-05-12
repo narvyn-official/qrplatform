@@ -23,7 +23,8 @@
       <div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
         <div class="rounded-lg bg-white/80 px-4 py-3 shadow-sm">
           <p class="text-xs text-gray-500">Plan</p>
-          <p class="mt-1 font-bold capitalize text-gray-950">{{ request.user.role }}</p>
+          <p class="mt-1 font-bold text-gray-950">{{ request.user.active_plan.name }}</p>
+          {% if request.user.plan_expires_at %}<p class="mt-1 text-[11px] text-gray-500">Until {{ request.user.plan_expires_at|date:"M d, Y" }}</p>{% endif %}
         </div>
         <div class="rounded-lg bg-white/80 px-4 py-3 shadow-sm">
           <p class="text-xs text-gray-500">Email</p>

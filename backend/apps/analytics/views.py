@@ -44,6 +44,7 @@ def analytics_detail(request, qr_id):
         "geo_stats": list(geo_stats.values("country_code", "country_name", "city", "scans")),
         "heatmap_data": heatmap,
         "days": days,
+        "day_options": [7, 14, 30, 90],
         "active_tab": "analytics",
     }
     return render(request, "analytics/detail.html", context)

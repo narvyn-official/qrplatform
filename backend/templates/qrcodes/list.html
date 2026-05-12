@@ -12,32 +12,32 @@
 {% block content %}
 
 <!-- Filters -->
-<div class="card p-4 mb-5 flex flex-wrap items-center gap-3">
-  <form method="get" class="flex flex-wrap items-center gap-3 flex-1">
+<div class="card p-4 mb-5">
+  <form method="get" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center">
     <input type="text" name="q" value="{{ query }}" placeholder="Search QR codes…"
-           class="input max-w-xs" id="search-input">
-    <select name="type" class="input max-w-[160px]">
+           class="input lg:max-w-xs" id="search-input">
+    <select name="type" class="input lg:max-w-[160px]">
       <option value="">All types</option>
       {% for value, label in qr_types %}
       <option value="{{ value }}" {% if request.GET.type == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <select name="status" class="input max-w-[140px]">
+    <select name="status" class="input lg:max-w-[140px]">
       <option value="">All statuses</option>
       <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
       <option value="paused" {% if request.GET.status == 'paused' %}selected{% endif %}>Paused</option>
       <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>Expired</option>
     </select>
-    <button type="submit" class="btn-secondary">Filter</button>
+    <button type="submit" class="btn-secondary w-full sm:w-auto">Filter</button>
     {% if query or request.GET.type or request.GET.status %}
-    <a href="{% url 'qrcodes:list' %}" class="text-sm text-gray-500 hover:text-gray-700">Clear</a>
+    <a href="{% url 'qrcodes:list' %}" class="btn-secondary w-full sm:w-auto">Clear</a>
     {% endif %}
   </form>
 </div>
 
 <!-- QR Code grid -->
 {% if qrcodes %}
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
   {% for qr in qrcodes %}
   <div class="card p-4 hover:shadow-card-hover transition-shadow group">
 
@@ -97,7 +97,7 @@
 
 <!-- Pagination -->
 {% if qrcodes.has_other_pages %}
-<div class="flex items-center justify-center gap-2">
+<div class="flex flex-col items-stretch justify-center gap-2 sm:flex-row sm:items-center">
   {% if qrcodes.has_previous %}
   <a href="?page={{ qrcodes.previous_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary px-3 py-1.5 text-sm">← Previous</a>
   {% endif %}
@@ -109,7 +109,7 @@
 {% endif %}
 
 {% else %}
-<div class="card p-16 text-center">
+<div class="card p-8 text-center sm:p-16">
   <svg class="w-16 h-16 text-gray-200 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
   <h2 class="text-lg font-semibold text-gray-700 mb-2">No QR Codes Yet</h2>
   <p class="text-gray-400 mb-6">Create your first QR code and start tracking scans.</p>

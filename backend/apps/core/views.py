@@ -1,8 +1,13 @@
+import json
+
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.db import connection
 from django.shortcuts import render
 from django.urls import reverse
+from django.utils import timezone
+from apps.accounts.payments import paytm_configured
+from apps.accounts.plans import PLAN_CATALOG
 
 
 HOME_FEATURES = [
@@ -28,7 +33,42 @@ HOME_FEATURES = [
 
 
 def home(request):
-    return render(request, "core/home.html", {"features": HOME_FEATURES})
+    site_url = settings.PLATFORM_URL.rstrip("/")
+    schema = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Organization",
+                "@id": f"{site_url}/#organization",
+                "name": settings.PLATFORM_NAME,
+                "url": site_url,
+                "logo": f"{site_url}/static/pwa/icon-512.png",
+            },
+            {
+                "@type": "WebSite",
+                "@id": f"{site_url}/#website",
+                "name": settings.PLATFORM_NAME,
+                "url": site_url,
+                "publisher": {"@id": f"{site_url}/#organization"},
+            },
+            {
+                "@type": "SoftwareApplication",
+                "name": settings.PLATFORM_NAME,
+                "applicationCategory": "BusinessApplication",
+                "operatingSystem": "Web",
+                "url": site_url,
+                "description": (
+                    "Create dynamic QR codes, editable campaign links, barcodes, exports, "
+                    "and scan analytics from one web dashboard."
+                ),
+                "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"},
+            },
+        ],
+    }
+    return render(request, "core/home.html", {
+        "features": HOME_FEATURES,
+        "schema_json": json.dumps(schema),
+    })
 
 
 def health_check(request):
@@ -42,7 +82,31 @@ def health_check(request):
 
 
 def pricing(request):
-    return render(request, "core/pricing.html")
+    site_url = settings.PLATFORM_URL.rstrip("/")
+    plans = [PLAN_CATALOG["free"], PLAN_CATALOG["pro"], PLAN_CATALOG["enterprise"]]
+    schema = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": f"{settings.PLATFORM_NAME} membership plans",
+        "description": "Membership plans for dynamic QR codes, scan analytics, exports, and API access.",
+        "brand": {"@type": "Brand", "name": settings.PLATFORM_NAME},
+        "offers": [
+            {
+                "@type": "Offer",
+                "name": plan.name,
+                "url": f"{site_url}{reverse('core:pricing')}",
+                "price": str(plan.monthly_price_inr),
+                "priceCurrency": "INR",
+                "availability": "https://schema.org/InStock",
+            }
+            for plan in plans
+        ],
+    }
+    return render(request, "core/pricing.html", {
+        "plans": plans,
+        "gateway_configured": paytm_configured(),
+        "schema_json": json.dumps(schema),
+    })
 
 
 def terms(request):
@@ -142,6 +206,50 @@ self.addEventListener('fetch', event => {
 });
 """.strip()
     return HttpResponse(script, content_type="application/javascript")
+
+
+def _site_url(path):
+    return f"{settings.PLATFORM_URL.rstrip('/')}{path}"
+
+
+def robots_txt(request):
+    body = "\n".join([
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /admin/",
+        "Disallow: /accounts/",
+        "Disallow: /api/",
+        "Disallow: /dashboard/",
+        "Disallow: /__debug__/",
+        f"Sitemap: {_site_url(reverse('core:sitemap_xml'))}",
+        "",
+    ])
+    return HttpResponse(body, content_type="text/plain")
+
+
+def sitemap_xml(request):
+    today = timezone.now().date().isoformat()
+    urls = [
+        {"loc": _site_url(reverse("core:home")), "priority": "1.0", "changefreq": "weekly"},
+        {"loc": _site_url(reverse("core:pricing")), "priority": "0.8", "changefreq": "weekly"},
+        {"loc": _site_url(reverse("core:terms")), "priority": "0.3", "changefreq": "yearly"},
+    ]
+    items = "\n".join(
+        "  <url>\n"
+        f"    <loc>{item['loc']}</loc>\n"
+        f"    <lastmod>{today}</lastmod>\n"
+        f"    <changefreq>{item['changefreq']}</changefreq>\n"
+        f"    <priority>{item['priority']}</priority>\n"
+        "  </url>"
+        for item in urls
+    )
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{items}\n"
+        "</urlset>\n"
+    )
+    return HttpResponse(body, content_type="application/xml")
 
 
 def bad_request(request, exception=None):

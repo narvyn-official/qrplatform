@@ -1,5 +1,13 @@
 {% extends "base.html" %}
 {% block title %}{{ PLATFORM_NAME }} — Dynamic QR Code & Analytics Platform{% endblock %}
+{% block meta_description %}Create dynamic QR codes, update campaign destinations after printing, generate barcodes, export production files, and track scan analytics in {{ PLATFORM_NAME }}.{% endblock %}
+{% block og_title %}{{ PLATFORM_NAME }} — Dynamic QR Code & Analytics Platform{% endblock %}
+{% block og_description %}Create editable QR campaigns, barcodes, scan analytics, and exports from one responsive dashboard.{% endblock %}
+{% block twitter_title %}{{ PLATFORM_NAME }} — Dynamic QR Code & Analytics Platform{% endblock %}
+{% block twitter_description %}Create editable QR campaigns, barcodes, scan analytics, and exports from one responsive dashboard.{% endblock %}
+{% block extra_head %}
+<script type="application/ld+json">{{ schema_json|safe }}</script>
+{% endblock %}
 
 {% block body %}
 <nav class="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-slate-950/70 backdrop-blur">

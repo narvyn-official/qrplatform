@@ -352,6 +352,49 @@ class DashboardViewTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("recent_qrcodes", resp.context)
 
+    def test_dashboard_uses_processed_scan_events_for_weekly_totals(self):
+        qr = make_qrcode(self.user, name="Scanned QR")
+        QRScanEvent.objects.create(
+            qrcode=qr,
+            ip_address="127.0.0.1",
+            user_agent_raw="Mozilla/5.0",
+            fingerprint="scan-1",
+            is_unique=True,
+            is_processed=True,
+            device_type="desktop",
+        )
+        QRScanEvent.objects.create(
+            qrcode=qr,
+            ip_address="127.0.0.1",
+            user_agent_raw="Mozilla/5.0",
+            fingerprint="scan-2",
+            is_unique=False,
+            is_processed=True,
+            device_type="desktop",
+        )
+
+        resp = self.client.get(reverse("qrcodes:dashboard"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(sum(row["total_scans"] for row in resp.context["weekly_stats"]), 2)
+        self.assertEqual(sum(row["unique_scans"] for row in resp.context["weekly_stats"]), 1)
+
+    def test_dashboard_total_scans_include_expired_codes(self):
+        make_qrcode(self.user, name="Expired QR", status=QRCode.Status.EXPIRED, total_scans=8)
+
+        resp = self.client.get(reverse("qrcodes:dashboard"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["total_scans"], 8)
+
+    def test_free_plan_blocks_qr_creation_after_limit(self):
+        for idx in range(5):
+            make_qrcode(self.user, name=f"Limit QR {idx}")
+
+        resp = self.client.get(reverse("qrcodes:create"))
+
+        self.assertRedirects(resp, reverse("core:pricing"))
+
 
 @override_settings(CACHES=CACHE_OVERRIDE, AXES_ENABLED=False)
 class QRCodeListViewTest(TestCase):
@@ -401,6 +444,9 @@ class QRCodeCreateViewTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = make_active_user()
+        self.user.plan = "pro"
+        self.user.role = User.Role.PRO
+        self.user.save(update_fields=["plan", "role"])
         self.client.force_login(self.user)
 
     def test_get_renders_form(self):
@@ -447,6 +493,9 @@ class QRCodeDetailViewTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = make_active_user()
+        self.user.plan = "pro"
+        self.user.role = User.Role.PRO
+        self.user.save(update_fields=["plan", "role"])
         self.client.force_login(self.user)
 
     def test_detail_renders(self):
@@ -468,6 +517,9 @@ class QRCodeEditViewTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = make_active_user()
+        self.user.plan = "pro"
+        self.user.role = User.Role.PRO
+        self.user.save(update_fields=["plan", "role"])
         self.client.force_login(self.user)
 
     def test_get_renders_form(self):
@@ -688,6 +740,9 @@ class QRPremiumFeatureTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = make_active_user(email="premium@example.com")
+        self.user.plan = "pro"
+        self.user.role = User.Role.PRO
+        self.user.save(update_fields=["plan", "role"])
         self.client.force_login(self.user)
 
     def test_scan_page_renders_phone_scanner_fallbacks(self):

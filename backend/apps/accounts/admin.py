@@ -1,18 +1,19 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from apps.accounts.models import User, UserProfile, APIKey, AuditLog
+from apps.accounts.models import User, UserProfile, APIKey, AuditLog, MembershipOrder
 
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ["email", "full_name", "role", "is_active", "is_email_verified", "date_joined"]
-    list_filter = ["role", "is_active", "is_email_verified"]
+    list_display = ["email", "full_name", "role", "plan", "plan_expires_at", "is_active", "is_email_verified", "date_joined"]
+    list_filter = ["role", "plan", "is_active", "is_email_verified"]
     search_fields = ["email", "full_name"]
     ordering = ["-date_joined"]
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Personal info", {"fields": ("full_name",)}),
-        ("Permissions", {"fields": ("role", "is_active", "is_staff", "is_superuser", "is_email_verified", "groups", "user_permissions")}),
+        ("Membership", {"fields": ("role", "plan", "plan_started_at", "plan_expires_at")}),
+        ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "is_email_verified", "groups", "user_permissions")}),
         ("2FA", {"fields": ("is_2fa_enabled",)}),
     )
     add_fieldsets = (
@@ -46,3 +47,16 @@ class AuditLogAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+@admin.register(MembershipOrder)
+class MembershipOrderAdmin(admin.ModelAdmin):
+    list_display = ["user", "plan_code", "billing_cycle", "status", "amount_paise", "provider_order_id", "paid_at"]
+    list_filter = ["status", "plan_code", "billing_cycle", "provider"]
+    search_fields = ["user__email", "provider_order_id", "provider_payment_id", "receipt"]
+    readonly_fields = [
+        "user", "plan_code", "billing_cycle", "status", "amount_paise", "currency",
+        "provider", "provider_order_id", "provider_payment_id", "provider_signature",
+        "receipt", "membership_started_at", "membership_expires_at", "raw_payload",
+        "created_at", "paid_at", "updated_at",
+    ]

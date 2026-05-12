@@ -386,6 +386,10 @@ def change_password(request):
 @login_required
 @require_POST
 def create_api_key(request):
+    if not request.user.plan_limits["api"]:
+        messages.error(request, "API keys require a paid membership.")
+        return redirect("accounts:profile")
+
     name = request.POST.get("name", "").strip()
     if not name:
         messages.error(request, "API key name is required.")

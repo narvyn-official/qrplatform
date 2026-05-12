@@ -8,6 +8,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
+from apps.accounts.plans import get_plan, plan_limits
 
 
 class UserManager(BaseUserManager):
@@ -42,6 +43,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(_("email address"), unique=True, db_index=True)
     full_name = models.CharField(_("full name"), max_length=150, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.USER)
+    plan = models.CharField(max_length=30, default="free", db_index=True)
+    plan_started_at = models.DateTimeField(null=True, blank=True)
+    plan_expires_at = models.DateTimeField(null=True, blank=True)
 
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
@@ -76,25 +80,29 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def is_pro(self):
-        return self.role in (self.Role.PRO, self.Role.ENTERPRISE, self.Role.ADMIN)
+        return self.active_plan_code in ("pro", "enterprise")
+
+    @property
+    def active_plan_code(self):
+        if self.role == self.Role.ADMIN:
+            return "enterprise"
+        if self.plan and self.plan != "free":
+            if not self.plan_expires_at or self.plan_expires_at >= timezone.now():
+                return self.plan
+            return "free"
+        if self.role == self.Role.ENTERPRISE:
+            return "enterprise"
+        if self.role == self.Role.PRO:
+            return "pro"
+        return "free"
+
+    @property
+    def active_plan(self):
+        return get_plan(self.active_plan_code)
 
     @property
     def plan_limits(self):
-        unlimited = dict(
-            max_qr=-1, max_scans=-1, logo=True, custom_shapes=True,
-            utm=True, export=True, api=True, scheduled=True, clone=True,
-        )
-        if self.role in (self.Role.ADMIN, self.Role.ENTERPRISE):
-            return unlimited
-        if self.role == self.Role.PRO:
-            return dict(
-                max_qr=100, max_scans=50_000, logo=True, custom_shapes=True,
-                utm=True, export=True, api=True, scheduled=True, clone=True,
-            )
-        return dict(
-            max_qr=5, max_scans=1_000, logo=False, custom_shapes=False,
-            utm=False, export=False, api=False, scheduled=False, clone=True,
-        )
+        return plan_limits(self.active_plan_code)
 
     def update_last_activity(self):
         User.objects.filter(pk=self.pk).update(last_activity=timezone.now())
@@ -221,6 +229,48 @@ class APIKey(models.Model):
             scopes=scopes or ["qr:read", "qr:write"],
         )
         return obj, raw_key
+
+
+class MembershipOrder(models.Model):
+    class BillingCycle(models.TextChoices):
+        MONTHLY = "monthly", _("Monthly")
+        YEARLY = "yearly", _("Yearly")
+
+    class Status(models.TextChoices):
+        CREATED = "created", _("Created")
+        PAID = "paid", _("Paid")
+        FAILED = "failed", _("Failed")
+        CANCELLED = "cancelled", _("Cancelled")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="membership_orders")
+    plan_code = models.CharField(max_length=30, db_index=True)
+    billing_cycle = models.CharField(max_length=20, choices=BillingCycle.choices, default=BillingCycle.MONTHLY)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.CREATED, db_index=True)
+    amount_paise = models.PositiveIntegerField()
+    currency = models.CharField(max_length=3, default="INR")
+    provider = models.CharField(max_length=30, default="paytm")
+    provider_order_id = models.CharField(max_length=80, unique=True, db_index=True)
+    provider_payment_id = models.CharField(max_length=80, blank=True, db_index=True)
+    provider_signature = models.CharField(max_length=256, blank=True)
+    receipt = models.CharField(max_length=40, unique=True)
+    membership_started_at = models.DateTimeField(null=True, blank=True)
+    membership_expires_at = models.DateTimeField(null=True, blank=True)
+    raw_payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "accounts_membership_order"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["plan_code", "billing_cycle"]),
+        ]
+
+    def __str__(self):
+        return f"MembershipOrder({self.user.email}: {self.plan_code} {self.status})"
 
 
 class AuditLog(models.Model):

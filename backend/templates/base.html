@@ -4,11 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="description" content="{% block meta_description %}{{ SEO_DEFAULT_DESCRIPTION }}{% endblock %}">
+  <meta name="robots" content="{% block robots %}{{ SEO_ROBOTS }}{% endblock %}">
   <meta name="theme-color" content="#4f46e5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="{{ PLATFORM_NAME }}">
   <meta name="mobile-web-app-capable" content="yes">
   <title>{% block title %}{{ PLATFORM_NAME }}{% endblock %}</title>
+  <link rel="canonical" href="{% block canonical_url %}{{ CANONICAL_URL }}{% endblock %}">
+  <meta property="og:site_name" content="{{ PLATFORM_NAME }}">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}{{ PLATFORM_NAME }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ SEO_DEFAULT_DESCRIPTION }}{% endblock %}">
+  <meta property="og:url" content="{% block og_url %}{{ CANONICAL_URL }}{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{{ SEO_DEFAULT_IMAGE }}{% endblock %}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitter_title %}{{ PLATFORM_NAME }}{% endblock %}">
+  <meta name="twitter:description" content="{% block twitter_description %}{{ SEO_DEFAULT_DESCRIPTION }}{% endblock %}">
+  <meta name="twitter:image" content="{% block twitter_image %}{{ SEO_DEFAULT_IMAGE }}{% endblock %}">
   <link rel="manifest" href="{% url 'core:manifest' %}">
   <link rel="icon" href="/static/pwa/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/static/pwa/icon-192.png">
@@ -48,16 +61,19 @@
   <style type="text/tailwindcss">
     @layer base {
       [x-cloak] { display: none !important; }
+      html, body { max-width: 100%; overflow-x: hidden; }
       body { font-family: 'Inter', sans-serif; }
+      img, video, canvas, svg { max-width: 100%; }
+      * { min-width: 0; }
     }
 
     @layer components {
       .sidebar-link { @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 transition-all duration-150; }
       .sidebar-link:hover { @apply bg-primary-50 text-primary-700; }
       .sidebar-link.active { @apply bg-primary-100 text-primary-700; }
-      .card { @apply bg-white rounded-lg border border-surface-200 shadow-card; }
-      .btn-primary { @apply inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg transition-colors duration-150 shadow-sm; }
-      .btn-secondary { @apply inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-surface-50 text-gray-700 text-sm font-medium rounded-lg border border-surface-200 transition-colors duration-150; }
+      .card { @apply min-w-0 bg-white rounded-lg border border-surface-200 shadow-card; }
+      .btn-primary { @apply inline-flex min-w-0 items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg transition-colors duration-150 shadow-sm; }
+      .btn-secondary { @apply inline-flex min-w-0 items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-surface-50 text-gray-700 text-sm font-medium rounded-lg border border-surface-200 transition-colors duration-150; }
       .input { @apply block w-full px-3.5 py-2.5 border border-surface-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition bg-white; }
       .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
       .badge-green  { @apply bg-emerald-100 text-emerald-800; }
@@ -229,8 +245,24 @@
       .mobile-tabbar {
         padding-bottom: max(.5rem, env(safe-area-inset-bottom));
       }
+      .scrollbar-hidden {
+        scrollbar-width: none;
+      }
+      .scrollbar-hidden::-webkit-scrollbar {
+        display: none;
+      }
+      .responsive-scroll {
+        @apply max-w-full overflow-x-auto;
+        -webkit-overflow-scrolling: touch;
+      }
       [data-pwa-install][hidden] {
         display: none !important;
+      }
+      @media (max-width: 640px) {
+        .card { @apply rounded-lg; }
+        .btn-primary,
+        .btn-secondary { @apply px-3 py-2 text-xs; }
+        .badge { @apply max-w-full truncate; }
       }
       @media (min-width: 1024px) {
         .auth-grid { grid-template-columns: minmax(460px, 52vw) minmax(360px, 1fr); }

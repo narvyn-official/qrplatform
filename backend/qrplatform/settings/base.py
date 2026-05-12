@@ -299,6 +299,15 @@ PLATFORM_URL = config("PLATFORM_URL", default="https://qrplatform.io")
 QR_REDIRECT_BASE = config("QR_REDIRECT_BASE", default="https://qrplatform.io/r/")
 SHORT_URL_BASE = config("SHORT_URL_BASE", default="https://qrfl.io/")
 
+# Paytm payment gateway (UPI, Paytm wallet, cards, netbanking through JS Checkout).
+PAYTM_ENVIRONMENT = config("PAYTM_ENVIRONMENT", default="staging")
+PAYTM_MID = config("PAYTM_MID", default="")
+PAYTM_MERCHANT_KEY = config("PAYTM_MERCHANT_KEY", default="")
+PAYTM_WEBSITE_NAME = config(
+    "PAYTM_WEBSITE_NAME",
+    default="DEFAULT" if PAYTM_ENVIRONMENT == "production" else "WEBSTAGING",
+)
+
 # Free tier limits
 FREE_TIER_QR_LIMIT = 5
 FREE_TIER_SCAN_LIMIT = 500

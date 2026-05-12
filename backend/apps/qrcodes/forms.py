@@ -159,6 +159,19 @@ class QRCodeForm(forms.ModelForm):
         if is_password_protected and not access_password and not self.instance.access_password_hash:
             raise ValidationError({"access_password": "Set a password for protected QR codes."})
 
+        if self.user:
+            limits = self.user.plan_limits
+            if cleaned.get("logo") and not limits["logo"]:
+                raise ValidationError({"logo": "Logo uploads require a paid plan."})
+            if cleaned.get("outer_shape") not in (QRCode.OuterShape.SQUARE, QRCode.OuterShape.ROUNDED) and not limits["custom_shapes"]:
+                raise ValidationError({"outer_shape": "Custom QR shapes require a paid plan."})
+            if any((cleaned.get(k) or "").strip() for k in ("utm_source", "utm_medium", "utm_campaign", "utm_content")) and not limits["utm"]:
+                raise ValidationError("UTM auto-append requires a paid plan.")
+            if (cleaned.get("scheduled_active_from") or cleaned.get("scheduled_active_until")) and not limits["scheduled"]:
+                raise ValidationError("Scheduled activation requires a paid plan.")
+            if cleaned.get("scan_limit") and limits["max_scans"] > 0 and cleaned["scan_limit"] > limits["max_scans"]:
+                raise ValidationError({"scan_limit": f"Your current plan allows up to {limits['max_scans']:,} scans per QR."})
+
         return cleaned
 
     def clean_logo(self):
