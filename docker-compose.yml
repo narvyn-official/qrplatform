@@ -93,6 +93,8 @@ services:
       - media_files:/app/media
       - app_logs:/app/logs
     command: celery -A qrplatform worker -l info --concurrency=4 -Q default,analytics,images
+    healthcheck:
+      disable: true
     networks: [backend]
 
   # ── Celery Beat (scheduler) ──────────────────────────────────────────────────
@@ -111,6 +113,8 @@ services:
     volumes:
       - app_logs:/app/logs
     command: celery -A qrplatform beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    healthcheck:
+      disable: true
     networks: [backend]
 
   # ── Nginx ────────────────────────────────────────────────────────────────────
