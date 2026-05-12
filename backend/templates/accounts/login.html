@@ -12,9 +12,9 @@
         </a>
 
         <div class="mb-5 grid grid-cols-3 gap-2 text-center text-[11px] font-semibold text-gray-600">
-          <span class="rounded-lg bg-white px-2 py-2 shadow-card">Dynamic QR</span>
-          <span class="rounded-lg bg-white px-2 py-2 shadow-card">Scan analytics</span>
-          <span class="rounded-lg bg-white px-2 py-2 shadow-card">UPI plans</span>
+          <span class="rounded-lg bg-white px-2 py-2 shadow-card">Edit after print</span>
+          <span class="rounded-lg bg-white px-2 py-2 shadow-card">Export files</span>
+          <span class="rounded-lg bg-white px-2 py-2 shadow-card">Scan reports</span>
         </div>
 
         <div class="auth-panel p-6 sm:p-8">
@@ -98,27 +98,33 @@
     <aside class="auth-visual hidden items-center justify-center p-10 text-white lg:flex">
       <canvas id="ambient-particles" class="ambient-canvas z-0" aria-hidden="true"></canvas>
       <div class="relative z-10 max-w-md">
-        <p class="badge bg-white/10 text-white">Production QR workspace</p>
-        <h2 class="mt-5 text-4xl font-black leading-tight">Everything important after login is one click away.</h2>
-        <p class="mt-4 text-base leading-7 text-slate-200">Create trackable QR codes, scan them, inspect analytics, export files, and manage membership plans without leaving the dashboard.</p>
+        <p class="badge bg-white/10 text-white">Built for paid QR campaigns</p>
+        <h2 class="mt-5 text-4xl font-black leading-tight">Turn every scan into a campaign you can improve.</h2>
+        <p class="mt-4 text-base leading-7 text-slate-200">Start free, then upgrade when you need branded exports, advanced scan reports, access controls, and team-ready campaign tools.</p>
         <div class="mt-8 grid grid-cols-2 gap-3 text-sm">
           <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
-            <p class="font-bold">Google or email</p>
-            <p class="mt-1 text-slate-300">OAuth, verified email, and password reset flows.</p>
+            <p class="font-bold">Edit after print</p>
+            <p class="mt-1 text-slate-300">Change destinations anytime so printed menus, posters, and packaging never go stale.</p>
           </div>
           <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
-            <p class="font-bold">Secure sessions</p>
-            <p class="mt-1 text-slate-300">Remember-me is explicit and reversible.</p>
+            <p class="font-bold">Pro scan reports</p>
+            <p class="mt-1 text-slate-300">Track total, unique, weekly, device, and location signals for every campaign.</p>
           </div>
           <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
-            <p class="font-bold">Scan insights</p>
-            <p class="mt-1 text-slate-300">Total, weekly, and unique scan metrics.</p>
+            <p class="font-bold">Brand-ready exports</p>
+            <p class="mt-1 text-slate-300">Use logos, colors, custom shapes, SVG, PNG, and PDF files for production work.</p>
           </div>
           <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
-            <p class="font-bold">UPI billing</p>
-            <p class="mt-1 text-slate-300">Plan upgrades through Paytm checkout.</p>
+            <p class="font-bold">Growth controls</p>
+            <p class="mt-1 text-slate-300">Unlock schedules, scan limits, password gates, UTM tags, API keys, and paid plans.</p>
           </div>
         </div>
+        <a href="{% url 'core:pricing' %}" class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-white underline underline-offset-4">
+          Compare paid plans
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+        </a>
       </div>
     </aside>
   </div>

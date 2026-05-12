@@ -589,9 +589,39 @@ class ForgotPasswordViewTests(TestCase):
     @patch("apps.accounts.views._send_password_reset_email")
     def test_post_with_existing_email_redirects(self, mock_send):
         user = make_active_user(email="forgot@example.com")
+        mock_send.return_value = True
         resp = self.client.post(reverse("accounts:forgot_password"), {"email": "forgot@example.com"})
         self.assertRedirects(resp, reverse("accounts:forgot_password"))
         mock_send.assert_called_once()
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        DEFAULT_FROM_EMAIL="support@example.com",
+    )
+    def test_post_with_existing_email_sends_reset_link(self):
+        user = make_active_user(email="reset-link@example.com")
+        old_token = PasswordResetToken.objects.create(user=user)
+
+        resp = self.client.post(reverse("accounts:forgot_password"), {"email": user.email})
+
+        self.assertRedirects(resp, reverse("accounts:forgot_password"))
+        self.assertEqual(len(mail.outbox), 1)
+        old_token.refresh_from_db()
+        self.assertTrue(old_token.is_used)
+        token = PasswordResetToken.objects.get(user=user, is_used=False)
+        reset_path = reverse("accounts:reset_password", args=[token.token])
+        self.assertIn(reset_path, mail.outbox[0].body)
+        self.assertIn(reset_path, mail.outbox[0].alternatives[0][0])
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend")
+    def test_post_when_email_backend_cannot_deliver_shows_error(self):
+        make_active_user(email="console@example.com")
+
+        resp = self.client.post(reverse("accounts:forgot_password"), {"email": "console@example.com"}, follow=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Password reset email delivery is not configured yet")
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_post_with_nonexistent_email_does_not_reveal(self):
         resp = self.client.post(reverse("accounts:forgot_password"), {"email": "nobody@example.com"})

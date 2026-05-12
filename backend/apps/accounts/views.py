@@ -433,10 +433,16 @@ def forgot_password(request):
     if request.method == "POST":
         form = ForgotPasswordForm(request.POST)
         if form.is_valid():
+            if not _password_reset_email_delivery_ready():
+                messages.error(request, "Password reset email delivery is not configured yet. Please contact support.")
+                return redirect("accounts:forgot_password")
+
             email = form.cleaned_data["email"]
             try:
                 user = User.objects.get(email=email, is_active=True)
-                _send_password_reset_email(user, request)
+                if not _send_password_reset_email(user, request):
+                    messages.error(request, "Password reset email could not be sent right now. Please try again shortly.")
+                    return redirect("accounts:forgot_password")
             except User.DoesNotExist:
                 pass  # Don't reveal existence
             messages.info(request, "If that email exists, a reset link has been sent.")
@@ -445,6 +451,25 @@ def forgot_password(request):
         form = ForgotPasswordForm()
 
     return render(request, "accounts/forgot_password.html", {"form": form})
+
+
+def _password_reset_email_delivery_ready():
+    backend = getattr(settings, "EMAIL_BACKEND", "")
+    non_delivery_backends = (
+        "django.core.mail.backends.console.EmailBackend",
+        "django.core.mail.backends.dummy.EmailBackend",
+        "django.core.mail.backends.filebased.EmailBackend",
+    )
+    if backend in non_delivery_backends:
+        return False
+    if backend == "django.core.mail.backends.smtp.EmailBackend":
+        return all([
+            getattr(settings, "EMAIL_HOST", ""),
+            getattr(settings, "EMAIL_HOST_USER", ""),
+            getattr(settings, "EMAIL_HOST_PASSWORD", ""),
+            getattr(settings, "DEFAULT_FROM_EMAIL", ""),
+        ])
+    return bool(getattr(settings, "DEFAULT_FROM_EMAIL", ""))
 
 
 def _send_password_reset_email(user, request):
@@ -466,9 +491,11 @@ def _send_password_reset_email(user, request):
     )
     msg.attach_alternative(html_body, "text/html")
     try:
-        msg.send()
+        msg.send(fail_silently=False)
     except Exception as exc:
         logger.error("Failed to send reset email to %s: %s", user.email, exc)
+        return False
+    return True
 
 
 def reset_password(request, token):
