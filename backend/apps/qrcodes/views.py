@@ -139,6 +139,62 @@ def dashboard(request):
     weekly_stats = account_daily_scan_series(user, days=7)
     weekly_total_scans = sum(row["total_scans"] for row in weekly_stats)
     weekly_unique_scans = sum(row["unique_scans"] for row in weekly_stats)
+    limits = user.plan_limits
+    qr_limit = limits.get("max_qr", 0)
+    remaining_qr = None if qr_limit < 0 else max(qr_limit - total_qr, 0)
+
+    launch_checklist = [
+        {
+            "label": "Create a dynamic QR",
+            "desc": "Publish one editable code before sharing any printed material.",
+            "done": total_qr > 0,
+            "url": "/dashboard/qrcodes/create/",
+        },
+        {
+            "label": "Test the scan flow",
+            "desc": "Use the scanner once so customers land exactly where you expect.",
+            "done": total_scans > 0,
+            "url": "/dashboard/scan/",
+        },
+        {
+            "label": "Review early scan signals",
+            "desc": "Watch total and unique scans before spending on more prints.",
+            "done": weekly_total_scans > 0 or total_scans > 0,
+            "url": "/dashboard/qrcodes/",
+        },
+        {
+            "label": "Unlock campaign tools",
+            "desc": "Upgrade for branded exports, UTM tags, schedules, API keys, and higher limits.",
+            "done": user.is_pro,
+            "url": "/pricing/",
+        },
+    ]
+    completed_steps = sum(1 for step in launch_checklist if step["done"])
+
+    if total_qr == 0:
+        recommended_action = {
+            "label": "Create your first QR",
+            "desc": "Start with a dynamic URL so you can edit the destination later.",
+            "url": "/dashboard/qrcodes/create/",
+        }
+    elif total_scans == 0:
+        recommended_action = {
+            "label": "Test a scan now",
+            "desc": "Confirm the customer experience before printing or sharing.",
+            "url": "/dashboard/scan/",
+        }
+    elif not user.is_pro:
+        recommended_action = {
+            "label": "Upgrade for campaigns",
+            "desc": "Add branded exports, UTM tracking, schedules, and higher limits.",
+            "url": "/pricing/",
+        }
+    else:
+        recommended_action = {
+            "label": "Export campaign assets",
+            "desc": "Download production files or package all QR codes into a ZIP.",
+            "url": "/dashboard/qrcodes/",
+        }
 
     # Recent QR codes
     recent_qrcodes = qrcodes[:5]
@@ -161,6 +217,11 @@ def dashboard(request):
         "recent_qrcodes": recent_qrcodes,
         "top_qrcodes": top_qrcodes,
         "quick_actions": quick_actions,
+        "launch_checklist": launch_checklist,
+        "completed_steps": completed_steps,
+        "remaining_qr": remaining_qr,
+        "qr_limit_unlimited": qr_limit < 0,
+        "recommended_action": recommended_action,
         "active_tab": "dashboard",
     }
     return render(request, "dashboard/index.html", context)

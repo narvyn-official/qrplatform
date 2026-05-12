@@ -350,8 +350,31 @@ class DashboardViewTest(TestCase):
         resp = self.client.get(reverse("qrcodes:dashboard"))
         self.assertEqual(resp.status_code, 200)
         self.assertIn("quick_actions", resp.context)
+        self.assertIn("launch_checklist", resp.context)
+        self.assertEqual(resp.context["completed_steps"], 0)
+        self.assertEqual(resp.context["recommended_action"]["label"], "Create your first QR")
+        self.assertContains(resp, "Campaign launch checklist")
+        self.assertContains(resp, "Launch a QR campaign customers can trust.")
         self.assertContains(resp, reverse("accounts:logout"))
         self.assertContains(resp, "Logout")
+
+    def test_dashboard_recommends_scan_after_first_qr(self):
+        make_qrcode(self.user, name="Needs scan")
+
+        resp = self.client.get(reverse("qrcodes:dashboard"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["recommended_action"]["label"], "Test a scan now")
+        self.assertContains(resp, "Recommended now: Test a scan now")
+
+    def test_dashboard_recommends_upgrade_after_scan_for_free_user(self):
+        make_qrcode(self.user, name="Scanned QR", total_scans=3, unique_scans=2)
+
+        resp = self.client.get(reverse("qrcodes:dashboard"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["recommended_action"]["label"], "Upgrade for campaigns")
+        self.assertContains(resp, "branded exports, UTM tracking, schedules, and higher limits")
 
     def test_dashboard_shows_recent_qrcodes(self):
         make_qrcode(self.user, name="Recent QR")
