@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from apps.accounts.tests import make_active_user
@@ -88,3 +88,24 @@ class CorePageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "ok")
+
+    @override_settings(CSRF_FAILURE_VIEW="apps.core.views.csrf_failure")
+    def test_csrf_failure_redirects_to_fresh_form(self):
+        client = Client(enforce_csrf_checks=True)
+
+        response = client.post(
+            reverse("accounts:login"),
+            {"csrfmiddlewaretoken": "stale-token"},
+            HTTP_HOST="testserver",
+            HTTP_REFERER="https://testserver/accounts/login/",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/accounts/login/?csrf=expired")
+
+    def test_csrf_recovery_message_renders(self):
+        response = self.client.get(f"{reverse('accounts:login')}?csrf=expired")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Session security refreshed")

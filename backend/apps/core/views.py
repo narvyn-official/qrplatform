@@ -1,13 +1,18 @@
 import json
+import logging
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.db import connection
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie
 from apps.accounts.payments import paytm_configured
 from apps.accounts.plans import PLAN_CATALOG
+
+logger = logging.getLogger(__name__)
 
 
 HOME_FEATURES = [
@@ -30,6 +35,35 @@ HOME_FEATURES = [
         "desc": "Use scan limits, expiry dates, and passwords for protected QR journeys.",
     },
 ]
+
+
+def _same_host_path(request, url):
+    parsed = urlparse(url or "")
+    if not parsed.scheme and not parsed.netloc and parsed.path.startswith("/"):
+        return parsed.path, parsed.query
+    if parsed.netloc == request.get_host():
+        return parsed.path or "/", parsed.query
+    return None, ""
+
+
+def _with_csrf_recovery_flag(path, query=""):
+    params = dict(parse_qsl(query, keep_blank_values=True))
+    params["csrf"] = "expired"
+    return f"{path}?{urlencode(params)}"
+
+
+@ensure_csrf_cookie
+def csrf_failure(request, reason=""):
+    logger.warning("CSRF validation failed on %s: %s", request.path, reason)
+
+    referer_path, referer_query = _same_host_path(request, request.META.get("HTTP_REFERER", ""))
+    if referer_path:
+        return HttpResponseRedirect(_with_csrf_recovery_flag(referer_path, referer_query))
+
+    request_path, request_query = _same_host_path(request, request.get_full_path())
+    recovery_path = request_path if request_path else reverse("accounts:login")
+    recovery_query = request_query if request_path else ""
+    return HttpResponseRedirect(_with_csrf_recovery_flag(recovery_path, recovery_query))
 
 
 def home(request):

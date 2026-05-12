@@ -128,6 +128,7 @@ AUTHENTICATION_BACKENDS = [
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/"
+CSRF_FAILURE_VIEW = "apps.core.views.csrf_failure"
 
 # ── REST Framework ────────────────────────────────────────────────────────────
 

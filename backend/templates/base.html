@@ -287,6 +287,13 @@
 </head>
 <body class="bg-surface-50 text-gray-900 antialiased h-full">
 
+  {% if request.GET.csrf == "expired" %}
+  <div class="fixed top-4 right-4 z-50 max-w-sm rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 shadow-lg">
+    <p class="text-sm font-semibold">Session security refreshed</p>
+    <p class="mt-1 text-xs leading-5">Please submit the form again. This usually happens when a page was open for a long time or restored from browser history.</p>
+  </div>
+  {% endif %}
+
   {% if messages %}
   <div id="flash-messages" class="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
     {% for message in messages %}
@@ -403,6 +410,12 @@
           navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
         });
       }
+
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted && document.querySelector('input[name="csrfmiddlewaretoken"]')) {
+          window.location.reload();
+        }
+      });
 
       let deferredInstallPrompt = null;
       const installButtons = () => Array.from(document.querySelectorAll('[data-pwa-install]'));
