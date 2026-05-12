@@ -343,7 +343,8 @@ class DashboardViewTest(TestCase):
     def test_scan_page_renders(self):
         resp = self.client.get(reverse("qrcodes:scan"))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Fast local QR scanning")
+        self.assertContains(resp, "Scan, confirm, then open")
+        self.assertContains(resp, "Scanned successfully")
 
     def test_dashboard_renders(self):
         resp = self.client.get(reverse("qrcodes:dashboard"))
@@ -812,6 +813,8 @@ class QRPremiumFeatureTest(TestCase):
         self.assertContains(resp, "jsQR")
         self.assertContains(resp, "Recent scans")
         self.assertContains(resp, "capture=\"environment\"")
+        self.assertContains(resp, "Open result")
+        self.assertContains(resp, "showResult")
 
     def test_premium_studio_renders(self):
         make_qrcode(self.user, name="Studio QR")

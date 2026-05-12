@@ -5,34 +5,70 @@
 
 {% block content %}
 
-<section class="mesh-panel mb-6 p-5 sm:p-6">
+<section class="mesh-panel mb-4 p-5 sm:p-6">
   <div class="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
     <div class="max-w-2xl">
       <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">Live workspace</p>
-      <h2 class="mt-2 text-2xl font-bold text-gray-950 sm:text-3xl">Build, scan, and learn from every code.</h2>
+      <h2 class="mt-2 text-2xl font-bold text-gray-950 sm:text-3xl">Create, scan, and act from one dashboard.</h2>
       <p class="mt-3 text-sm leading-6 text-gray-600">
-        Your QR codes, barcodes, analytics, and downloads are ready from one focused dashboard.
+        Start the most common task first, then use the metrics below to see what is working.
       </p>
-      <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-        <span class="badge badge-blue">PNG</span>
-        <span class="badge badge-green">SVG</span>
-        <span class="badge badge-yellow">PDF</span>
-        <span class="badge badge-gray">Dynamic links</span>
+      <div class="mt-5 flex flex-col gap-2 sm:flex-row">
+        <a href="{% url 'qrcodes:create' %}" class="btn-primary justify-center sm:justify-start">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Create QR code
+        </a>
+        <a href="{% url 'qrcodes:scan' %}" class="btn-secondary justify-center sm:justify-start">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2M3 17v2a2 2 0 002 2h2m10 0h2a2 2 0 002-2v-2M8 12h8m-4-4v8"/></svg>
+          Scan QR
+        </a>
       </div>
     </div>
-    <div class="visual-stage flex justify-center lg:w-72" aria-hidden="true">
-      <div class="qr-prism">
-        <div class="qr-prism__face">
-          <span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span>
-        </div>
+    <div class="rounded-lg border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur lg:w-80">
+      <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Next best actions</p>
+      <div class="mt-3 space-y-2">
+        <a href="{% url 'qrcodes:list' %}" class="flex items-center justify-between rounded-lg border border-surface-200 bg-white px-3 py-3 text-sm font-semibold text-gray-800 hover:border-primary-200 hover:text-primary-700">
+          Manage QR codes
+          <span aria-hidden="true">-></span>
+        </a>
+        <a href="{% url 'barcodes:create' %}" class="flex items-center justify-between rounded-lg border border-surface-200 bg-white px-3 py-3 text-sm font-semibold text-gray-800 hover:border-primary-200 hover:text-primary-700">
+          Create barcode
+          <span aria-hidden="true">-></span>
+        </a>
+        <a href="{% url 'accounts:profile' %}" class="flex items-center justify-between rounded-lg border border-surface-200 bg-white px-3 py-3 text-sm font-semibold text-gray-800 hover:border-primary-200 hover:text-primary-700">
+          Plan and API settings
+          <span aria-hidden="true">-></span>
+        </a>
       </div>
     </div>
   </div>
 </section>
+
+<!-- Quick actions -->
+<section class="mb-6">
+  <div class="mb-3 flex items-center justify-between gap-3">
+    <h2 class="text-sm font-semibold text-gray-900">Quick actions</h2>
+    <a href="{% url 'qrcodes:list' %}" class="text-sm font-semibold text-primary-700 hover:text-primary-800">View all QR codes</a>
+  </div>
+  <div class="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 xl:gap-4">
+    {% for item in quick_actions %}
+    <a href="{{ item.url }}" class="card interactive-card p-4 hover:shadow-card-hover group">
+      <div class="w-10 h-10 {{ item.bg }} rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+        {{ item.icon|safe }}
+      </div>
+      <p class="text-sm font-semibold text-gray-800">{{ item.label }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">{{ item.desc }}</p>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="mb-3 flex items-end justify-between gap-3">
+  <div>
+    <h2 class="text-sm font-semibold text-gray-900">Performance snapshot</h2>
+    <p class="mt-1 text-xs text-gray-500">The first row keeps the metrics users check most often within reach.</p>
+  </div>
+</div>
 
 <!-- Stats cards -->
 <div class="grid grid-cols-1 gap-3 mb-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
@@ -45,7 +81,7 @@
       </div>
     </div>
     <p class="text-3xl font-bold text-gray-900">{{ total_qr }}</p>
-    <p class="text-xs text-gray-400 mt-1">Active codes</p>
+    <p class="text-xs text-gray-400 mt-1">Active and paused codes</p>
   </div>
 
   <div class="card interactive-card p-5">
@@ -56,7 +92,7 @@
       </div>
     </div>
     <p class="text-3xl font-bold text-gray-900">{{ total_scans|default:0 }}</p>
-    <p class="text-xs text-gray-400 mt-1">All time</p>
+    <p class="text-xs text-gray-400 mt-1">All-time tracked scans</p>
   </div>
 
   <div class="card interactive-card p-5">
@@ -99,7 +135,10 @@
 
   <!-- Top QR Codes -->
   <div class="card p-5">
-    <h2 class="font-semibold text-gray-900 mb-4">Top QR Codes</h2>
+    <div class="mb-4 flex items-center justify-between gap-3">
+      <h2 class="font-semibold text-gray-900">Top QR Codes</h2>
+      <a href="{% url 'qrcodes:list' %}" class="text-xs font-semibold text-primary-700 hover:text-primary-800">All codes</a>
+    </div>
     <div class="space-y-3">
       {% for qr in top_qrcodes %}
       <a href="{% url 'qrcodes:detail' qr.id %}" class="flex items-center gap-3 group">
@@ -123,19 +162,6 @@
     </div>
   </div>
 
-</div>
-
-<!-- Quick actions -->
-<div class="grid grid-cols-1 gap-3 mb-8 min-[380px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 xl:gap-4">
-  {% for item in quick_actions %}
-  <a href="{{ item.url }}" class="card interactive-card p-4 hover:shadow-card-hover group">
-    <div class="w-10 h-10 {{ item.bg }} rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-      {{ item.icon|safe }}
-    </div>
-    <p class="text-sm font-semibold text-gray-800">{{ item.label }}</p>
-    <p class="text-xs text-gray-400 mt-0.5">{{ item.desc }}</p>
-  </a>
-  {% endfor %}
 </div>
 
 <!-- Plan usage bar -->

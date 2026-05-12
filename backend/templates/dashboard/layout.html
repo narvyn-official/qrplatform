@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block body %}
-<div class="flex h-screen min-h-dvh overflow-hidden bg-surface-50" x-data="{ mobileNav: false }">
+<div class="flex h-screen min-h-dvh overflow-hidden bg-surface-50" x-data="{ mobileNav: false, scannerResultOpen: false }" @scanner-result.window="scannerResultOpen = $event.detail.open">
 
   <!-- Sidebar -->
   <aside class="relative z-20 hidden md:flex w-64 flex-shrink-0 bg-white border-r border-surface-200 flex-col">
@@ -124,7 +124,7 @@
     </div>
   </main>
 
-  <nav class="mobile-tabbar fixed inset-x-0 bottom-0 z-30 border-t border-surface-200 bg-white/95 px-2 pt-2 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur md:hidden" aria-label="Primary mobile navigation">
+  <nav x-show="!scannerResultOpen" x-transition.opacity class="mobile-tabbar fixed inset-x-0 bottom-0 z-30 border-t border-surface-200 bg-white/95 px-2 pt-2 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur md:hidden" aria-label="Primary mobile navigation">
     <div class="grid grid-cols-5 gap-1">
       <a href="{% url 'qrcodes:dashboard' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'dashboard' %}bg-primary-50 text-primary-700{% else %}text-gray-500{% endif %}">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h7v7H3zM14 7h7v7h-7zM3 17h7v4H3zM14 17h7v4h-7z"/></svg>
