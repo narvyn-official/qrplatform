@@ -41,9 +41,19 @@ fi
 
 # Rolling restart (zero downtime)
 echo "→ Restarting services..."
-docker compose up -d --no-deps --scale web=2 web
-sleep 10
-docker compose up -d --no-deps --scale web=1 web
+if docker compose config | awk '
+  $1 == "web:" { in_web = 1; next }
+  in_web && $0 ~ /^  [A-Za-z0-9_-]+:/ { in_web = 0 }
+  in_web && $1 == "ports:" { found = 1 }
+  END { exit found ? 0 : 1 }
+'; then
+  echo "→ Published web port detected; recreating the single web container..."
+  docker compose up -d --no-deps --force-recreate web
+else
+  docker compose up -d --no-deps --scale web=2 web
+  sleep 10
+  docker compose up -d --no-deps --scale web=1 web
+fi
 
 docker compose up -d --no-deps celery_worker celery_beat
 
