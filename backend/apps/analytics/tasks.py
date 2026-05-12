@@ -180,12 +180,38 @@ def process_scan_event_now(scan_event_id: str, *, geolocate: bool = False, updat
         raise
 
 
+def process_pending_scan_events_now(*, limit: int = 500, geolocate: bool = False):
+    """Process old scan rows that were captured before a worker/retry completed."""
+    limit = max(int(limit or 1), 1)
+    event_ids = list(
+        QRScanEvent.objects.filter(is_processed=False)
+        .order_by("timestamp", "id")
+        .values_list("id", flat=True)[:limit]
+    )
+
+    processed = 0
+    failed = 0
+    for event_id in event_ids:
+        try:
+            process_scan_event_now(str(event_id), geolocate=geolocate, update_aggregates=True)
+            processed += 1
+        except Exception:
+            failed += 1
+            logger.exception("Failed to process pending scan %s", event_id)
+    return {"processed": processed, "failed": failed, "remaining": QRScanEvent.objects.filter(is_processed=False).count()}
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def process_scan_event(self, scan_event_id: str):
     try:
         process_scan_event_now(scan_event_id, geolocate=True, update_aggregates=True)
     except Exception as exc:
         raise self.retry(exc=exc)
+
+
+@shared_task
+def process_pending_scan_events(limit: int = 500):
+    return process_pending_scan_events_now(limit=limit, geolocate=True)
 
 
 @shared_task

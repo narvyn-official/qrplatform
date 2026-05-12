@@ -37,6 +37,10 @@ app.conf.beat_schedule = {
         "task": "apps.analytics.tasks.aggregate_daily_analytics",
         "schedule": 86400.0,  # daily
     },
+    "process-pending-scan-events": {
+        "task": "apps.analytics.tasks.process_pending_scan_events",
+        "schedule": 300.0,  # every 5 minutes
+    },
     "cleanup-old-scan-events": {
         "task": "apps.analytics.tasks.cleanup_old_raw_events",
         "schedule": 86400.0,

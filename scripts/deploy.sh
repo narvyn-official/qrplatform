@@ -31,6 +31,8 @@ docker compose build --pull web celery_worker celery_beat
 if [ "$MIGRATE" = true ]; then
   echo "→ Running database migrations..."
   docker compose run --rm web python manage.py migrate --noinput
+  echo "→ Processing pending scan events..."
+  docker compose run --rm web python manage.py process_pending_scan_events --limit 1000
 fi
 
 # Collect static

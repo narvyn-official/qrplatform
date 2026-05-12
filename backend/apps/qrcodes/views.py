@@ -83,7 +83,15 @@ def dashboard(request):
     active_qrcodes = qrcodes.filter(status__in=["active", "paused"])
 
     total_qr = active_qrcodes.count()
-    total_scans = qrcodes.aggregate(s=Sum("total_scans"))["s"] or 0
+    scan_totals = qrcodes.aggregate(
+        total=Sum("total_scans"),
+        unique=Sum("unique_scans"),
+    )
+    total_scans = scan_totals["total"] or 0
+    unique_scans = scan_totals["unique"] or 0
+    weekly_stats = account_daily_scan_series(user, days=7)
+    weekly_total_scans = sum(row["total_scans"] for row in weekly_stats)
+    weekly_unique_scans = sum(row["unique_scans"] for row in weekly_stats)
 
     # Recent QR codes
     recent_qrcodes = qrcodes[:5]
@@ -99,7 +107,10 @@ def dashboard(request):
     context = {
         "total_qr": total_qr,
         "total_scans": total_scans,
-        "weekly_stats": account_daily_scan_series(user, days=7),
+        "unique_scans": unique_scans,
+        "weekly_stats": weekly_stats,
+        "weekly_total_scans": weekly_total_scans,
+        "weekly_unique_scans": weekly_unique_scans,
         "recent_qrcodes": recent_qrcodes,
         "top_qrcodes": top_qrcodes,
         "quick_actions": quick_actions,

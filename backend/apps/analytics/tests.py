@@ -7,14 +7,17 @@ from unittest.mock import patch, MagicMock
 
 from django.test import TestCase, RequestFactory, override_settings
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 
 from apps.analytics.models import DailyQRStats, HourlyQRStats, GeoStats
+from apps.analytics.tasks import process_pending_scan_events_now
 from apps.analytics.utils import (
     compute_scan_fingerprint,
     parse_user_agent,
     geolocate_ip,
     get_client_ip,
 )
+from apps.qrcodes.models import QRCode, QRScanEvent
 
 User = get_user_model()
 
@@ -118,6 +121,62 @@ class ParseUserAgentTest(TestCase):
         self.assertEqual(result["device_type"], "unknown")
         self.assertEqual(result["os_family"], "unknown")
         self.assertEqual(result["browser_family"], "unknown")
+
+
+class PendingScanProcessingTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="pending@example.com",
+            password="testpass123",
+            full_name="Pending Scanner",
+        )
+        self.user.is_active = True
+        self.user.is_email_verified = True
+        self.user.save(update_fields=["is_active", "is_email_verified"])
+        self.qr = QRCode.objects.create(
+            user=self.user,
+            name="Pending QR",
+            content="https://example.com",
+        )
+
+    def test_process_pending_scan_events_counts_old_rows(self):
+        QRScanEvent.objects.create(
+            qrcode=self.qr,
+            ip_address="127.0.0.1",
+            user_agent_raw=DESKTOP_UA,
+            fingerprint="pending-1",
+        )
+        QRScanEvent.objects.create(
+            qrcode=self.qr,
+            ip_address="127.0.0.1",
+            user_agent_raw=DESKTOP_UA,
+            fingerprint="pending-1",
+        )
+
+        result = process_pending_scan_events_now(limit=10)
+
+        self.qr.refresh_from_db()
+        self.assertEqual(result["processed"], 2)
+        self.assertEqual(result["failed"], 0)
+        self.assertEqual(result["remaining"], 0)
+        self.assertEqual(self.qr.total_scans, 2)
+        self.assertEqual(self.qr.unique_scans, 1)
+        self.assertEqual(QRScanEvent.objects.filter(is_processed=True).count(), 2)
+
+    def test_management_command_processes_pending_scans(self):
+        QRScanEvent.objects.create(
+            qrcode=self.qr,
+            ip_address="127.0.0.1",
+            user_agent_raw=DESKTOP_UA,
+            fingerprint="pending-2",
+        )
+
+        call_command("process_pending_scan_events", limit=10)
+
+        self.qr.refresh_from_db()
+        self.assertEqual(self.qr.total_scans, 1)
+        self.assertEqual(self.qr.unique_scans, 1)
 
     def test_returns_dict_keys(self):
         result = parse_user_agent(DESKTOP_UA)

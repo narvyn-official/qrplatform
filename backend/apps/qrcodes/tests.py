@@ -378,6 +378,10 @@ class DashboardViewTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(sum(row["total_scans"] for row in resp.context["weekly_stats"]), 2)
         self.assertEqual(sum(row["unique_scans"] for row in resp.context["weekly_stats"]), 1)
+        self.assertEqual(resp.context["weekly_total_scans"], 2)
+        self.assertEqual(resp.context["weekly_unique_scans"], 1)
+        self.assertContains(resp, 'id="weeklyTotal">2</p>')
+        self.assertContains(resp, 'id="weeklyUnique">1</p>')
 
     def test_dashboard_total_scans_include_expired_codes(self):
         make_qrcode(self.user, name="Expired QR", status=QRCode.Status.EXPIRED, total_scans=8)
@@ -386,6 +390,15 @@ class DashboardViewTest(TestCase):
 
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.context["total_scans"], 8)
+
+    def test_dashboard_exposes_all_time_unique_scans(self):
+        make_qrcode(self.user, name="Unique QR", total_scans=5, unique_scans=3)
+
+        resp = self.client.get(reverse("qrcodes:dashboard"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["total_scans"], 5)
+        self.assertEqual(resp.context["unique_scans"], 3)
 
     def test_free_plan_blocks_qr_creation_after_limit(self):
         for idx in range(5):
