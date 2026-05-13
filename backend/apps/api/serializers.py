@@ -3,10 +3,19 @@ DRF serializers for the public API.
 """
 from rest_framework import serializers
 from apps.qrcodes.models import QRCode, QRCodeCampaign
+from apps.qrcodes.forms import (
+    MAX_LOGO_SIZE_RATIO,
+    MAX_QR_SIZE,
+    MIN_QR_SIZE,
+    normalize_http_url,
+    validate_hex_color,
+)
 from apps.barcodes.models import Barcode
 from apps.analytics.models import DailyQRStats, GeoStats
 from apps.accounts.models import UserProfile, APIKey
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -107,7 +116,7 @@ class QRCodeCreateSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         limits = user.plan_limits
         max_qr = limits["max_qr"]
-        if max_qr > 0:
+        if self.instance is None and max_qr > 0:
             active_count = QRCode.objects.filter(
                 user=user,
                 status__in=[QRCode.Status.ACTIVE, QRCode.Status.PAUSED],
@@ -115,13 +124,50 @@ class QRCodeCreateSerializer(serializers.ModelSerializer):
             if active_count >= max_qr:
                 raise serializers.ValidationError({"plan": f"Your current plan allows {max_qr} active QR codes."})
 
-        qr_type = attrs.get("qr_type", QRCode.QRType.URL)
-        if qr_type == QRCode.QRType.DYNAMIC and not attrs.get("destination_url"):
-            raise serializers.ValidationError({"destination_url": "Required for dynamic QR codes."})
+        qr_type = attrs.get("qr_type", self.instance.qr_type if self.instance else QRCode.QRType.URL)
+        content = (attrs.get("content", self.instance.content if self.instance else "") or "").strip()
+        destination_url = (attrs.get("destination_url", self.instance.destination_url if self.instance else "") or "").strip()
+        content_is_changing = "content" in attrs or "qr_type" in attrs or self.instance is None
+        destination_is_changing = "destination_url" in attrs or "qr_type" in attrs or self.instance is None
+        if qr_type == QRCode.QRType.DYNAMIC:
+            if not destination_url:
+                raise serializers.ValidationError({"destination_url": "Required for dynamic QR codes."})
+            if destination_is_changing:
+                try:
+                    destination_url = normalize_http_url(destination_url)
+                except DjangoValidationError:
+                    raise serializers.ValidationError({"destination_url": "Enter a valid http or https URL."})
+                attrs["destination_url"] = destination_url
+                attrs["content"] = destination_url
+        elif qr_type == QRCode.QRType.URL:
+            if not content:
+                raise serializers.ValidationError({"content": "Website URL is required."})
+            if content_is_changing:
+                try:
+                    attrs["content"] = normalize_http_url(content)
+                except DjangoValidationError:
+                    raise serializers.ValidationError({"content": "Enter a valid http or https URL."})
+
         if attrs.get("outer_shape") not in (None, QRCode.OuterShape.SQUARE, QRCode.OuterShape.ROUNDED) and not limits["custom_shapes"]:
             raise serializers.ValidationError({"outer_shape": "Custom QR shapes require a paid plan."})
         if attrs.get("scan_limit") and limits["max_scans"] > 0 and attrs["scan_limit"] > limits["max_scans"]:
             raise serializers.ValidationError({"scan_limit": f"Your current plan allows up to {limits['max_scans']:,} scans per QR."})
+        if attrs.get("expires_at") and attrs["expires_at"] <= timezone.now():
+            raise serializers.ValidationError({"expires_at": "Expiry must be in the future."})
+
+        for field in ("foreground_color", "background_color", "frame_color"):
+            if field in attrs:
+                try:
+                    attrs[field] = validate_hex_color(attrs[field], field)
+                except DjangoValidationError:
+                    raise serializers.ValidationError({field: "Use a valid hex color, for example #000000."})
+        if attrs.get("foreground_color") and attrs.get("background_color") and attrs["foreground_color"] == attrs["background_color"]:
+            raise serializers.ValidationError({"background_color": "Background color must be different from foreground color."})
+
+        if attrs.get("qr_size") and not MIN_QR_SIZE <= attrs["qr_size"] <= MAX_QR_SIZE:
+            raise serializers.ValidationError({"qr_size": f"QR size must be between {MIN_QR_SIZE} and {MAX_QR_SIZE} pixels."})
+        if attrs.get("logo_size_ratio") and attrs["logo_size_ratio"] > MAX_LOGO_SIZE_RATIO:
+            raise serializers.ValidationError({"logo_size_ratio": "Logo size must be 35% of the QR code or smaller."})
         return attrs
 
     def create(self, validated_data):

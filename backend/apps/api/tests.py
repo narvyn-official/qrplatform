@@ -3,11 +3,13 @@ Comprehensive tests for the REST API (v1).
 Covers: JWT auth, QRCode viewset, Barcode viewset, Analytics viewset, User viewset.
 """
 import uuid
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.qrcodes.models import QRCode, QRCodeCampaign, QRScanEvent
@@ -197,6 +199,66 @@ class QRCodeViewSetTest(TestCase):
         make_qrcode(self.user, name="Campaign Beta")
         resp = self.client.get("/api/v1/qrcodes/?search=Alpha")
         self.assertEqual(resp.data["count"], 1)
+
+    def test_create_rejects_invalid_url_and_colors(self):
+        resp = self.client.post("/api/v1/qrcodes/", {
+            "name": "Bad API QR",
+            "qr_type": "url",
+            "content": "not a url",
+            "foreground_color": "black",
+        })
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("content", resp.data["detail"])
+
+        resp = self.client.post("/api/v1/qrcodes/", {
+            "name": "Invisible API QR",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "foreground_color": "#000000",
+            "background_color": "#000000",
+        })
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("background_color", resp.data["detail"])
+
+    def test_create_rejects_unsafe_generation_sizes(self):
+        resp = self.client.post("/api/v1/qrcodes/", {
+            "name": "Huge API QR",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "qr_size": 4096,
+            "logo_size_ratio": 0.6,
+        })
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("qr_size", resp.data["detail"])
+
+    def test_create_rejects_expired_plan_and_past_expiry(self):
+        self.user.plan = "pro"
+        self.user.role = User.Role.PRO
+        self.user.plan_expires_at = timezone.now() - timedelta(days=1)
+        self.user.save(update_fields=["plan", "role", "plan_expires_at"])
+
+        resp = self.client.post("/api/v1/qrcodes/", {
+            "name": "Expired Plan QR",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "outer_shape": "circle",
+        })
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("outer_shape", resp.data["detail"])
+
+        resp = self.client.post("/api/v1/qrcodes/", {
+            "name": "Past Expiry QR",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "expires_at": (timezone.now() - timedelta(hours=1)).isoformat(),
+        })
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("expires_at", resp.data["detail"])
 
 
 # ── Barcode ViewSet tests ─────────────────────────────────────────────────────

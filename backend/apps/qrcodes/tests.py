@@ -216,6 +216,26 @@ class QRCodeFormTest(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         self.assertTrue(form.cleaned_data["content"].startswith("https://"))
 
+    def test_url_rejects_invalid_http_url(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Bad URL",
+            "qr_type": "url",
+            "content": "not a url",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("content", form.errors)
+
+    def test_url_rejects_non_http_scheme(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Bad scheme",
+            "qr_type": "url",
+            "content": "javascript:alert(1)",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("content", form.errors)
+
     def test_dynamic_requires_destination_url(self):
         form = QRCodeForm({
             **self.BASE_FORM_DATA,
@@ -249,6 +269,16 @@ class QRCodeFormTest(TestCase):
         self.assertEqual(form.cleaned_data["destination_url"], "https://example.com/dest")
         self.assertEqual(form.cleaned_data["content"], "https://example.com/dest")
 
+    def test_dynamic_rejects_invalid_destination_url(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Dynamic QR",
+            "qr_type": "dynamic",
+            "destination_url": "bad url",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("destination_url", form.errors)
+
     def test_text_requires_content(self):
         form = QRCodeForm({
             **self.BASE_FORM_DATA,
@@ -267,6 +297,170 @@ class QRCodeFormTest(TestCase):
         }, user=self.user)
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["content"], "https://wa.me/15550000000")
+
+    def test_whatsapp_rejects_invalid_phone(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "WhatsApp QR",
+            "qr_type": "whatsapp",
+            "content": "call me later",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("content", form.errors)
+
+    def test_sms_rejects_invalid_phone(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "SMS QR",
+            "qr_type": "sms",
+            "content": "abc|Hello",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("content", form.errors)
+
+    def test_email_rejects_invalid_address(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Email QR",
+            "qr_type": "email",
+            "content": "bad@",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+
+    def test_invalid_hex_color_is_rejected(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Color QR",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "foreground_color": "black",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("foreground_color", form.errors)
+
+    def test_foreground_and_background_must_differ(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Invisible QR",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "foreground_color": "#000000",
+            "background_color": "#000000",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("background_color", form.errors)
+
+    def test_qr_size_is_bounded(self):
+        for size in ("64", "4096"):
+            form = QRCodeForm({
+                **self.BASE_FORM_DATA,
+                "name": f"Size {size}",
+                "qr_type": "url",
+                "content": "https://example.com",
+                "qr_size": size,
+            }, user=self.user)
+            self.assertFalse(form.is_valid())
+            self.assertIn("qr_size", form.errors)
+
+    def test_logo_ratio_is_bounded(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Huge logo",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "logo_size_ratio": "0.6",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("logo_size_ratio", form.errors)
+
+    def test_expiry_must_be_future(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Past expiry",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "expires_at": timezone.now() - timedelta(hours=1),
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("expires_at", form.errors)
+
+    def test_scheduled_end_must_be_after_start(self):
+        self.user.plan = "pro"
+        self.user.role = User.Role.PRO
+        self.user.plan_expires_at = timezone.now() + timedelta(days=5)
+        self.user.save(update_fields=["plan", "role", "plan_expires_at"])
+        start = timezone.now() + timedelta(days=2)
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Bad schedule",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "scheduled_active_from": start,
+            "scheduled_active_until": start - timedelta(hours=1),
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("scheduled_active_until", form.errors)
+
+    def test_free_plan_rejects_paid_only_fields(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Premium shape",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "outer_shape": "circle",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("outer_shape", form.errors)
+
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "UTM",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "utm_source": "poster",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+
+    def test_free_plan_rejects_scan_limit_above_plan(self):
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Too many scans",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "scan_limit": "1001",
+        }, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("scan_limit", form.errors)
+
+    def test_expired_paid_plan_uses_free_limits(self):
+        self.user.plan = "pro"
+        self.user.role = User.Role.PRO
+        self.user.plan_expires_at = timezone.now() - timedelta(days=1)
+        self.user.save(update_fields=["plan", "role", "plan_expires_at"])
+
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": "Expired paid shape",
+            "qr_type": "url",
+            "content": "https://example.com",
+            "outer_shape": "circle",
+        }, user=self.user)
+
+        self.assertEqual(self.user.active_plan_code, "free")
+        self.assertFalse(form.is_valid())
+        self.assertIn("outer_shape", form.errors)
+
+    def test_scan_limit_cannot_be_below_current_scans_on_edit(self):
+        qr = make_qrcode(self.user, total_scans=10)
+        form = QRCodeForm({
+            **self.BASE_FORM_DATA,
+            "name": qr.name,
+            "qr_type": "url",
+            "content": "https://example.com",
+            "scan_limit": "5",
+        }, instance=qr, user=self.user)
+        self.assertFalse(form.is_valid())
+        self.assertIn("scan_limit", form.errors)
 
     def test_password_protection_requires_password_for_new_qr(self):
         form = QRCodeForm({
@@ -437,6 +631,24 @@ class DashboardViewTest(TestCase):
         resp = self.client.get(reverse("qrcodes:create"))
 
         self.assertRedirects(resp, reverse("core:pricing"))
+
+    def test_expired_paid_plan_blocks_creation_at_free_limit(self):
+        self.user.plan = "pro"
+        self.user.role = User.Role.PRO
+        self.user.plan_expires_at = timezone.now() - timedelta(days=1)
+        self.user.save(update_fields=["plan", "role", "plan_expires_at"])
+        for idx in range(5):
+            make_qrcode(self.user, name=f"Expired plan QR {idx}")
+
+        resp = self.client.post(reverse("qrcodes:create"), {
+            **QRCodeFormTest.BASE_FORM_DATA,
+            "name": "Blocked QR",
+            "qr_type": "url",
+            "content": "https://example.com",
+        })
+
+        self.assertRedirects(resp, reverse("core:pricing"))
+        self.assertFalse(QRCode.objects.filter(user=self.user, name="Blocked QR").exists())
 
 
 @override_settings(CACHES=CACHE_OVERRIDE, AXES_ENABLED=False)

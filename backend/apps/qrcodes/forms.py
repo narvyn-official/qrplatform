@@ -1,14 +1,43 @@
 """
 QR Code forms.
 """
+import re
+
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import EmailValidator, URLValidator
+from django.utils import timezone
 from apps.qrcodes.models import QRCode, QRCodeCampaign
 from apps.qrcodes.utils import (
     build_email_content,
     build_sms_content,
     build_whatsapp_content,
 )
+
+
+HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+PHONE_RE = re.compile(r"^\+?[0-9][0-9\s().-]{6,20}$")
+HTTP_URL_VALIDATOR = URLValidator(schemes=("http", "https"))
+EMAIL_VALIDATOR = EmailValidator()
+MIN_QR_SIZE = 128
+MAX_QR_SIZE = 2048
+MAX_LOGO_SIZE_RATIO = 0.35
+
+
+def normalize_http_url(value):
+    url = (value or "").strip()
+    if url and not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    if url:
+        HTTP_URL_VALIDATOR(url)
+    return url
+
+
+def validate_hex_color(value, field_label):
+    color = (value or "").strip()
+    if not HEX_COLOR_RE.match(color):
+        raise ValidationError({field_label: "Use a valid hex color, for example #000000."})
+    return color.upper()
 
 
 class QRCodeForm(forms.ModelForm):
@@ -120,21 +149,27 @@ class QRCodeForm(forms.ModelForm):
         if qr_type == QRCode.QRType.DYNAMIC:
             if not destination_url:
                 raise ValidationError({"destination_url": "Dynamic QR requires a destination URL."})
-            if not destination_url.startswith(("http://", "https://")):
-                destination_url = "https://" + destination_url
-                cleaned["destination_url"] = destination_url
+            try:
+                destination_url = normalize_http_url(destination_url)
+            except ValidationError:
+                raise ValidationError({"destination_url": "Enter a valid http or https URL."})
+            cleaned["destination_url"] = destination_url
             cleaned["content"] = destination_url
 
         elif qr_type == QRCode.QRType.URL:
             if not content:
                 raise ValidationError({"content": "Website URL is required."})
-            if not content.startswith(("http://", "https://")):
-                content = "https://" + content
+            try:
+                content = normalize_http_url(content)
+            except ValidationError:
+                raise ValidationError({"content": "Enter a valid http or https URL."})
             cleaned["content"] = content
 
         elif qr_type == QRCode.QRType.WHATSAPP:
             if not content:
                 raise ValidationError({"content": "WhatsApp phone number is required."})
+            if not PHONE_RE.match(content):
+                raise ValidationError({"content": "Enter a valid WhatsApp phone number with country code."})
             if not content.startswith(("http://", "https://")):
                 cleaned["content"] = build_whatsapp_content(content)
 
@@ -142,6 +177,7 @@ class QRCodeForm(forms.ModelForm):
             if not content:
                 raise ValidationError({"content": "Email content is required."})
             if not content.startswith("mailto:") and "@" in content and "\n" not in content:
+                EMAIL_VALIDATOR(content)
                 cleaned["content"] = build_email_content(content)
 
         elif qr_type == QRCode.QRType.SMS:
@@ -151,10 +187,41 @@ class QRCodeForm(forms.ModelForm):
                 parts = content.split("|", 1)
                 phone = parts[0].strip()
                 message = parts[1].strip() if len(parts) > 1 else ""
+                if not PHONE_RE.match(phone):
+                    raise ValidationError({"content": "Enter a valid SMS phone number."})
                 cleaned["content"] = build_sms_content(phone, message)
 
         if not content and qr_type != QRCode.QRType.DYNAMIC:
             raise ValidationError({"content": "Content is required."})
+
+        for field in ("foreground_color", "background_color", "frame_color"):
+            if cleaned.get(field):
+                cleaned[field] = validate_hex_color(cleaned[field], field)
+        if cleaned.get("foreground_color") == cleaned.get("background_color"):
+            raise ValidationError({"background_color": "Background color must be different from foreground color."})
+
+        qr_size = cleaned.get("qr_size")
+        if qr_size and not MIN_QR_SIZE <= qr_size <= MAX_QR_SIZE:
+            raise ValidationError({"qr_size": f"QR size must be between {MIN_QR_SIZE} and {MAX_QR_SIZE} pixels."})
+
+        logo_size_ratio = cleaned.get("logo_size_ratio")
+        if logo_size_ratio and logo_size_ratio > MAX_LOGO_SIZE_RATIO:
+            raise ValidationError({"logo_size_ratio": "Logo size must be 35% of the QR code or smaller."})
+
+        expires_at = cleaned.get("expires_at")
+        if expires_at and expires_at <= timezone.now():
+            raise ValidationError({"expires_at": "Expiry must be in the future."})
+
+        scheduled_active_from = cleaned.get("scheduled_active_from")
+        scheduled_active_until = cleaned.get("scheduled_active_until")
+        if scheduled_active_until and scheduled_active_until <= timezone.now():
+            raise ValidationError({"scheduled_active_until": "Scheduled end must be in the future."})
+        if scheduled_active_from and scheduled_active_until and scheduled_active_until <= scheduled_active_from:
+            raise ValidationError({"scheduled_active_until": "Scheduled end must be after the start time."})
+
+        scan_limit = cleaned.get("scan_limit")
+        if scan_limit and self.instance.pk and scan_limit <= self.instance.total_scans:
+            raise ValidationError({"scan_limit": "Scan limit must be higher than the current scan count."})
 
         if is_password_protected and not access_password and not self.instance.access_password_hash:
             raise ValidationError({"access_password": "Set a password for protected QR codes."})
