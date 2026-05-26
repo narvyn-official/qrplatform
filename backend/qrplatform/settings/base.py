@@ -46,6 +46,7 @@ LOCAL_APPS = [
     "apps.barcodes",
     "apps.analytics",
     "apps.api",
+    "apps.platform_admin",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -243,8 +244,8 @@ EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
-DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@qrplatform.io")
-SERVER_EMAIL = config("SERVER_EMAIL", default="errors@qrplatform.io")
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@narvyn.com")
+SERVER_EMAIL = config("SERVER_EMAIL", default="errors@narvyn.com")
 EMAIL_VERIFICATION_REQUIRED = config("EMAIL_VERIFICATION_REQUIRED", default=False, cast=bool)
 
 # Google OAuth sign-in. Add the callback URL in Google Cloud Console:
@@ -299,11 +300,11 @@ GEOIP_CITY = "GeoLite2-City.mmdb"
 
 # ── Platform Settings ─────────────────────────────────────────────────────────
 
-PLATFORM_NAME = config("PLATFORM_NAME", default="QRFlow")
-PLATFORM_DOMAIN = config("PLATFORM_DOMAIN", default="qrplatform.io")
-PLATFORM_URL = config("PLATFORM_URL", default="https://qrplatform.io")
-QR_REDIRECT_BASE = config("QR_REDIRECT_BASE", default="https://qrplatform.io/r/")
-SHORT_URL_BASE = config("SHORT_URL_BASE", default="https://qrfl.io/")
+PLATFORM_NAME = config("PLATFORM_NAME", default="Narvyn QR")
+PLATFORM_DOMAIN = config("PLATFORM_DOMAIN", default="qr.narvyn.com")
+PLATFORM_URL = config("PLATFORM_URL", default="https://qr.narvyn.com")
+QR_REDIRECT_BASE = config("QR_REDIRECT_BASE", default="https://qr.narvyn.com/r/")
+SHORT_URL_BASE = config("SHORT_URL_BASE", default="https://qr.narvyn.com/r/")
 
 # Paytm payment gateway (UPI, Paytm wallet, cards, netbanking through JS Checkout).
 PAYTM_ENVIRONMENT = config("PAYTM_ENVIRONMENT", default="staging")
@@ -326,8 +327,8 @@ PRO_TIER_SCAN_LIMIT = 50000
 # ── API Docs ──────────────────────────────────────────────────────────────────
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "QRFlow API",
-    "DESCRIPTION": "Enterprise QR Code & Barcode Management Platform API",
+    "TITLE": "Narvyn QR API",
+    "DESCRIPTION": "Trusted QR code, safe scanner, barcode, certificate, and campaign analytics platform API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,

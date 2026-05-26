@@ -5,15 +5,19 @@
 <main class="auth-shell px-4 py-8 sm:px-6">
   <div class="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-8 lg:grid-cols-[1fr_460px]">
     <section class="order-2 lg:order-1">
-      <div class="mesh-panel p-6 sm:p-8">
-        <a href="{% url 'core:home' %}" class="mb-6 flex items-center gap-2.5">
-          <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-10 w-10 rounded-lg shadow-glow">
-          <span class="text-xl font-bold text-gray-950">{{ PLATFORM_NAME }}</span>
+      <div class="page-band p-6 sm:p-8">
+        <a href="{% url 'core:home' %}" class="mb-6 flex items-center gap-3">
+          <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-11 w-11 rounded-lg shadow-glow">
+          <span class="text-2xl font-black tracking-tight text-graphite-950">{{ PLATFORM_NAME }}</span>
         </a>
         <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">Start free</p>
-        <h1 class="mt-2 max-w-xl text-3xl font-black leading-tight text-gray-950 sm:text-4xl">Create dynamic QR codes, barcodes, and scan reports in minutes.</h1>
-        <p class="mt-4 max-w-lg text-sm leading-6 text-gray-600">Your account opens the full dashboard: QR design, scanner, analytics, exports, API keys, and membership controls.</p>
+        <h1 class="mt-2 max-w-xl text-3xl font-black leading-tight text-graphite-950 sm:text-4xl">Create trusted QR codes that customers feel safe scanning.</h1>
+        <p class="mt-4 max-w-lg text-sm leading-6 text-gray-600">Your workspace includes QR design, safe scanner previews, templates, certificates, analytics, exports, API keys, and membership controls.</p>
         <div class="mt-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:grid-cols-2">
+          <div class="rounded-lg border border-surface-200 bg-white/80 p-4">
+            <p class="font-bold text-gray-950">Trusted scans</p>
+            <p class="mt-1 text-xs leading-5 text-gray-500">Preview links before opening.</p>
+          </div>
           <div class="rounded-lg border border-surface-200 bg-white/80 p-4">
             <p class="font-bold text-gray-950">Dynamic links</p>
             <p class="mt-1 text-xs leading-5 text-gray-500">Update destinations after printing.</p>
@@ -38,12 +42,12 @@
       <div class="auth-panel p-6 sm:p-8">
         <div class="mb-6">
           <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">New workspace</p>
-          <h2 class="mt-2 text-2xl font-bold text-gray-950">Create your account</h2>
+          <h2 class="mt-2 text-2xl font-black text-gray-950">Create your account</h2>
           <p class="mt-2 text-sm leading-6 text-gray-500">Use Google for the quickest start, or create an email login.</p>
         </div>
 
         {% if form.non_field_errors %}
-        <div class="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div class="mb-5 rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700">
           {{ form.non_field_errors|join:", " }}
         </div>
         {% endif %}
@@ -72,23 +76,29 @@
           <div>
             <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="id_full_name">Full name</label>
             {{ form.full_name }}
-            {% if form.full_name.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.full_name.errors|join:", " }}</p>{% endif %}
+            {% if form.full_name.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.full_name.errors|join:", " }}</p>{% endif %}
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="id_email">Email address</label>
             {{ form.email }}
-            {% if form.email.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.email.errors|join:", " }}</p>{% endif %}
+            {% if form.email.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.email.errors|join:", " }}</p>{% endif %}
           </div>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="id_password">Password</label>
-              {{ form.password }}
-              {% if form.password.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.password.errors|join:", " }}</p>{% endif %}
+              <div class="password-toggle-field" data-password-toggle data-password-visible="false">
+                {{ form.password }}
+                {% include "includes/password_toggle_button.html" %}
+              </div>
+              {% if form.password.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.password.errors|join:", " }}</p>{% endif %}
             </div>
             <div>
               <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="id_confirm_password">Confirm</label>
-              {{ form.confirm_password }}
-              {% if form.confirm_password.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.confirm_password.errors|join:", " }}</p>{% endif %}
+              <div class="password-toggle-field" data-password-toggle data-password-visible="false">
+                {{ form.confirm_password }}
+                {% include "includes/password_toggle_button.html" %}
+              </div>
+              {% if form.confirm_password.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.confirm_password.errors|join:", " }}</p>{% endif %}
             </div>
           </div>
           <label class="flex items-start gap-2 text-sm leading-5 text-gray-600">

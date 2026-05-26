@@ -1,0 +1,64 @@
+{% extends "platform_admin/layout.html" %}
+{% block title %}{{ qr.name }} — Admin{% endblock %}
+{% block admin_title %}QR code detail{% endblock %}
+{% block admin_kicker %}{{ qr.short_code }}{% endblock %}
+
+{% block admin_content %}
+<section class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+  <div class="space-y-5">
+    <section class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <article class="metric-tile"><p class="metric-label">Total scans</p><p class="metric-value">{{ qr.total_scans }}</p><p class="text-sm text-gray-500">{{ qr.unique_scans }} unique</p></article>
+      <article class="metric-tile"><p class="metric-label">Status</p><p class="mt-3">{% include "platform_admin/status_badge.html" with status=qr.status label=qr.get_status_display %}</p><p class="mt-4 text-sm text-gray-500">Expired: {{ qr.is_expired|yesno:"Yes,No" }}</p></article>
+      <article class="metric-tile"><p class="metric-label">Owner</p><a class="mt-2 block truncate text-lg font-black text-primary-700" href="{% url 'platform_admin:user_detail' qr.user.id %}">{{ qr.user.email }}</a><p class="text-sm text-gray-500">{{ qr.user.active_plan_code|title }}</p></article>
+    </section>
+
+    <section class="card p-5">
+      <h2 class="font-black">Content and routing</h2>
+      <dl class="mt-4 grid grid-cols-1 gap-4 text-sm lg:grid-cols-2">
+        <div><dt class="font-semibold text-gray-500">Name</dt><dd class="mt-1">{{ qr.name }}</dd></div>
+        <div><dt class="font-semibold text-gray-500">Type</dt><dd class="mt-1">{{ qr.get_qr_type_display }}</dd></div>
+        <div class="lg:col-span-2"><dt class="font-semibold text-gray-500">Encoded content</dt><dd class="mt-1 break-all rounded-lg bg-surface-50 p-3 font-mono text-xs">{{ qr.content }}</dd></div>
+        <div class="lg:col-span-2"><dt class="font-semibold text-gray-500">Destination</dt><dd class="mt-1 break-all rounded-lg bg-surface-50 p-3 font-mono text-xs">{{ qr.destination_url|default:"No dynamic destination" }}</dd></div>
+        <div><dt class="font-semibold text-gray-500">Campaign</dt><dd class="mt-1">{{ qr.campaign.name|default:"None" }}</dd></div>
+        <div><dt class="font-semibold text-gray-500">Last scanned</dt><dd class="mt-1">{{ qr.last_scanned_at|date:"M d, Y H:i"|default:"Never" }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div class="card overflow-hidden">
+        <div class="border-b border-surface-100 px-5 py-4"><h2 class="font-black">Recent scans</h2></div>
+        <div class="divide-y divide-surface-100">
+          {% for scan in recent_scans %}
+          <div class="p-4 text-sm"><strong>{{ scan.device_type|default:"Unknown device"|title }}</strong><p class="text-xs text-gray-500">{{ scan.ip_address|default:"No IP" }} · {{ scan.timestamp|date:"M d, H:i" }}</p></div>
+          {% empty %}<p class="p-5 text-sm text-gray-500">No scans recorded.</p>{% endfor %}
+        </div>
+      </div>
+      <div class="card overflow-hidden">
+        <div class="border-b border-surface-100 px-5 py-4"><h2 class="font-black">Reports</h2></div>
+        <div class="divide-y divide-surface-100">
+          {% for report in reports %}
+          <a href="{% url 'platform_admin:report_detail' report.id %}" class="block p-4 text-sm hover:bg-surface-50"><strong>{{ report.get_reason_display }}</strong><p class="text-xs text-gray-500">{{ report.status|title }} · {{ report.created_at|date:"M d" }}</p></a>
+          {% empty %}<p class="p-5 text-sm text-gray-500">No reports.</p>{% endfor %}
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="space-y-5">
+    <form method="post" class="card p-5">
+      {% csrf_token %}
+      <h2 class="text-lg font-black">Change QR status</h2>
+      <p class="mt-1 text-sm text-gray-500">Use pause before deletion when investigating live campaigns.</p>
+      <div class="mt-4"><label class="mb-1.5 block text-sm font-semibold" for="{{ form.action.id_for_label }}">Status action</label>{{ form.action }}</div>
+      <button class="btn-primary mt-4 w-full">Apply status</button>
+    </form>
+    <div class="card p-5">
+      <h2 class="text-lg font-black">Quick links</h2>
+      <div class="mt-4 grid grid-cols-1 gap-2">
+        <a class="btn-secondary justify-center" href="{% url 'qrcodes:detail' qr.id %}">Open owner view</a>
+        <a class="btn-secondary justify-center" href="{{ qr.redirect_url }}" target="_blank" rel="noopener">Open redirect</a>
+      </div>
+    </div>
+  </aside>
+</section>
+{% endblock %}

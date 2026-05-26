@@ -1,0 +1,545 @@
+{% extends "base.html" %}
+{% block title %}QR Safety Preview - {{ PLATFORM_NAME }}{% endblock %}
+{% block meta_description %}Review scanned QR content, final URL, domain, redirects, HTTPS status, and safety warnings before opening.{% endblock %}
+{% block robots %}noindex,follow{% endblock %}
+
+{% block body %}
+<main class="min-h-screen bg-surface-50" x-data="scannerResult()" x-init="init()">
+  <header class="border-b border-surface-200 bg-white">
+    <div class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <a href="{% url 'safe_scanner' %}" class="btn-secondary px-3 py-2">Scan again</a>
+      <a href="{% url 'safe_scanner_history' %}" class="text-sm font-semibold text-primary-700">History</a>
+    </div>
+  </header>
+
+  <section class="mx-auto max-w-5xl px-4 py-5 sm:px-6 lg:py-8">
+    <div id="vanillaResultMount"></div>
+
+    <template x-if="!analysis">
+      <div class="rounded-lg border border-surface-200 bg-white p-6 text-center shadow-card">
+        <p class="text-xs font-bold uppercase tracking-wider text-primary-700">No preview yet</p>
+        <h1 class="mt-2 text-2xl font-black text-gray-950">Scan a QR code first.</h1>
+        <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-600">The result page only opens after a camera scan, upload, or pasted QR value is analyzed.</p>
+        <a href="{% url 'safe_scanner' %}" class="btn-primary mt-5">Open scanner</a>
+      </div>
+    </template>
+
+    <template x-if="analysis">
+      <div class="space-y-5">
+        <section class="rounded-lg border bg-white p-5 shadow-card sm:p-6" :class="heroClass">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider" :class="badgeClass" x-text="analysis.riskLevel"></p>
+              <h1 class="mt-3 text-3xl font-black tracking-tight text-gray-950">Safety preview</h1>
+              <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-600" x-text="analysis.recommendation"></p>
+            </div>
+            <div class="rounded-lg bg-white/80 p-4 text-center shadow-sm">
+              <p class="text-xs font-bold uppercase tracking-wider text-gray-500">Safety score</p>
+              <p class="mt-1 text-4xl font-black text-gray-950" x-text="safetyScore"></p>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div class="rounded-lg border border-surface-200 bg-white p-5 shadow-card sm:p-6">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 class="text-xl font-black text-gray-950">Decoded QR content</h2>
+              <span class="badge badge-blue uppercase" x-text="analysis.type"></span>
+            </div>
+            <pre class="mt-4 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-surface-50 p-4 font-mono text-sm leading-6 text-gray-800" x-text="analysis.rawContent"></pre>
+
+            <div class="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <button type="button" class="btn-primary min-h-12" @click="openLink()" :disabled="!actionUrl" :class="!actionUrl ? 'opacity-50' : ''">Open anyway</button>
+              <button type="button" class="btn-secondary min-h-12" @click="copyResult()">Copy link</button>
+              <button type="button" class="btn-secondary min-h-12 text-coral-700" @click="reportOpen = true">Report suspicious QR</button>
+              <a href="{% url 'safe_scanner' %}" class="btn-secondary min-h-12">Scan again</a>
+            </div>
+          </div>
+
+          <aside class="space-y-4">
+            <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-card">
+              <h2 class="text-sm font-black uppercase tracking-wider text-gray-500">Business trust</h2>
+              <template x-if="analysis.verifiedBusiness && analysis.verifiedBusiness.verified">
+                <div class="mt-3 rounded-lg border border-primary-100 bg-primary-50 p-3">
+                  <p class="inline-flex rounded-full bg-primary-600 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">Verified by Narvyn</p>
+                  <p class="mt-3 text-base font-black text-gray-950" x-text="analysis.verifiedBusiness.businessName"></p>
+                  <p class="mt-1 break-all text-sm text-primary-900" x-text="analysis.verifiedBusiness.domain"></p>
+                  <p class="mt-2 text-xs text-gray-500" x-text="`Last verified ${analysis.verifiedBusiness.verifiedDate || 'recently'}`"></p>
+                </div>
+              </template>
+              <template x-if="!analysis.verifiedBusiness || !analysis.verifiedBusiness.verified">
+                <div class="mt-3 rounded-lg border border-surface-200 bg-surface-50 p-3">
+                  <p class="text-sm font-bold text-gray-950">Not verified by Narvyn</p>
+                  <p class="mt-1 text-xs leading-5 text-gray-500">Review the destination and warnings before trusting this QR.</p>
+                </div>
+              </template>
+            </div>
+
+            <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-card">
+              <h2 class="text-sm font-black uppercase tracking-wider text-gray-500">Destination</h2>
+              <dl class="mt-3 space-y-3 text-sm">
+                <div>
+                  <dt class="font-semibold text-gray-500">Original URL</dt>
+                  <dd class="mt-1 break-all text-gray-800" x-text="analysis.normalizedUrl || analysis.rawContent || 'None'"></dd>
+                </div>
+                <div>
+                  <dt class="font-semibold text-gray-500">Domain</dt>
+                  <dd class="mt-1 break-all font-bold text-gray-950" x-text="analysis.domain || 'Not a web link'"></dd>
+                </div>
+                <div>
+                  <dt class="font-semibold text-gray-500">Final domain</dt>
+                  <dd class="mt-1 break-all font-bold text-gray-950" x-text="analysis.finalDomain || analysis.domain || 'None'"></dd>
+                </div>
+                <div>
+                  <dt class="font-semibold text-gray-500">Final URL</dt>
+                  <dd class="mt-1 break-all text-gray-800" x-text="analysis.finalUrl || 'None'"></dd>
+                </div>
+                <div>
+                  <dt class="font-semibold text-gray-500">Page title</dt>
+                  <dd class="mt-1 text-gray-800" x-text="analysis.pageTitle || 'Not fetchable'"></dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-card">
+              <h2 class="text-sm font-black uppercase tracking-wider text-gray-500">Checks</h2>
+              <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div class="rounded-lg bg-surface-50 p-3">
+                  <p class="text-xs font-semibold text-gray-500">HTTPS</p>
+                  <p class="mt-1 font-bold" x-text="analysis.isHttps ? 'Yes' : 'No'"></p>
+                </div>
+                <div class="rounded-lg bg-surface-50 p-3">
+                  <p class="text-xs font-semibold text-gray-500">Shortener</p>
+                  <p class="mt-1 font-bold" x-text="analysis.usesUrlShortener ? 'Yes' : 'No'"></p>
+                </div>
+                <div class="rounded-lg bg-surface-50 p-3">
+                  <p class="text-xs font-semibold text-gray-500">Redirects</p>
+                  <p class="mt-1 font-bold" x-text="analysis.redirectCount"></p>
+                </div>
+                <div class="rounded-lg bg-surface-50 p-3">
+                  <p class="text-xs font-semibold text-gray-500">Level</p>
+                  <p class="mt-1 font-bold capitalize" x-text="analysis.riskLevel"></p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="grid gap-4 lg:grid-cols-2">
+          <div class="rounded-lg border border-surface-200 bg-white p-5 shadow-card">
+            <h2 class="text-lg font-black text-gray-950">Warnings</h2>
+            <ul class="mt-3 space-y-2 text-sm leading-6 text-gray-700">
+              <template x-for="warning in analysis.warnings" :key="warning">
+                <li class="rounded-lg bg-coral-50 px-3 py-2 text-coral-800" x-text="warning"></li>
+              </template>
+              <li x-show="!analysis.warnings.length" class="rounded-lg bg-primary-50 px-3 py-2 text-primary-900">No obvious risk warnings found.</li>
+            </ul>
+          </div>
+
+          <details class="rounded-lg border border-surface-200 bg-white p-5 shadow-card" open>
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-lg font-black text-gray-950">
+              Redirect chain
+              <span class="text-sm font-semibold text-gray-500" x-text="`${analysis.redirectCount || 0} redirects`"></span>
+            </summary>
+            <ol class="mt-3 space-y-2 text-sm leading-6 text-gray-700">
+              <template x-for="(item, index) in analysis.redirectChain" :key="item + index">
+                <li class="break-all rounded-lg bg-surface-50 px-3 py-2">
+                  <span class="font-bold" x-text="index + 1"></span>.
+                  <span x-text="formatRedirectItem(item)"></span>
+                </li>
+              </template>
+              <li x-show="!analysis.redirectChain.length" class="rounded-lg bg-surface-50 px-3 py-2">No redirect data available.</li>
+            </ol>
+          </details>
+        </section>
+      </div>
+    </template>
+  </section>
+
+  <div x-show="warningOpen" x-cloak class="fixed inset-0 z-50 grid place-items-end bg-graphite-950/55 p-0 sm:place-items-center sm:p-6" role="dialog" aria-modal="true">
+    <div class="w-full rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-md sm:rounded-2xl">
+      <p class="badge badge-red">Risky link</p>
+      <h2 class="mt-3 text-xl font-black text-gray-950">Open this link anyway?</h2>
+      <p class="mt-2 text-sm leading-6 text-gray-600">This QR has safety warnings. Open it only if you trust the source and destination.</p>
+      <div class="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <button type="button" class="btn-secondary" @click="warningOpen = false">Cancel</button>
+        <button type="button" class="rounded-lg bg-coral-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-coral-700" @click="openConfirmed()">Open anyway</button>
+      </div>
+    </div>
+  </div>
+
+  <div x-show="reportOpen" x-cloak class="fixed inset-0 z-50 grid place-items-end bg-graphite-950/55 p-0 sm:place-items-center sm:p-6" role="dialog" aria-modal="true">
+    <form class="w-full rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl" @submit.prevent="submitReport()">
+      <p class="badge badge-red">Safety report</p>
+      <h2 class="mt-3 text-xl font-black text-gray-950">Report suspicious QR</h2>
+      <p class="mt-2 text-sm leading-6 text-gray-600">Tell Narvyn what looks wrong. Reports help admins and business owners investigate unsafe QR campaigns.</p>
+      <div class="mt-4 space-y-3">
+        <div>
+          <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="reportReason">Reason</label>
+          <select id="reportReason" x-model="reportReason" class="input" required>
+            <option value="phishing">Phishing</option>
+            <option value="fake_payment">Fake payment QR</option>
+            <option value="wrong_business">Wrong business</option>
+            <option value="malware">Malware/download</option>
+            <option value="spam">Spam</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="reportComment">Optional comment</label>
+          <textarea id="reportComment" x-model="reportComment" rows="3" class="input" placeholder="What made this QR suspicious?"></textarea>
+        </div>
+        <p x-show="reportMessage" class="rounded-lg bg-surface-50 p-3 text-sm text-gray-700" x-text="reportMessage"></p>
+      </div>
+      <div class="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <button type="button" class="btn-secondary" @click="reportOpen = false">Cancel</button>
+        <button type="submit" class="rounded-lg bg-coral-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-coral-700" :disabled="reportSubmitting" x-text="reportSubmitting ? 'Submitting...' : 'Submit report'"></button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script>
+(() => {
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char]));
+  const badgeClass = (level) => {
+    if (level === 'risky') return 'bg-coral-100 text-coral-700';
+    if (level === 'caution') return 'bg-amber-100 text-amber-800';
+    return 'bg-primary-100 text-primary-900';
+  };
+  const heroClass = (level) => {
+    if (level === 'risky') return 'border-coral-200 bg-coral-50';
+    if (level === 'caution') return 'border-amber-200 bg-amber-50';
+    return 'border-primary-100 bg-primary-50';
+  };
+  const actionUrlFor = (analysis) => {
+    if (!analysis) return '';
+    const raw = analysis.rawContent || '';
+    return analysis.finalUrl || (/^(mailto:|tel:|sms:|smsto:|upi:\/\/|geo:)/i.test(raw) ? raw.replace(/^smsto:/i, 'sms:') : '');
+  };
+  const safetyScoreFor = (analysis) => {
+    const score = Number.isFinite(Number(analysis?.riskScore))
+      ? 100 - Number(analysis.riskScore)
+      : Number(analysis?.safetyScore || 0);
+    return Math.max(0, Math.min(100, Math.round(score)));
+  };
+  const csrfToken = () => document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
+  window.scannerResultSafetyScoreFor = safetyScoreFor;
+  window.scannerResultCsrfToken = csrfToken;
+
+  function renderFallback() {
+    if (window.Alpine) return;
+    const mount = document.getElementById('vanillaResultMount');
+    if (!mount) return;
+    let analysis = null;
+    try {
+      analysis = JSON.parse('{{ scanner_analysis_json|escapejs }}') || JSON.parse(sessionStorage.getItem('safeScannerAnalysis') || 'null');
+    } catch (error) {
+      analysis = null;
+    }
+    if (!analysis) {
+      mount.innerHTML = `
+        <div class="rounded-lg border border-surface-200 bg-white p-6 text-center shadow-card">
+          <p class="text-xs font-bold uppercase tracking-wider text-primary-700">No preview yet</p>
+          <h1 class="mt-2 text-2xl font-black text-gray-950">Scan a QR code first.</h1>
+          <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-600">The result page only opens after a camera scan, upload, or pasted QR value is analyzed.</p>
+          <a href="{% url 'safe_scanner' %}" class="btn-primary mt-5">Open scanner</a>
+        </div>`;
+      return;
+    }
+
+    const warnings = (analysis.warnings || []).length
+      ? analysis.warnings.map(warning => `<li class="rounded-lg bg-coral-50 px-3 py-2 text-coral-800">${escapeHtml(warning)}</li>`).join('')
+      : '<li class="rounded-lg bg-primary-50 px-3 py-2 text-primary-900">No obvious risk warnings found.</li>';
+    const redirectText = (item) => typeof item === 'string'
+      ? item
+      : `${item.statusCode || ''} ${item.domain || ''} ${item.url || ''}`.trim();
+    const redirects = (analysis.redirectChain || []).length
+      ? analysis.redirectChain.map((item, index) => `<li class="break-all rounded-lg bg-surface-50 px-3 py-2"><span class="font-bold">${index + 1}</span>. ${escapeHtml(redirectText(item))}</li>`).join('')
+      : '<li class="rounded-lg bg-surface-50 px-3 py-2">No redirect data available.</li>';
+
+    mount.innerHTML = `
+      <div class="space-y-5">
+        <section class="rounded-lg border p-5 shadow-card sm:p-6 ${heroClass(analysis.riskLevel)}">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${badgeClass(analysis.riskLevel)}">${escapeHtml(analysis.riskLevel)}</p>
+              <h1 class="mt-3 text-3xl font-black tracking-tight text-gray-950">Safety preview</h1>
+              <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-600">${escapeHtml(analysis.recommendation)}</p>
+            </div>
+            <div class="rounded-lg bg-white/80 p-4 text-center shadow-sm">
+              <p class="text-xs font-bold uppercase tracking-wider text-gray-500">Safety score</p>
+              <p class="mt-1 text-4xl font-black text-gray-950">${escapeHtml(safetyScoreFor(analysis))}</p>
+            </div>
+          </div>
+        </section>
+        <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div class="rounded-lg border border-surface-200 bg-white p-5 shadow-card sm:p-6">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 class="text-xl font-black text-gray-950">Decoded QR content</h2>
+              <span class="badge badge-blue uppercase">${escapeHtml(analysis.type)}</span>
+            </div>
+            <pre class="mt-4 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-surface-50 p-4 font-mono text-sm leading-6 text-gray-800">${escapeHtml(analysis.rawContent)}</pre>
+            <div class="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <button id="fallbackOpenLink" type="button" class="btn-primary min-h-12" ${actionUrlFor(analysis) ? '' : 'disabled'}>Open anyway</button>
+              <button id="fallbackCopyResult" type="button" class="btn-secondary min-h-12">Copy link</button>
+              <button id="fallbackReportLink" type="button" class="btn-secondary min-h-12 text-coral-700">Report suspicious QR</button>
+              <a href="{% url 'safe_scanner' %}" class="btn-secondary min-h-12">Scan again</a>
+            </div>
+          </div>
+          <aside class="space-y-4">
+            <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-card">
+              <h2 class="text-sm font-black uppercase tracking-wider text-gray-500">Business trust</h2>
+              ${analysis.verifiedBusiness && analysis.verifiedBusiness.verified ? `
+                <div class="mt-3 rounded-lg border border-primary-100 bg-primary-50 p-3">
+                  <p class="inline-flex rounded-full bg-primary-600 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">Verified by Narvyn</p>
+                  <p class="mt-3 text-base font-black text-gray-950">${escapeHtml(analysis.verifiedBusiness.businessName)}</p>
+                  <p class="mt-1 break-all text-sm text-primary-900">${escapeHtml(analysis.verifiedBusiness.domain)}</p>
+                  <p class="mt-2 text-xs text-gray-500">Last verified ${escapeHtml(analysis.verifiedBusiness.verifiedDate || 'recently')}</p>
+                </div>
+              ` : `
+                <div class="mt-3 rounded-lg border border-surface-200 bg-surface-50 p-3">
+                  <p class="text-sm font-bold text-gray-950">Not verified by Narvyn</p>
+                  <p class="mt-1 text-xs leading-5 text-gray-500">Review the destination and warnings before trusting this QR.</p>
+                </div>
+              `}
+            </div>
+
+            <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-card">
+              <h2 class="text-sm font-black uppercase tracking-wider text-gray-500">Destination</h2>
+              <dl class="mt-3 space-y-3 text-sm">
+                <div><dt class="font-semibold text-gray-500">Original URL</dt><dd class="mt-1 break-all text-gray-800">${escapeHtml(analysis.normalizedUrl || analysis.rawContent || 'None')}</dd></div>
+                <div><dt class="font-semibold text-gray-500">Domain</dt><dd class="mt-1 break-all font-bold text-gray-950">${escapeHtml(analysis.domain || 'Not a web link')}</dd></div>
+                <div><dt class="font-semibold text-gray-500">Final domain</dt><dd class="mt-1 break-all font-bold text-gray-950">${escapeHtml(analysis.finalDomain || analysis.domain || 'None')}</dd></div>
+                <div><dt class="font-semibold text-gray-500">Final URL</dt><dd class="mt-1 break-all text-gray-800">${escapeHtml(analysis.finalUrl || 'None')}</dd></div>
+                <div><dt class="font-semibold text-gray-500">Page title</dt><dd class="mt-1 text-gray-800">${escapeHtml(analysis.pageTitle || 'Not fetchable')}</dd></div>
+              </dl>
+            </div>
+            <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-card">
+              <h2 class="text-sm font-black uppercase tracking-wider text-gray-500">Checks</h2>
+              <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div class="rounded-lg bg-surface-50 p-3"><p class="text-xs font-semibold text-gray-500">HTTPS</p><p class="mt-1 font-bold">${analysis.isHttps ? 'Yes' : 'No'}</p></div>
+                <div class="rounded-lg bg-surface-50 p-3"><p class="text-xs font-semibold text-gray-500">Shortener</p><p class="mt-1 font-bold">${analysis.usesUrlShortener ? 'Yes' : 'No'}</p></div>
+                <div class="rounded-lg bg-surface-50 p-3"><p class="text-xs font-semibold text-gray-500">Redirects</p><p class="mt-1 font-bold">${escapeHtml(analysis.redirectCount)}</p></div>
+                <div class="rounded-lg bg-surface-50 p-3"><p class="text-xs font-semibold text-gray-500">Level</p><p class="mt-1 font-bold capitalize">${escapeHtml(analysis.riskLevel)}</p></div>
+              </div>
+            </div>
+          </aside>
+        </section>
+        <section class="grid gap-4 lg:grid-cols-2">
+          <div class="rounded-lg border border-surface-200 bg-white p-5 shadow-card"><h2 class="text-lg font-black text-gray-950">Warnings</h2><ul class="mt-3 space-y-2 text-sm leading-6 text-gray-700">${warnings}</ul></div>
+          <details class="rounded-lg border border-surface-200 bg-white p-5 shadow-card" open><summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-lg font-black text-gray-950">Redirect chain <span class="text-sm font-semibold text-gray-500">${escapeHtml(analysis.redirectCount || 0)} redirects</span></summary><ol class="mt-3 space-y-2 text-sm leading-6 text-gray-700">${redirects}</ol></details>
+        </section>
+      </div>
+      <div id="fallbackWarningModal" hidden class="fixed inset-0 z-50 grid place-items-end bg-graphite-950/55 p-0 sm:place-items-center sm:p-6" role="dialog" aria-modal="true">
+        <div class="w-full rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-md sm:rounded-2xl">
+          <p class="badge badge-red">Risky link</p>
+          <h2 class="mt-3 text-xl font-black text-gray-950">Open this link anyway?</h2>
+          <p class="mt-2 text-sm leading-6 text-gray-600">This QR has safety warnings. Open it only if you trust the source and destination.</p>
+          <div class="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button id="fallbackCancelOpen" type="button" class="btn-secondary">Cancel</button>
+            <button id="fallbackOpenAnyway" type="button" class="rounded-lg bg-coral-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-coral-700">Open anyway</button>
+          </div>
+        </div>
+      </div>
+      <div id="fallbackReportModal" hidden class="fixed inset-0 z-50 grid place-items-end bg-graphite-950/55 p-0 sm:place-items-center sm:p-6" role="dialog" aria-modal="true">
+        <form id="fallbackReportForm" class="w-full rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl">
+          <p class="badge badge-red">Safety report</p>
+          <h2 class="mt-3 text-xl font-black text-gray-950">Report suspicious QR</h2>
+          <p class="mt-2 text-sm leading-6 text-gray-600">Tell Narvyn what looks wrong. Reports help admins and business owners investigate unsafe QR campaigns.</p>
+          <div class="mt-4 space-y-3">
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="fallbackReportReason">Reason</label>
+              <select id="fallbackReportReason" class="input" required>
+                <option value="phishing">Phishing</option>
+                <option value="fake_payment">Fake payment QR</option>
+                <option value="wrong_business">Wrong business</option>
+                <option value="malware">Malware/download</option>
+                <option value="spam">Spam</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="fallbackReportComment">Optional comment</label>
+              <textarea id="fallbackReportComment" rows="3" class="input" placeholder="What made this QR suspicious?"></textarea>
+            </div>
+            <p id="fallbackReportMessage" class="hidden rounded-lg bg-surface-50 p-3 text-sm text-gray-700"></p>
+          </div>
+          <div class="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button id="fallbackCancelReport" type="button" class="btn-secondary">Cancel</button>
+            <button type="submit" class="rounded-lg bg-coral-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-coral-700">Submit report</button>
+          </div>
+        </form>
+      </div>`;
+
+    const actionUrl = actionUrlFor(analysis);
+    document.getElementById('fallbackOpenLink')?.addEventListener('click', () => {
+      if (!actionUrl) return;
+      if (analysis.riskLevel === 'risky') {
+        document.getElementById('fallbackWarningModal').hidden = false;
+        return;
+      }
+      window.location.href = actionUrl;
+    });
+    document.getElementById('fallbackCancelOpen')?.addEventListener('click', () => {
+      document.getElementById('fallbackWarningModal').hidden = true;
+    });
+    document.getElementById('fallbackOpenAnyway')?.addEventListener('click', () => {
+      if (actionUrl) window.location.href = actionUrl;
+    });
+    document.getElementById('fallbackCopyResult')?.addEventListener('click', () => {
+      navigator.clipboard?.writeText(analysis.rawContent || '');
+    });
+    document.getElementById('fallbackReportLink')?.addEventListener('click', () => {
+      document.getElementById('fallbackReportModal').hidden = false;
+    });
+    document.getElementById('fallbackCancelReport')?.addEventListener('click', () => {
+      document.getElementById('fallbackReportModal').hidden = true;
+    });
+    document.getElementById('fallbackReportForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const message = document.getElementById('fallbackReportMessage');
+      message.classList.remove('hidden');
+      message.textContent = 'Submitting report...';
+      let response = null;
+      try {
+        const controller = window.AbortController ? new AbortController() : null;
+        const timeout = controller ? window.setTimeout(() => controller.abort(), 8000) : null;
+        response = await fetch('/api/scanner/report', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()},
+          body: JSON.stringify({
+            content: analysis.rawContent || '',
+            reason: document.getElementById('fallbackReportReason').value,
+            comment: document.getElementById('fallbackReportComment').value,
+          }),
+          signal: controller?.signal,
+        });
+        if (timeout) window.clearTimeout(timeout);
+      } catch (error) {
+        response = null;
+      }
+      if (response?.ok) {
+        message.textContent = 'Report submitted. Thank you for helping keep QR scans safer.';
+      } else {
+        const error = response ? await response.json().catch(() => ({})) : {};
+        message.textContent = error.error || 'Could not submit the report right now.';
+      }
+    });
+  }
+
+  function bootFallbackResult() {
+    setTimeout(renderFallback, 0);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootFallbackResult);
+  } else {
+    bootFallbackResult();
+  }
+})();
+
+function scannerResult() {
+  return {
+    analysis: null,
+    warningOpen: false,
+    reportOpen: false,
+    reportReason: 'phishing',
+    reportComment: '',
+    reportMessage: '',
+    reportSubmitting: false,
+
+    init() {
+      try {
+        this.analysis = JSON.parse('{{ scanner_analysis_json|escapejs }}') || JSON.parse(sessionStorage.getItem('safeScannerAnalysis') || 'null');
+      } catch (error) {
+        this.analysis = null;
+      }
+    },
+
+    get actionUrl() {
+      if (!this.analysis) return '';
+      const raw = this.analysis.rawContent || '';
+      return this.analysis.finalUrl || (/^(mailto:|tel:|sms:|smsto:|upi:\/\/|geo:)/i.test(raw) ? raw.replace(/^smsto:/i, 'sms:') : '');
+    },
+
+    get badgeClass() {
+      if (!this.analysis) return 'bg-gray-100 text-gray-700';
+      if (this.analysis.riskLevel === 'risky') return 'bg-coral-100 text-coral-700';
+      if (this.analysis.riskLevel === 'caution') return 'bg-amber-100 text-amber-800';
+      return 'bg-primary-100 text-primary-900';
+    },
+
+    get heroClass() {
+      if (!this.analysis) return 'border-surface-200';
+      if (this.analysis.riskLevel === 'risky') return 'border-coral-200 bg-coral-50';
+      if (this.analysis.riskLevel === 'caution') return 'border-amber-200 bg-amber-50';
+      return 'border-primary-100 bg-primary-50';
+    },
+
+    get safetyScore() {
+      return window.scannerResultSafetyScoreFor(this.analysis);
+    },
+
+    formatRedirectItem(item) {
+      if (!item) return '';
+      if (typeof item === 'string') return item;
+      return `${item.statusCode || ''} ${item.domain || ''} ${item.url || ''}`.trim();
+    },
+
+    openLink() {
+      if (!this.actionUrl) return;
+      if (this.analysis?.riskLevel === 'risky') {
+        this.warningOpen = true;
+        return;
+      }
+      window.location.href = this.actionUrl;
+    },
+
+    openConfirmed() {
+      if (this.actionUrl) window.location.href = this.actionUrl;
+    },
+
+    async copyResult() {
+      if (!this.analysis?.rawContent || !navigator.clipboard) return;
+      await navigator.clipboard.writeText(this.analysis.rawContent);
+    },
+
+    async submitReport() {
+      if (!this.analysis?.rawContent || this.reportSubmitting) return;
+      this.reportSubmitting = true;
+      this.reportMessage = 'Submitting report...';
+      let response = null;
+      try {
+        const controller = window.AbortController ? new AbortController() : null;
+        const timeout = controller ? window.setTimeout(() => controller.abort(), 8000) : null;
+        response = await fetch('/api/scanner/report', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': window.scannerResultCsrfToken()},
+          body: JSON.stringify({
+            content: this.analysis.rawContent,
+            reason: this.reportReason,
+            comment: this.reportComment,
+          }),
+          signal: controller?.signal,
+        });
+        if (timeout) window.clearTimeout(timeout);
+      } catch (error) {
+        response = null;
+      } finally {
+        this.reportSubmitting = false;
+      }
+      if (response?.ok) {
+        this.reportMessage = 'Report submitted. Thank you for helping keep QR scans safer.';
+        this.reportComment = '';
+        return;
+      }
+      const error = response ? await response.json().catch(() => ({})) : {};
+      this.reportMessage = error.error || 'Could not submit the report right now.';
+    }
+  }
+}
+</script>
+{% endblock %}

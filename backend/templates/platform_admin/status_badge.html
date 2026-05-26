@@ -1,0 +1,11 @@
+{% if status == "active" or status == "verified" or status == "valid" or status == "paid" or status == "resolved" %}
+<span class="badge badge-green">{{ label|default:status|title }}</span>
+{% elif status == "open" or status == "pending" or status == "created" %}
+<span class="badge badge-yellow">{{ label|default:status|title }}</span>
+{% elif status == "paused" or status == "reviewing" %}
+<span class="badge badge-blue">{{ label|default:status|title }}</span>
+{% elif status == "revoked" or status == "deleted" or status == "failed" or status == "risky" or status == "cancelled" %}
+<span class="badge badge-red">{{ label|default:status|title }}</span>
+{% else %}
+<span class="badge badge-gray">{{ label|default:status|title }}</span>
+{% endif %}

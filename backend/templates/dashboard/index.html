@@ -5,258 +5,223 @@
 
 {% block content %}
 
-<section class="mesh-panel mb-4 p-5 sm:p-6">
-  <div class="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-    <div class="max-w-2xl">
-      <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">Live workspace</p>
-      <h2 class="mt-2 text-2xl font-bold text-gray-950 sm:text-3xl">Launch a QR campaign customers can trust.</h2>
-      <p class="mt-3 text-sm leading-6 text-gray-600">
-        Build the code, test the scan, watch the first signals, then upgrade when the campaign needs branded exports and automation.
-      </p>
-      <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <a href="{{ recommended_action.url }}" class="btn-primary justify-center sm:justify-start">
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+<section class="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,.8fr)]">
+  <div class="page-band">
+    <p class="page-kicker">Live workspace</p>
+    <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 class="page-title">Launch trusted QR campaigns.</h2>
+        <p class="page-copy">Create QR codes for payments, menus, products, events, and campaigns with safe scan previews, editable destinations, and analytics before you print.</p>
+      </div>
+      <div class="flex flex-col gap-2 sm:min-w-48">
+        <a href="{{ recommended_action.url }}" class="btn-primary justify-center">
           {{ recommended_action.label }}
         </a>
-        <a href="{% url 'core:pricing' %}" class="btn-secondary justify-center sm:justify-start">
-          Compare plans
-        </a>
+        <a href="{% url 'qrcodes:scan' %}" class="btn-secondary justify-center">Scan safely</a>
       </div>
     </div>
-    <div class="rounded-lg border border-white/70 bg-white/85 p-4 shadow-sm backdrop-blur lg:w-[25rem]">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Campaign launch checklist</p>
-          <p class="mt-1 text-sm font-bold text-gray-950">{{ completed_steps }} of {{ launch_checklist|length }} done</p>
-        </div>
-        {% if qr_limit_unlimited %}
-        <span class="badge badge-green">Unlimited QR</span>
-        {% else %}
-        <span class="badge {% if remaining_qr <= 1 %}badge-yellow{% else %}badge-blue{% endif %}">{{ remaining_qr }} QR left</span>
-        {% endif %}
+
+    <div class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div class="metric-tile">
+        <p class="metric-label">QR codes</p>
+        <p class="metric-value">{{ total_qr }}</p>
+        <p class="mt-1 text-xs text-gray-500">Active and paused</p>
       </div>
-      <div class="mt-4 space-y-2">
-        {% for step in launch_checklist %}
-        <a href="{{ step.url }}" class="flex gap-3 rounded-lg border border-surface-200 bg-white px-3 py-3 transition hover:border-primary-200 hover:shadow-sm">
-          <span class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full {% if step.done %}bg-emerald-100 text-emerald-700{% else %}bg-surface-100 text-gray-400{% endif %}">
-            {% if step.done %}
-            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
-            {% else %}
-            <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
-            {% endif %}
-          </span>
-          <span class="min-w-0">
-            <span class="block text-sm font-semibold text-gray-900">{{ step.label }}</span>
-            <span class="mt-0.5 block text-xs leading-5 text-gray-500">{{ step.desc }}</span>
-          </span>
-        </a>
-        {% endfor %}
+      <div class="metric-tile">
+        <p class="metric-label">All scans</p>
+        <p class="metric-value">{{ total_scans|default:0 }}</p>
+        <p class="mt-1 text-xs text-gray-500">Lifetime total</p>
+      </div>
+      <div class="metric-tile">
+        <p class="metric-label">This week</p>
+        <p class="metric-value" id="weeklyTotal">{{ weekly_total_scans|default:0 }}</p>
+        <p class="mt-1 text-xs text-gray-500">Last 7 days</p>
+      </div>
+      <div class="metric-tile">
+        <p class="metric-label">Unique week</p>
+        <p class="metric-value" id="weeklyUnique">{{ weekly_unique_scans|default:0 }}</p>
+        <p class="mt-1 text-xs text-gray-500">Distinct visitors</p>
       </div>
     </div>
+    {% if open_report_count %}
+    <div class="mt-4 rounded-lg border border-coral-200 bg-coral-50 p-4">
+      <p class="text-sm font-bold text-coral-800">{{ open_report_count }} suspicious report{{ open_report_count|pluralize }} need review</p>
+      <p class="mt-1 text-xs leading-5 text-coral-700">Pause affected campaigns while you confirm destinations and printed material.</p>
+    </div>
+    {% endif %}
   </div>
+
+  <aside class="page-band">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <p class="page-kicker">Campaign launch checklist</p>
+        <p class="mt-1 text-lg font-bold text-gray-950">{{ completed_steps }} of {{ launch_checklist|length }} done</p>
+      </div>
+      {% if qr_limit_unlimited %}
+      <span class="badge badge-green">Unlimited QR</span>
+      {% else %}
+      <span class="badge {% if remaining_qr <= 1 %}badge-yellow{% else %}badge-blue{% endif %}">{{ remaining_qr }} QR left</span>
+      {% endif %}
+    </div>
+    <div class="mt-4 space-y-2">
+      {% for step in launch_checklist %}
+      <a href="{{ step.url }}" class="flex gap-3 rounded-lg border border-surface-200 bg-white px-3 py-3 transition hover:border-gray-300 hover:bg-surface-50">
+        <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full {% if step.done %}bg-primary-100 text-primary-700{% else %}bg-surface-100 text-gray-400{% endif %}">
+          {% if step.done %}
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+          {% else %}
+          <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
+          {% endif %}
+        </span>
+        <span class="min-w-0">
+          <span class="block text-sm font-semibold text-gray-900">{{ step.label }}</span>
+          <span class="mt-0.5 block text-xs leading-5 text-gray-500">{{ step.desc }}</span>
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+  </aside>
 </section>
 
 {% if recommended_action.desc %}
-<section class="mb-6 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3">
+<section class="mb-5 rounded-lg border border-surface-200 bg-white px-4 py-3 shadow-sm">
   <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <div>
-      <p class="text-sm font-bold text-primary-900">Recommended now: {{ recommended_action.label }}</p>
-      <p class="mt-1 text-xs leading-5 text-primary-800">{{ recommended_action.desc }}</p>
+      <p class="text-sm font-bold text-gray-950">Recommended now: {{ recommended_action.label }}</p>
+      <p class="mt-1 text-xs leading-5 text-gray-500">{{ recommended_action.desc }}</p>
     </div>
-    <a href="{{ recommended_action.url }}" class="btn-primary whitespace-nowrap">Continue</a>
+    <a href="{{ recommended_action.url }}" class="btn-secondary whitespace-nowrap">Continue</a>
   </div>
 </section>
 {% endif %}
 
-<!-- Quick actions -->
-<section class="mb-6">
+<section class="mb-5">
   <div class="mb-3 flex items-center justify-between gap-3">
-    <h2 class="text-sm font-semibold text-gray-900">Quick actions</h2>
-    <a href="{% url 'qrcodes:list' %}" class="text-sm font-semibold text-primary-700 hover:text-primary-800">View all QR codes</a>
+    <h2 class="text-sm font-semibold text-gray-950">Quick actions</h2>
+    <a href="{% url 'qrcodes:list' %}" class="text-sm font-semibold text-gray-700 hover:text-gray-950">View QR library</a>
   </div>
-  <div class="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 xl:gap-4">
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
     {% for item in quick_actions %}
-    <a href="{{ item.url }}" class="card interactive-card p-4 hover:shadow-card-hover group">
-      <div class="w-10 h-10 {{ item.bg }} rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+    <a href="{{ item.url }}" class="card p-4 transition hover:border-gray-300 hover:bg-surface-50">
+      <div class="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-50 text-gray-700">
         {{ item.icon|safe }}
       </div>
-      <p class="text-sm font-semibold text-gray-800">{{ item.label }}</p>
-      <p class="text-xs text-gray-400 mt-0.5">{{ item.desc }}</p>
+      <p class="text-sm font-semibold text-gray-900">{{ item.label }}</p>
+      <p class="mt-1 text-xs text-gray-500">{{ item.desc }}</p>
     </a>
     {% endfor %}
   </div>
 </section>
 
-<div class="mb-3 flex items-end justify-between gap-3">
-  <div>
-    <h2 class="text-sm font-semibold text-gray-900">Performance snapshot</h2>
-    <p class="mt-1 text-xs text-gray-500">The first row keeps the metrics users check most often within reach.</p>
-  </div>
-</div>
-
-<!-- Stats cards -->
-<div class="grid grid-cols-1 gap-3 mb-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
-
-  <div class="card interactive-card p-5">
-    <div class="flex items-center justify-between mb-3">
-      <p class="text-sm font-medium text-gray-500">Total QR Codes</p>
-      <div class="w-9 h-9 bg-primary-50 rounded-xl flex items-center justify-center">
-        <svg class="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
-      </div>
-    </div>
-    <p class="text-3xl font-bold text-gray-900">{{ total_qr }}</p>
-    <p class="text-xs text-gray-400 mt-1">Active and paused codes</p>
-  </div>
-
-  <div class="card interactive-card p-5">
-    <div class="flex items-center justify-between mb-3">
-      <p class="text-sm font-medium text-gray-500">Total Scans</p>
-      <div class="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center">
-        <svg class="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-      </div>
-    </div>
-    <p class="text-3xl font-bold text-gray-900">{{ total_scans|default:0 }}</p>
-    <p class="text-xs text-gray-400 mt-1">All-time tracked scans</p>
-  </div>
-
-  <div class="card interactive-card p-5">
-    <div class="flex items-center justify-between mb-3">
-      <p class="text-sm font-medium text-gray-500">This Week</p>
-      <div class="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center">
-        <svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
-      </div>
-    </div>
-    <p class="text-3xl font-bold text-gray-900" id="weeklyTotal">{{ weekly_total_scans|default:0 }}</p>
-    <p class="text-xs text-gray-400 mt-1">Scans last 7 days</p>
-  </div>
-
-  <div class="card interactive-card p-5">
-    <div class="flex items-center justify-between mb-3">
-      <p class="text-sm font-medium text-gray-500">Unique This Week</p>
-      <div class="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center">
-        <svg class="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-      </div>
-    </div>
-    <p class="text-3xl font-bold text-gray-900" id="weeklyUnique">{{ weekly_unique_scans|default:0 }}</p>
-    <p class="text-xs text-gray-400 mt-1">Unique visitors last 7 days</p>
-  </div>
-
-</div>
-
-<!-- Chart + Recent QRs -->
-<div class="grid grid-cols-1 gap-5 mb-8 lg:grid-cols-3 lg:gap-6">
-
-  <!-- Scan chart -->
+<section class="grid grid-cols-1 gap-5 lg:grid-cols-3">
   <div class="card p-5 lg:col-span-2">
-    <div class="flex flex-col gap-1 mb-4 sm:flex-row sm:items-center sm:justify-between">
-      <h2 class="font-semibold text-gray-900">Scan Activity</h2>
-      <span class="text-xs text-gray-400">Last 7 days</span>
+    <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="font-semibold text-gray-950">Scan activity</h2>
+        <p class="text-xs text-gray-500">Total and unique scans for the last 7 days.</p>
+      </div>
+      <a href="{% url 'qrcodes:list' %}" class="text-xs font-semibold text-gray-600 hover:text-gray-950">Open library</a>
     </div>
     <div class="h-56">
       <canvas id="scanChart"></canvas>
     </div>
   </div>
 
-  <!-- Top QR Codes -->
   <div class="card p-5">
     <div class="mb-4 flex items-center justify-between gap-3">
-      <h2 class="font-semibold text-gray-900">Top QR Codes</h2>
-      <a href="{% url 'qrcodes:list' %}" class="text-xs font-semibold text-primary-700 hover:text-primary-800">All codes</a>
+      <h2 class="font-semibold text-gray-950">Top QR codes</h2>
+      <a href="{% url 'qrcodes:list' %}" class="text-xs font-semibold text-gray-600 hover:text-gray-950">All</a>
     </div>
     <div class="space-y-3">
       {% for qr in top_qrcodes %}
-      <a href="{% url 'qrcodes:detail' qr.id %}" class="flex items-center gap-3 group">
-        <div class="w-8 h-8 bg-surface-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-primary-50 transition">
-          <svg class="w-4 h-4 text-gray-400 group-hover:text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/></svg>
+      <a href="{% url 'qrcodes:detail' qr.id %}" class="flex items-center gap-3 rounded-lg border border-transparent p-2 transition hover:border-surface-200 hover:bg-surface-50">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-100 text-gray-500">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/></svg>
         </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-800 truncate group-hover:text-primary-700">{{ qr.name }}</p>
-          <p class="text-xs text-gray-400">{{ qr.total_scans }} scans</p>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-sm font-semibold text-gray-900">{{ qr.name }}</p>
+          <p class="text-xs text-gray-500">{{ qr.total_scans }} scans</p>
         </div>
-        <span class="badge {% if qr.status == 'active' %}badge-green{% else %}badge-gray{% endif %}">
-          {{ qr.status }}
-        </span>
+        <span class="badge {% if qr.status == 'active' %}badge-green{% else %}badge-gray{% endif %}">{{ qr.status }}</span>
       </a>
       {% empty %}
-      <div class="text-center py-6">
-        <p class="text-sm text-gray-400">No QR codes yet.</p>
-        <a href="{% url 'qrcodes:create' %}" class="text-sm text-primary-600 font-medium hover:underline mt-1 inline-block">Create your first →</a>
+      <div class="rounded-lg border border-dashed border-surface-200 p-5 text-center">
+        <p class="text-sm font-semibold text-gray-800">No QR codes yet</p>
+        <p class="mt-1 text-xs text-gray-500">Create a dynamic QR to start testing the customer journey.</p>
+        <a href="{% url 'qrcodes:create' %}" class="btn-secondary mt-3 justify-center">Create QR</a>
       </div>
       {% endfor %}
     </div>
   </div>
+</section>
 
-</div>
-
-<!-- Plan usage bar -->
-{% with limits=request.user.plan_limits %}
-{% if not request.user.is_pro and limits.max_qr > 0 %}
-<div class="card p-4 mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-  <div class="flex-1 min-w-0">
-    <div class="flex items-center justify-between mb-1">
-      <span class="text-sm font-medium text-gray-700">Free plan — QR codes used</span>
-      <span class="text-sm font-semibold {% if total_qr >= limits.max_qr %}text-red-600{% else %}text-gray-900{% endif %}">{{ total_qr }} / {{ limits.max_qr }}</span>
+<section class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+  <details class="disclosure-card group lg:col-span-2">
+    <summary class="disclosure-summary">
+      <div>
+        <h2 class="font-semibold text-gray-950">Recent QR codes</h2>
+        <p class="mt-1 text-sm text-gray-500">Use this when you need to resume edits or download files.</p>
+      </div>
+      <span class="disclosure-chevron">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </span>
+    </summary>
+    <div class="border-t border-surface-100 p-4">
+      <div class="divide-y divide-surface-100">
+        {% for qr in recent_qrcodes %}
+        <a href="{% url 'qrcodes:detail' qr.id %}" class="flex items-center justify-between gap-4 py-3">
+          <span class="min-w-0">
+            <span class="block truncate text-sm font-semibold text-gray-900">{{ qr.name }}</span>
+            <span class="mt-1 block text-xs text-gray-500">{{ qr.get_qr_type_display }} · {{ qr.created_at|date:"M d, Y" }}</span>
+          </span>
+          <span class="text-xs font-semibold text-gray-500">{{ qr.total_scans }} scans</span>
+        </a>
+        {% empty %}
+        <p class="py-3 text-sm text-gray-500">Recent QR codes will appear here.</p>
+        {% endfor %}
+      </div>
     </div>
-    <div class="w-full bg-surface-100 rounded-full h-2">
-      <div class="h-2 rounded-full {% if total_qr >= limits.max_qr %}bg-red-500{% elif total_qr >= limits.max_qr|add:"-1" %}bg-yellow-400{% else %}bg-primary-500{% endif %}"
+  </details>
+
+  {% with limits=request.user.plan_limits %}
+  <div class="card p-5">
+    <h2 class="font-semibold text-gray-950">Plan usage</h2>
+    <p class="mt-1 text-sm text-gray-500">{{ request.user.active_plan.name|default:"Current" }} workspace limits.</p>
+    {% if qr_limit_unlimited %}
+    <p class="mt-4 text-2xl font-bold text-gray-950">Unlimited QR codes</p>
+    {% else %}
+    <div class="mt-4 flex items-center justify-between text-sm">
+      <span class="font-medium text-gray-700">QR codes used</span>
+      <span class="font-bold {% if total_qr >= limits.max_qr %}text-coral-600{% else %}text-gray-950{% endif %}">{{ total_qr }} / {{ limits.max_qr }}</span>
+    </div>
+    <div class="mt-2 h-2 rounded-full bg-surface-100">
+      <div class="h-2 rounded-full {% if total_qr >= limits.max_qr %}bg-coral-500{% elif total_qr >= limits.max_qr|add:"-1" %}bg-coral-400{% else %}bg-primary-600{% endif %}"
            style="width: {% widthratio total_qr limits.max_qr 100 %}%"></div>
     </div>
-    <p class="text-xs text-gray-400 mt-1">Export, UTM auto-append, custom shapes, and API access require Pro.</p>
+    {% endif %}
+    {% if not request.user.is_pro %}
+    <p class="mt-3 text-xs leading-5 text-gray-500">Upgrade for UTM tags, schedules, exports, API keys, custom shapes, and higher scan capacity.</p>
+    <a href="{% url 'core:pricing' %}" class="btn-primary mt-4 w-full justify-center">Compare plans</a>
+    {% else %}
+    <a href="{% url 'qrcodes:export_zip' %}" class="btn-secondary mt-4 w-full justify-center">Export all QR codes</a>
+    {% endif %}
   </div>
-  <a href="{% url 'core:pricing' %}" class="btn-primary whitespace-nowrap">Upgrade plan</a>
-</div>
-{% endif %}
-{% endwith %}
+  {% endwith %}
 
-<!-- Bulk export shortcut (pro) -->
-{% if request.user.is_pro %}
-<div class="mb-6 flex items-center gap-3 flex-wrap">
-  <a href="{% url 'qrcodes:export_zip' %}" class="btn-secondary text-sm">
-    ⬇ Export All QR Codes (ZIP)
-  </a>
-</div>
-{% endif %}
-
-<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-  <section class="card p-5">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <h2 class="font-semibold text-gray-900">Premium shape lab</h2>
-        <p class="mt-1 text-sm leading-6 text-gray-500">Create scan-safe QR shells including circle, apple, duck, shield, ticket, and blob presets.</p>
+  {% if risky_campaigns %}
+  <div class="card p-5">
+    <h2 class="font-semibold text-gray-950">Campaign risk alerts</h2>
+    <div class="mt-4 space-y-3">
+      {% for campaign in risky_campaigns %}
+      <div class="rounded-lg border border-coral-200 bg-coral-50 p-3">
+        <p class="font-semibold text-coral-900">{{ campaign.name }}</p>
+        <p class="mt-1 text-xs text-coral-700">{{ campaign.suspicious_report_count }} open report{{ campaign.suspicious_report_count|pluralize }} · {{ campaign.get_risk_status_display }}</p>
       </div>
-      <div class="icon-tile h-10 w-10 text-primary-600">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 9a5 5 0 019-3 5 5 0 017 5c0 5-6 9-8 9s-8-4-8-9V9z"/></svg>
-      </div>
+      {% endfor %}
     </div>
-    <a href="{% url 'qrcodes:create' %}" class="btn-secondary mt-4 w-full justify-center">Open designer</a>
-  </section>
-
-  <section class="card p-5">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <h2 class="font-semibold text-gray-900">Installable workspace</h2>
-        <p class="mt-1 text-sm leading-6 text-gray-500">Launch as a PWA with offline shell caching, app icons, and quick shortcuts.</p>
-      </div>
-      <div class="icon-tile h-10 w-10 text-emerald-600">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"/></svg>
-      </div>
-    </div>
-    <button type="button" data-pwa-install class="btn-secondary mt-4 w-full justify-center">Install app</button>
-  </section>
-
-  <section class="card p-5">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <h2 class="font-semibold text-gray-900">QR scanner</h2>
-        <p class="mt-1 text-sm leading-6 text-gray-500">Scan with camera, upload a QR image, inspect the result, then open or copy it.</p>
-      </div>
-      <div class="icon-tile h-10 w-10 text-sky-600">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2M3 17v2a2 2 0 002 2h2m10 0h2a2 2 0 002-2v-2M8 12h8m-4-4v8"/></svg>
-      </div>
-    </div>
-    <a href="{% url 'qrcodes:scan' %}" class="btn-secondary mt-4 w-full justify-center">Open scanner</a>
-  </section>
-</div>
+  </div>
+  {% endif %}
+</section>
 
 {% endblock %}
 
@@ -275,33 +240,32 @@
 
   const chartCanvas = document.getElementById('scanChart');
   if (chartCanvas && window.Chart) {
-    const ctx = chartCanvas.getContext('2d');
-    new Chart(ctx, {
+    new Chart(chartCanvas.getContext('2d'), {
       type: 'line',
       data: {
         labels,
         datasets: [
           {
-            label: 'Total Scans',
+            label: 'Total scans',
             data: totals,
-            borderColor: '#6366f1',
-            backgroundColor: 'rgba(99,102,241,0.08)',
+            borderColor: '#2563EB',
+            backgroundColor: 'rgba(37,99,235,0.08)',
             borderWidth: 2.5,
             fill: true,
-            tension: 0.4,
+            tension: 0.35,
             pointRadius: 3,
-            pointBackgroundColor: '#6366f1',
+            pointBackgroundColor: '#2563EB',
           },
           {
-            label: 'Unique Scans',
+            label: 'Unique scans',
             data: uniques,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16,185,129,0.06)',
+            borderColor: '#E11D48',
+            backgroundColor: 'rgba(225,29,72,0.07)',
             borderWidth: 2,
             fill: true,
-            tension: 0.4,
+            tension: 0.35,
             pointRadius: 3,
-            pointBackgroundColor: '#10b981',
+            pointBackgroundColor: '#E11D48',
           }
         ]
       },

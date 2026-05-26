@@ -4,12 +4,15 @@
 <div class="flex h-screen min-h-dvh overflow-hidden bg-surface-50" x-data="{ mobileNav: false, scannerResultOpen: false }" @scanner-result.window="scannerResultOpen = $event.detail.open">
 
   <!-- Sidebar -->
-  <aside class="relative z-20 hidden md:flex w-64 flex-shrink-0 bg-white border-r border-surface-200 flex-col">
+  <aside class="relative z-20 hidden w-64 flex-shrink-0 flex-col border-r border-primary-900 bg-primary-950 text-white md:flex">
 
     <!-- Logo -->
-    <div class="flex items-center gap-2.5 px-5 py-4 border-b border-surface-100">
-      <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-9 w-9 rounded-lg shadow-sm">
-      <span class="font-bold text-lg text-gray-900 tracking-tight">{{ PLATFORM_NAME }}</span>
+    <div class="flex items-center gap-2.5 border-b border-white/10 px-5 py-4">
+      <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-9 w-9 rounded-lg shadow-glow">
+      <div class="min-w-0">
+        <span class="block truncate text-base font-bold tracking-tight text-white">{{ PLATFORM_NAME }}</span>
+        <span class="block text-xs font-medium text-teal-100/80">Trusted QR workspace</span>
+      </div>
     </div>
 
     <!-- Nav -->
@@ -20,14 +23,20 @@
         Dashboard
       </a>
 
-      <div class="pt-2 pb-1 px-3">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Create</p>
+      <div class="px-3 pb-1 pt-3">
+        <p class="text-xs font-semibold uppercase tracking-wider text-teal-100/60">Create</p>
       </div>
 
       <a href="{% url 'qrcodes:create' %}"
          class="sidebar-link {% if active_tab == 'create_qr' %}active{% endif %}">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         New QR Code
+      </a>
+
+      <a href="{% url 'qrcodes:templates' %}"
+         class="sidebar-link {% if active_tab == 'templates' %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM15 15h2v2h-2zM19 15h1v5h-5v-1h4z"/></svg>
+        Templates
       </a>
 
       <a href="{% url 'barcodes:create' %}"
@@ -42,14 +51,20 @@
         Scan QR
       </a>
 
-      <div class="pt-2 pb-1 px-3">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Manage</p>
+      <div class="px-3 pb-1 pt-3">
+        <p class="text-xs font-semibold uppercase tracking-wider text-teal-100/60">Manage</p>
       </div>
 
       <a href="{% url 'qrcodes:list' %}"
          class="sidebar-link {% if active_tab == 'qrcodes' %}active{% endif %}">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
         My QR Codes
+      </a>
+
+      <a href="{% url 'qrcodes:certificate_list' %}"
+         class="sidebar-link {% if active_tab == 'certificates' %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m-7 8h8M7 3h10a2 2 0 012 2v14l-4-2-3 2-3-2-4 2V5a2 2 0 012-2z"/></svg>
+        Certificates
       </a>
 
       <a href="{% url 'qrcodes:premium' %}"
@@ -64,8 +79,8 @@
         My Barcodes
       </a>
 
-      <div class="pt-2 pb-1 px-3">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Account</p>
+      <div class="px-3 pb-1 pt-3">
+        <p class="text-xs font-semibold uppercase tracking-wider text-teal-100/60">Account</p>
       </div>
 
       <a href="{% url 'accounts:profile' %}"
@@ -73,21 +88,28 @@
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
         Profile & API Keys
       </a>
+
+      {% if request.user.is_staff %}
+      <a href="{% url 'platform_admin:overview' %}" class="sidebar-link">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M5 7h14M7 7v12h10V7M9 7V5h6v2"/></svg>
+        Admin Panel
+      </a>
+      {% endif %}
     </nav>
 
     <!-- User block -->
-    <div class="p-4 border-t border-surface-100">
+    <div class="border-t border-white/10 p-4">
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm">
+        <div class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white font-semibold text-sm">
           {{ request.user.display_name|first|upper }}
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-semibold text-gray-900 truncate">{{ request.user.display_name }}</p>
-          <p class="text-xs text-gray-500 capitalize">{{ request.user.role }}</p>
+          <p class="text-sm font-semibold text-white truncate">{{ request.user.display_name }}</p>
+          <p class="text-xs text-teal-100/70 capitalize">{{ request.user.role }}</p>
         </div>
         <form method="post" action="{% url 'accounts:logout' %}">
           {% csrf_token %}
-          <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-gray-500 transition hover:bg-surface-100 hover:text-gray-800" aria-label="Log out">
+          <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-teal-100/70 transition hover:bg-white/10 hover:text-white" aria-label="Log out">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
             <span>Logout</span>
           </button>
@@ -98,14 +120,13 @@
 
   <!-- Main content -->
   <main class="relative flex-1 overflow-y-auto bg-surface-50 pb-24 md:pb-0">
-    <canvas id="ambient-particles" class="ambient-canvas z-0" aria-hidden="true"></canvas>
     <!-- Top bar -->
-    <header class="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-surface-100 bg-white/90 px-3 py-3 backdrop-blur-sm sm:px-6">
+    <header class="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-surface-100 bg-white/95 px-3 py-3 backdrop-blur-sm sm:px-6">
       <div class="flex items-center gap-3 min-w-0">
         <button type="button" class="md:hidden btn-secondary px-2.5 py-2" @click="mobileNav = true" aria-label="Open navigation">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
-        <h1 class="text-lg font-semibold text-gray-900 truncate">{% block page_title %}Dashboard{% endblock %}</h1>
+        <h1 class="truncate text-lg font-semibold text-gray-950">{% block page_title %}Dashboard{% endblock %}</h1>
       </div>
       <div class="scrollbar-hidden flex max-w-full items-center gap-2 overflow-x-auto sm:gap-3">
         {% block header_actions %}{% endblock %}
@@ -127,30 +148,30 @@
       </div>
     </header>
 
-    <div class="relative z-10 mx-auto w-full max-w-7xl p-3 sm:p-6">
+    <div class="relative z-10 mx-auto w-full max-w-7xl p-3 sm:p-5 lg:p-6">
       {% block content %}{% endblock %}
     </div>
   </main>
 
   <nav x-show="!scannerResultOpen" x-transition.opacity class="mobile-tabbar fixed inset-x-0 bottom-0 z-30 border-t border-surface-200 bg-white/95 px-2 pt-2 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur md:hidden" aria-label="Primary mobile navigation">
     <div class="grid grid-cols-5 gap-1">
-      <a href="{% url 'qrcodes:dashboard' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'dashboard' %}bg-primary-50 text-primary-700{% else %}text-gray-500{% endif %}">
+      <a href="{% url 'qrcodes:dashboard' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'dashboard' %}bg-primary-600 text-white{% else %}text-gray-500{% endif %}">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h7v7H3zM14 7h7v7h-7zM3 17h7v4H3zM14 17h7v4h-7z"/></svg>
         Home
       </a>
-      <a href="{% url 'qrcodes:create' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'create_qr' %}bg-primary-50 text-primary-700{% else %}text-gray-500{% endif %}">
+      <a href="{% url 'qrcodes:templates' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'create_qr' or active_tab == 'templates' or active_tab == 'certificates' %}bg-primary-600 text-white{% else %}text-gray-500{% endif %}">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         QR
       </a>
-      <a href="{% url 'barcodes:create' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'create_barcode' or active_tab == 'barcodes' %}bg-primary-50 text-primary-700{% else %}text-gray-500{% endif %}">
+      <a href="{% url 'barcodes:create' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'create_barcode' or active_tab == 'barcodes' %}bg-primary-600 text-white{% else %}text-gray-500{% endif %}">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
         Barcode
       </a>
-      <a href="{% url 'qrcodes:scan' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'scan_qr' %}bg-primary-50 text-primary-700{% else %}text-gray-500{% endif %}">
+      <a href="{% url 'qrcodes:scan' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'scan_qr' %}bg-primary-600 text-white{% else %}text-gray-500{% endif %}">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2M3 17v2a2 2 0 002 2h2m10 0h2a2 2 0 002-2v-2M8 12h8m-4-4v8"/></svg>
         Scan
       </a>
-      <a href="{% url 'accounts:profile' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'profile' %}bg-primary-50 text-primary-700{% else %}text-gray-500{% endif %}">
+      <a href="{% url 'accounts:profile' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'profile' %}bg-primary-600 text-white{% else %}text-gray-500{% endif %}">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
         Profile
       </a>
@@ -158,7 +179,7 @@
   </nav>
 
   <div x-show="mobileNav" x-cloak class="fixed inset-0 z-40 md:hidden">
-    <div class="absolute inset-0 bg-gray-950/30" @click="mobileNav = false"></div>
+    <div class="absolute inset-0 bg-primary-950/25" @click="mobileNav = false"></div>
     <aside class="absolute left-0 top-0 h-full w-[min(18rem,88vw)] bg-white shadow-xl border-r border-surface-200 flex flex-col">
       <div class="flex items-center justify-between px-5 py-4 border-b border-surface-100">
         <div class="flex items-center gap-2.5">
@@ -172,16 +193,21 @@
       <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto" @click="mobileNav = false">
         <a href="{% url 'qrcodes:dashboard' %}" class="sidebar-link {% if active_tab == 'dashboard' %}active{% endif %}">Dashboard</a>
         <a href="{% url 'qrcodes:create' %}" class="sidebar-link {% if active_tab == 'create_qr' %}active{% endif %}">New QR Code</a>
+        <a href="{% url 'qrcodes:templates' %}" class="sidebar-link {% if active_tab == 'templates' %}active{% endif %}">Templates</a>
         <a href="{% url 'barcodes:create' %}" class="sidebar-link {% if active_tab == 'create_barcode' %}active{% endif %}">New Barcode</a>
         <a href="{% url 'qrcodes:scan' %}" class="sidebar-link {% if active_tab == 'scan_qr' %}active{% endif %}">Scan QR</a>
         <a href="{% url 'qrcodes:list' %}" class="sidebar-link {% if active_tab == 'qrcodes' %}active{% endif %}">My QR Codes</a>
+        <a href="{% url 'qrcodes:certificate_list' %}" class="sidebar-link {% if active_tab == 'certificates' %}active{% endif %}">Certificates</a>
         <a href="{% url 'qrcodes:premium' %}" class="sidebar-link {% if active_tab == 'premium' %}active{% endif %}">Premium Studio</a>
         <a href="{% url 'barcodes:list' %}" class="sidebar-link {% if active_tab == 'barcodes' %}active{% endif %}">My Barcodes</a>
         <a href="{% url 'accounts:profile' %}" class="sidebar-link {% if active_tab == 'profile' %}active{% endif %}">Profile & API Keys</a>
+        {% if request.user.is_staff %}
+        <a href="{% url 'platform_admin:overview' %}" class="sidebar-link">Admin Panel</a>
+        {% endif %}
       </nav>
       <div class="border-t border-surface-100 p-4">
         <div class="mb-3 flex items-center gap-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
+          <div class="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700">
             {{ request.user.display_name|first|upper }}
           </div>
           <div class="min-w-0">
@@ -191,7 +217,7 @@
         </div>
         <form method="post" action="{% url 'accounts:logout' %}">
           {% csrf_token %}
-          <button type="submit" class="btn-secondary w-full justify-center text-rose-700 hover:bg-rose-50" aria-label="Log out">
+          <button type="submit" class="btn-secondary w-full justify-center text-coral-700 hover:bg-coral-50" aria-label="Log out">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
             Logout
           </button>

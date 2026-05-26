@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from apps.accounts.models import User, UserProfile, APIKey, AuditLog, MembershipOrder
+from django.utils import timezone
+from apps.accounts.models import (
+    User, UserProfile, APIKey, AuditLog, MembershipOrder,
+    BusinessVerification, BusinessVerificationAttempt,
+)
 
 
 @admin.register(User)
@@ -60,3 +64,31 @@ class MembershipOrderAdmin(admin.ModelAdmin):
         "receipt", "membership_started_at", "membership_expires_at", "raw_payload",
         "created_at", "paid_at", "updated_at",
     ]
+
+
+@admin.register(BusinessVerification)
+class BusinessVerificationAdmin(admin.ModelAdmin):
+    list_display = ["business_name", "domain", "workspace", "status", "method", "verified_at", "updated_at"]
+    list_filter = ["status", "method", "verified_at", "created_at"]
+    search_fields = ["business_name", "domain", "workspace__email"]
+    readonly_fields = ["verification_token", "verified_at", "revoked_at", "created_at", "updated_at"]
+    actions = ["revoke_verification"]
+
+    @admin.action(description="Revoke selected verifications")
+    def revoke_verification(self, request, queryset):
+        queryset.update(
+            status=BusinessVerification.Status.REVOKED,
+            revoked_at=timezone.now(),
+            verified_at=None,
+        )
+
+
+@admin.register(BusinessVerificationAttempt)
+class BusinessVerificationAttemptAdmin(admin.ModelAdmin):
+    list_display = ["verification", "method", "success", "checked_by", "ip_address", "checked_at"]
+    list_filter = ["success", "method", "checked_at"]
+    search_fields = ["verification__business_name", "verification__domain", "checked_by__email", "message"]
+    readonly_fields = ["verification", "method", "success", "message", "checked_by", "ip_address", "checked_at"]
+
+    def has_add_permission(self, request):
+        return False

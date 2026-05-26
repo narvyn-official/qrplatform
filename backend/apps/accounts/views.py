@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth import (
     login, logout, authenticate, get_user_model, update_session_auth_hash,
 )
@@ -21,12 +22,15 @@ from django.views.decorators.cache import never_cache
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from apps.accounts.models import (
-    EmailVerificationToken, PasswordResetToken, UserProfile, AuditLog, APIKey
+    EmailVerificationToken, PasswordResetToken, UserProfile, AuditLog, APIKey,
+    BusinessVerification, BusinessVerificationAttempt,
 )
 from apps.accounts.forms import (
     SignupForm, LoginForm, ProfileForm, ChangePasswordForm,
     ForgotPasswordForm, ResetPasswordForm, ResendVerificationForm,
+    BusinessVerificationForm,
 )
+from apps.accounts.verification import verification_instructions, verify_business_domain
 from apps.analytics.utils import get_client_ip
 
 User = get_user_model()
@@ -525,6 +529,8 @@ def reset_password(request, token):
 def profile(request):
     profile_obj, _ = UserProfile.objects.get_or_create(user=request.user)
     form = ProfileForm(instance=profile_obj)
+    business_verification = BusinessVerification.objects.filter(workspace=request.user).order_by("-updated_at").first()
+    verification_form = BusinessVerificationForm(instance=business_verification)
 
     if request.method == "POST":
         form = ProfileForm(request.POST, request.FILES, instance=profile_obj)
@@ -538,10 +544,19 @@ def profile(request):
             return redirect("accounts:profile")
 
     api_keys = APIKey.objects.filter(user=request.user, status=APIKey.Status.ACTIVE)
+    verification_attempts = (
+        business_verification.attempts.all()[:5]
+        if business_verification
+        else []
+    )
     # Pop the raw key from session so it shows only once
     new_api_key = request.session.pop("new_api_key", None)
     context = {
         "form": form,
+        "verification_form": verification_form,
+        "business_verification": business_verification,
+        "verification_instructions": verification_instructions(business_verification),
+        "verification_attempts": verification_attempts,
         "password_form": ChangePasswordForm(),
         "profile": profile_obj,
         "api_keys": api_keys,
@@ -550,6 +565,77 @@ def profile(request):
         "email_verification_required": _email_verification_required(),
     }
     return render(request, "accounts/profile.html", context)
+
+
+@login_required
+@require_POST
+def save_business_verification(request):
+    current = BusinessVerification.objects.filter(workspace=request.user).order_by("-updated_at").first()
+    form = BusinessVerificationForm(request.POST, instance=current)
+    if form.is_valid():
+        verification = form.save(commit=False)
+        verification.workspace = request.user
+        verification.status = BusinessVerification.Status.PENDING
+        verification.verified_at = None
+        verification.revoked_at = None
+        verification.save()
+        _log_audit(
+            request.user,
+            AuditLog.Action.BUSINESS_VERIFY,
+            request,
+            domain=verification.domain,
+            method=verification.method,
+            status="pending",
+        )
+        messages.success(request, "Verification instructions are ready. Add the proof, then click Verify.")
+    else:
+        first_error = next(iter(form.errors.values()))[0]
+        messages.error(request, first_error)
+    return redirect(f"{reverse('accounts:profile')}#verification")
+
+
+@login_required
+@require_POST
+def verify_business_verification_view(request):
+    verification = BusinessVerification.objects.filter(workspace=request.user).order_by("-updated_at").first()
+    if not verification:
+        messages.error(request, "Save your business verification details first.")
+        return redirect(f"{reverse('accounts:profile')}#verification")
+    if verification.status == BusinessVerification.Status.REVOKED:
+        messages.error(request, "This verification was revoked. Save a new verification request first.")
+        return redirect(f"{reverse('accounts:profile')}#verification")
+
+    success, message = verify_business_domain(verification)
+    now = timezone.now()
+    verification.status = (
+        BusinessVerification.Status.VERIFIED
+        if success
+        else BusinessVerification.Status.FAILED
+    )
+    verification.verified_at = now if success else None
+    verification.save(update_fields=["status", "verified_at", "updated_at"])
+    BusinessVerificationAttempt.objects.create(
+        verification=verification,
+        method=verification.method,
+        success=success,
+        message=message[:500],
+        checked_by=request.user,
+        ip_address=get_client_ip(request),
+    )
+    _log_audit(
+        request.user,
+        AuditLog.Action.BUSINESS_VERIFY,
+        request,
+        domain=verification.domain,
+        method=verification.method,
+        status=verification.status,
+        message=message,
+    )
+    if success:
+        messages.success(request, "Business verified. Your Narvyn badge is now active for this workspace.")
+    else:
+        messages.error(request, message)
+    return redirect(f"{reverse('accounts:profile')}#verification")
 
 
 @login_required

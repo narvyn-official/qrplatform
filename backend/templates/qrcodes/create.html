@@ -12,7 +12,7 @@
 })" x-init="updatePayload()">
 
   {% if form.non_field_errors %}
-  <div class="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+  <div class="mb-5 rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700">
     {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
   </div>
   {% endif %}
@@ -23,84 +23,94 @@
     <input type="hidden" name="content" x-ref="contentPayload" value="{{ form.content.value|default:'' }}">
     <input type="hidden" name="tags" value="{{ form.tags.value|default:'[]' }}">
 
-    <section class="card p-5">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between mb-4">
+    <section class="builder-shell p-4 sm:p-5">
+      <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
         <div>
-          <h2 class="text-base font-semibold text-gray-950">Choose QR Type</h2>
-          <p class="text-sm text-gray-500 mt-1">Pick the scan action first, then add content and styling.</p>
+          <p class="page-kicker text-primary-700">QR builder</p>
+          <h2 class="page-title">Create the scan journey first.</h2>
+          <p class="page-copy">Choose the action, enter the required details, then open advanced settings only when the campaign needs them.</p>
+          <div class="mt-4 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+            <span class="builder-mini-stat">Editable after print</span>
+            <span class="builder-mini-stat">Tracked scans</span>
+            <span class="builder-mini-stat">Print exports</span>
+          </div>
         </div>
-        <a href="{% url 'qrcodes:list' %}" class="text-sm font-medium text-gray-500 hover:text-primary-700">View library</a>
+        <div class="rounded-lg border border-white/80 bg-white/80 p-3 shadow-sm backdrop-blur">
+          <div class="flex items-center justify-between gap-3">
+            <label class="text-sm font-bold text-gray-950">QR type</label>
+            <span class="badge badge-blue capitalize" x-text="qrType"></span>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            {% for value, label in qr_types %}
+            <button type="button"
+                    class="builder-type-chip"
+                    :class="qrType === '{{ value }}' ? 'border-primary-500 bg-primary-50 text-primary-900 shadow-sm' : 'border-surface-200 bg-white text-gray-600 hover:border-primary-200 hover:bg-primary-50'"
+                    @click="qrType = '{{ value }}'; updatePayload()">
+              {{ label }}
+            </button>
+            {% endfor %}
+          </div>
+        </div>
       </div>
-
-      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-        {% for value, label in qr_types %}
-        <button type="button"
-                @click="setType('{{ value }}')"
-                :class="qrType === '{{ value }}' ? 'border-primary-600 bg-primary-50 text-primary-700 shadow-sm' : 'border-surface-200 bg-white text-gray-600 hover:border-primary-200 hover:bg-surface-50'"
-                class="interactive-card min-h-20 rounded-lg border px-3 py-3 text-left transition">
-          <span class="block text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ value }}</span>
-          <span class="mt-1 block text-sm font-semibold leading-tight">{{ label }}</span>
-        </button>
-        {% endfor %}
-      </div>
-      {% if form.qr_type.errors %}<p class="text-rose-600 text-xs mt-2">{{ form.qr_type.errors|join:", " }}</p>{% endif %}
+      {% if form.qr_type.errors %}<p class="text-coral-600 text-xs mt-2">{{ form.qr_type.errors|join:", " }}</p>{% endif %}
     </section>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div class="lg:col-span-7 space-y-6">
-        <section class="card p-5">
+        <section class="builder-step">
           <div class="flex items-start justify-between gap-4 mb-5">
             <div>
-              <h2 class="text-base font-semibold text-gray-950">Content</h2>
-              <p class="text-sm text-gray-500 mt-1">The QR payload is assembled from the fields for the selected type.</p>
+              <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Step 1</p>
+              <h2 class="mt-1 text-lg font-black text-gray-950">Content</h2>
+              <p class="text-sm text-gray-500 mt-1">Only the fields needed for this QR type are shown.</p>
             </div>
             <span class="badge badge-blue capitalize" x-text="qrType"></span>
           </div>
 
           <div class="space-y-4">
-            <div>
+            <div class="builder-field-tile">
               <label class="block text-sm font-medium text-gray-700 mb-1.5">QR Code Name</label>
               <input type="text" name="name" class="input" placeholder="Spring campaign landing page" required value="{{ form.name.value|default:'' }}">
-              {% if form.name.errors %}<p class="text-rose-600 text-xs mt-1">{{ form.name.errors|join:", " }}</p>{% endif %}
+              {% if form.name.errors %}<p class="text-coral-600 text-xs mt-1">{{ form.name.errors|join:", " }}</p>{% endif %}
             </div>
 
-            <div x-show="qrType === 'url'" x-cloak>
+            <div x-show="qrType === 'url'" x-cloak class="builder-field-tile">
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Website URL</label>
               <input type="text" inputmode="url" x-model="url" class="input" placeholder="https://example.com">
             </div>
 
             <div x-show="qrType === 'dynamic'" x-cloak class="space-y-3">
-              <div class="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+              <div class="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-900">
                 Dynamic QR codes keep the same printed code while the destination can change later.
               </div>
-              <div>
+              <div class="builder-field-tile">
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Destination URL</label>
                 <input type="text" inputmode="url" name="destination_url" x-model="destinationUrl" class="input" placeholder="https://example.com/landing" value="{{ form.destination_url.value|default:'' }}">
-                {% if form.destination_url.errors %}<p class="text-rose-600 text-xs mt-1">{{ form.destination_url.errors|join:", " }}</p>{% endif %}
+                {% if form.destination_url.errors %}<p class="text-coral-600 text-xs mt-1">{{ form.destination_url.errors|join:", " }}</p>{% endif %}
               </div>
             </div>
 
             <div x-show="qrType === 'whatsapp'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
+              <div class="builder-field-tile">
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
                 <input type="tel" x-model="whatsappPhone" class="input" placeholder="+1 555 000 0000">
               </div>
-              <div>
+              <div class="builder-field-tile">
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Prefilled Message</label>
                 <input type="text" x-model="whatsappMessage" class="input" placeholder="Hi, I would like to know more">
               </div>
             </div>
 
             <div x-show="qrType === 'wifi'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
+              <div class="builder-field-tile">
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Network Name</label>
                 <input type="text" x-model="wifiSsid" class="input" placeholder="Studio WiFi">
               </div>
-              <div>
+              <div class="builder-field-tile">
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
                 <input type="text" x-model="wifiPassword" class="input" placeholder="Network password">
               </div>
-              <div>
+              <div class="builder-field-tile">
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Security</label>
                 <select x-model="wifiSecurity" class="input">
                   <option value="WPA">WPA/WPA2</option>
@@ -108,38 +118,38 @@
                   <option value="nopass">None</option>
                 </select>
               </div>
-              <label class="flex items-center gap-3 pt-7 text-sm font-medium text-gray-700">
-                <input type="checkbox" x-model="wifiHidden" class="rounded border-surface-300 text-primary-600 focus:ring-primary-500">
+              <label class="builder-field-tile flex items-center gap-3 text-sm font-medium text-gray-700">
+              <input type="checkbox" x-model="wifiHidden" class="rounded border-surface-300 text-primary-600 focus:ring-primary-600">
                 Hidden network
               </label>
             </div>
 
             <div x-show="qrType === 'vcard'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <input type="text" x-model="vcardName" class="input" placeholder="Full name">
-              <input type="tel" x-model="vcardPhone" class="input" placeholder="Phone number">
-              <input type="email" x-model="vcardEmail" class="input" placeholder="Email address">
-              <input type="text" x-model="vcardOrg" class="input" placeholder="Company">
-              <input type="text" inputmode="url" x-model="vcardUrl" class="input sm:col-span-2" placeholder="https://example.com">
+              <div class="builder-field-tile"><input type="text" x-model="vcardName" class="input" placeholder="Full name"></div>
+              <div class="builder-field-tile"><input type="tel" x-model="vcardPhone" class="input" placeholder="Phone number"></div>
+              <div class="builder-field-tile"><input type="email" x-model="vcardEmail" class="input" placeholder="Email address"></div>
+              <div class="builder-field-tile"><input type="text" x-model="vcardOrg" class="input" placeholder="Company"></div>
+              <div class="builder-field-tile sm:col-span-2"><input type="text" inputmode="url" x-model="vcardUrl" class="input" placeholder="https://example.com"></div>
             </div>
 
             <div x-show="qrType === 'email'" x-cloak class="space-y-3">
-              <input type="email" x-model="emailTo" class="input" placeholder="recipient@example.com">
-              <input type="text" x-model="emailSubject" class="input" placeholder="Subject">
-              <textarea x-model="emailBody" rows="3" class="input" placeholder="Message body"></textarea>
+              <div class="builder-field-tile"><input type="email" x-model="emailTo" class="input" placeholder="recipient@example.com"></div>
+              <div class="builder-field-tile"><input type="text" x-model="emailSubject" class="input" placeholder="Subject"></div>
+              <div class="builder-field-tile"><textarea x-model="emailBody" rows="3" class="input" placeholder="Message body"></textarea></div>
             </div>
 
             <div x-show="qrType === 'sms'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <input type="tel" x-model="smsPhone" class="input" placeholder="+1 555 000 0000">
-              <input type="text" x-model="smsMessage" class="input" placeholder="Message">
+              <div class="builder-field-tile"><input type="tel" x-model="smsPhone" class="input" placeholder="+1 555 000 0000"></div>
+              <div class="builder-field-tile"><input type="text" x-model="smsMessage" class="input" placeholder="Message"></div>
             </div>
 
-            <div x-show="qrType === 'text'" x-cloak>
+            <div x-show="qrType === 'text'" x-cloak class="builder-field-tile">
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Plain Text</label>
               <textarea x-model="plainText" rows="4" class="input" placeholder="Enter the text to encode"></textarea>
             </div>
 
             {% if form.content.errors %}
-            <p class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ form.content.errors|join:", " }}</p>
+            <p class="rounded-lg border border-coral-200 bg-coral-50 px-3 py-2 text-sm text-coral-700">{{ form.content.errors|join:", " }}</p>
             {% endif %}
           </div>
         </section>
@@ -153,13 +163,13 @@
           </button>
         </section>
 
-        <details class="card group" {% if form.logo.errors %}open{% endif %}>
-          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
+        <details class="disclosure-card group" {% if form.logo.errors %}open{% endif %}>
+          <summary class="disclosure-summary">
             <div>
               <h2 class="text-base font-semibold text-gray-950">Design</h2>
-              <p class="mt-1 text-sm text-gray-500">Colors, dots, corners, logo, frame, and output size.</p>
+              <p class="mt-1 text-sm text-gray-500">Optional colors, logo, frame, shape, and output size.</p>
             </div>
-            <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-200 text-gray-500 group-open:rotate-180">
+            <span class="disclosure-chevron">
               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </span>
           </summary>
@@ -220,7 +230,7 @@
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Logo</label>
               <input type="file" name="logo" accept=".png,.jpg,.jpeg,.svg,.webp" class="input">
-              {% if form.logo.errors %}<p class="text-rose-600 text-xs mt-1">{{ form.logo.errors|join:", " }}</p>{% endif %}
+              {% if form.logo.errors %}<p class="text-coral-600 text-xs mt-1">{{ form.logo.errors|join:", " }}</p>{% endif %}
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Logo Size Ratio</label>
@@ -238,13 +248,13 @@
           </div>
         </details>
 
-        <details class="card group" {% if form.expires_at.errors or form.scan_limit.errors or form.access_password.errors or form.is_password_protected.value %}open{% endif %}>
-          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
+        <details class="disclosure-card group" {% if form.expires_at.errors or form.scan_limit.errors or form.access_password.errors or form.is_password_protected.value %}open{% endif %}>
+          <summary class="disclosure-summary">
             <div>
               <h2 class="text-base font-semibold text-gray-950">Access Rules</h2>
-              <p class="mt-1 text-sm text-gray-500">Expiry, scan limit, and password protection.</p>
+              <p class="mt-1 text-sm text-gray-500">Optional expiry, scan limit, and password protection.</p>
             </div>
-            <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-200 text-gray-500 group-open:rotate-180">
+            <span class="disclosure-chevron">
               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </span>
           </summary>
@@ -262,29 +272,32 @@
 
           <div class="mt-4 rounded-lg border border-surface-200 p-4">
             <label class="flex items-center gap-3 text-sm font-medium text-gray-800">
-              <input type="checkbox" name="is_password_protected" x-model="passwordProtected" class="rounded border-surface-300 text-primary-600 focus:ring-primary-500">
+              <input type="checkbox" name="is_password_protected" x-model="passwordProtected" class="rounded border-surface-300 text-primary-600 focus:ring-primary-600">
               Password protect this QR code
             </label>
             <div x-show="passwordProtected" x-cloak class="mt-3">
-              <input type="password" name="access_password" class="input" autocomplete="new-password" placeholder="At least 6 characters">
-              {% if form.access_password.errors %}<p class="text-rose-600 text-xs mt-1">{{ form.access_password.errors|join:", " }}</p>{% endif %}
+              <div class="password-toggle-field" data-password-toggle data-password-visible="false">
+                <input type="password" name="access_password" class="input" autocomplete="new-password" placeholder="At least 6 characters">
+                {% include "includes/password_toggle_button.html" %}
+              </div>
+              {% if form.access_password.errors %}<p class="text-coral-600 text-xs mt-1">{{ form.access_password.errors|join:", " }}</p>{% endif %}
             </div>
           </div>
           </div>
         </details>
 
         <!-- UTM Auto-Append (pro) -->
-        <details class="card group" x-show="['url','dynamic'].includes(qrType)" x-cloak>
-          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
+        <details class="disclosure-card group" x-show="['url','dynamic'].includes(qrType)" x-cloak>
+          <summary class="disclosure-summary">
             <div>
               <h2 class="text-base font-semibold text-gray-950">UTM Parameters</h2>
               <p class="text-sm text-gray-500 mt-1">Auto-appended to the destination on every scan.</p>
             </div>
             <div class="flex items-center gap-2">
             {% if not request.user.is_pro %}
-            <span class="badge badge-purple">Pro</span>
+            <span class="badge badge-coral">Pro</span>
             {% endif %}
-              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-200 text-gray-500 group-open:rotate-180">
+              <span class="disclosure-chevron">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
               </span>
             </div>
@@ -316,17 +329,17 @@
         </details>
 
         <!-- Scheduled Activation (pro) -->
-        <details class="card group">
-          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
+        <details class="disclosure-card group">
+          <summary class="disclosure-summary">
             <div>
               <h2 class="text-base font-semibold text-gray-950">Scheduled Activation</h2>
               <p class="text-sm text-gray-500 mt-1">Automatically activate and deactivate on a schedule.</p>
             </div>
             <div class="flex items-center gap-2">
             {% if not request.user.is_pro %}
-            <span class="badge badge-purple">Pro</span>
+            <span class="badge badge-coral">Pro</span>
             {% endif %}
-              <span class="flex h-9 w-9 items-center justify-center rounded-lg border border-surface-200 text-gray-500 group-open:rotate-180">
+              <span class="disclosure-chevron">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
               </span>
             </div>
@@ -396,9 +409,9 @@
           <section class="card p-5">
             <h2 class="text-sm font-semibold text-gray-950 mb-3">Output Check</h2>
             <div class="grid grid-cols-3 gap-2 text-center text-xs">
-              <div class="rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-700">PNG</div>
-              <div class="rounded-lg bg-sky-50 px-3 py-2 font-semibold text-sky-700">SVG</div>
-              <div class="rounded-lg bg-amber-50 px-3 py-2 font-semibold text-amber-700">PDF</div>
+              <div class="rounded-lg bg-primary-50 px-3 py-2 font-semibold text-primary-700">PNG</div>
+              <div class="rounded-lg bg-primary-50 px-3 py-2 font-semibold text-primary-700">SVG</div>
+              <div class="rounded-lg bg-coral-50 px-3 py-2 font-semibold text-coral-700">PDF</div>
             </div>
           </section>
         </div>

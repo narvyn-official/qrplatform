@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 220" role="img" aria-label="Narvyn QR Trusted QR Platform">
+  <defs>
+    <linearGradient id="word-accent" x1="590" y1="30" x2="812" y2="170" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D1C9"/>
+      <stop offset="1" stop-color="#2563FF"/>
+    </linearGradient>
+  </defs>
+  <image href="/static/pwa/icon.svg" x="18" y="20" width="160" height="160"/>
+  <text x="210" y="115" fill="#0B1331" font-family="Poppins, Inter, Arial, sans-serif" font-size="82" font-weight="800" letter-spacing="-2">Narvyn</text>
+  <text x="545" y="115" fill="url(#word-accent)" font-family="Poppins, Inter, Arial, sans-serif" font-size="82" font-weight="800" letter-spacing="-2">QR</text>
+  <path d="M214 145h430" stroke="#D6E4F5" stroke-width="2"/>
+  <circle cx="500" cy="145" r="8" fill="#00D1C9"/>
+  <text x="276" y="184" fill="#0B1331" font-family="Poppins, Inter, Arial, sans-serif" font-size="24" font-weight="500" letter-spacing="18">Trusted QR Platform</text>
+</svg>

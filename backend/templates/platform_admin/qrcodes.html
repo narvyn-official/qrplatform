@@ -1,0 +1,35 @@
+{% extends "platform_admin/layout.html" %}
+{% block title %}QR Codes — Admin{% endblock %}
+{% block admin_title %}QR codes{% endblock %}
+{% block admin_kicker %}Assets{% endblock %}
+
+{% block admin_content %}
+<form method="get" class="card grid grid-cols-1 gap-3 p-4 md:grid-cols-[minmax(0,1fr)_150px_150px_150px_auto]">
+  <input class="input" name="q" value="{{ filters.q }}" placeholder="Search QR, code, or owner">
+  <select class="input" name="status"><option value="">All statuses</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <select class="input" name="type"><option value="">All types</option>{% for value,label in type_choices %}<option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <select class="input" name="range"><option value="">All time</option><option value="24h" {% if filters.range == "24h" %}selected{% endif %}>Last 24h</option><option value="7d" {% if filters.range == "7d" %}selected{% endif %}>Last 7d</option><option value="30d" {% if filters.range == "30d" %}selected{% endif %}>Last 30d</option></select>
+  <button class="btn-primary">Filter</button>
+</form>
+
+<section class="card overflow-hidden">
+  <div class="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_110px_120px_120px_110px] gap-3 border-b border-surface-100 bg-surface-50 px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 lg:grid">
+    <span>QR</span><span>Owner</span><span>Type</span><span>Scans</span><span>Status</span><span></span>
+  </div>
+  <div class="divide-y divide-surface-100">
+    {% for qr in qrcodes %}
+    <article class="grid grid-cols-1 gap-3 p-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_110px_120px_120px_110px] lg:items-center">
+      <div class="min-w-0"><p class="truncate text-sm font-black">{{ qr.name }}</p><p class="mt-1 text-xs text-gray-500">{{ qr.short_code }} · {{ qr.created_at|date:"M d, Y" }}</p></div>
+      <a href="{% url 'platform_admin:user_detail' qr.user.id %}" class="truncate text-sm font-semibold text-primary-700">{{ qr.user.email }}</a>
+      <span class="text-sm">{{ qr.get_qr_type_display }}</span>
+      <span class="text-sm font-bold">{{ qr.total_scans }} <span class="font-normal text-gray-500">/ {{ qr.unique_scans }}</span></span>
+      {% include "platform_admin/status_badge.html" with status=qr.status label=qr.get_status_display %}
+      <a href="{% url 'platform_admin:qrcode_detail' qr.id %}" class="btn-secondary justify-center">Open</a>
+    </article>
+    {% empty %}
+    <div class="p-10 text-center text-sm text-gray-500">No QR codes match these filters.</div>
+    {% endfor %}
+  </div>
+</section>
+{% include "platform_admin/pagination.html" with page_obj=qrcodes %}
+{% endblock %}

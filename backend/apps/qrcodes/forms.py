@@ -1,43 +1,26 @@
-"""
-QR Code forms.
-"""
-import re
+"""QR Code and certificate forms."""
+
+import csv
+import io
 
 from django import forms
 from django.core.exceptions import ValidationError
-from django.core.validators import EmailValidator, URLValidator
 from django.utils import timezone
-from apps.qrcodes.models import QRCode, QRCodeCampaign
+from apps.qrcodes.models import QRCode, QRCodeCampaign, Certificate
 from apps.qrcodes.utils import (
     build_email_content,
     build_sms_content,
     build_whatsapp_content,
 )
-
-
-HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
-PHONE_RE = re.compile(r"^\+?[0-9][0-9\s().-]{6,20}$")
-HTTP_URL_VALIDATOR = URLValidator(schemes=("http", "https"))
-EMAIL_VALIDATOR = EmailValidator()
-MIN_QR_SIZE = 128
-MAX_QR_SIZE = 2048
-MAX_LOGO_SIZE_RATIO = 0.35
-
-
-def normalize_http_url(value):
-    url = (value or "").strip()
-    if url and not url.startswith(("http://", "https://")):
-        url = "https://" + url
-    if url:
-        HTTP_URL_VALIDATOR(url)
-    return url
-
-
-def validate_hex_color(value, field_label):
-    color = (value or "").strip()
-    if not HEX_COLOR_RE.match(color):
-        raise ValidationError({field_label: "Use a valid hex color, for example #000000."})
-    return color.upper()
+from apps.qrcodes.validation import (
+    EMAIL_VALIDATOR,
+    MAX_LOGO_SIZE_RATIO,
+    MAX_QR_SIZE,
+    MIN_QR_SIZE,
+    normalize_http_url,
+    validate_hex_color,
+    validate_phone_number,
+)
 
 
 class QRCodeForm(forms.ModelForm):
@@ -168,8 +151,7 @@ class QRCodeForm(forms.ModelForm):
         elif qr_type == QRCode.QRType.WHATSAPP:
             if not content:
                 raise ValidationError({"content": "WhatsApp phone number is required."})
-            if not PHONE_RE.match(content):
-                raise ValidationError({"content": "Enter a valid WhatsApp phone number with country code."})
+            validate_phone_number(content, "content", "Enter a valid WhatsApp phone number with country code.")
             if not content.startswith(("http://", "https://")):
                 cleaned["content"] = build_whatsapp_content(content)
 
@@ -187,8 +169,7 @@ class QRCodeForm(forms.ModelForm):
                 parts = content.split("|", 1)
                 phone = parts[0].strip()
                 message = parts[1].strip() if len(parts) > 1 else ""
-                if not PHONE_RE.match(phone):
-                    raise ValidationError({"content": "Enter a valid SMS phone number."})
+                validate_phone_number(phone, "content", "Enter a valid SMS phone number.")
                 cleaned["content"] = build_sms_content(phone, message)
 
         if not content and qr_type != QRCode.QRType.DYNAMIC:
@@ -273,3 +254,126 @@ class QRCodeForm(forms.ModelForm):
             qr.save()
             self.save_m2m()
         return qr
+
+
+class CertificateForm(forms.ModelForm):
+    """Guided certificate creation form with server-side validation."""
+
+    class Meta:
+        model = Certificate
+        fields = [
+            "recipient_name",
+            "title",
+            "issuer",
+            "issue_date",
+            "expiry_date",
+            "certificate_id",
+            "pdf_url",
+        ]
+        widgets = {
+            "recipient_name": forms.TextInput(attrs={"placeholder": "Aarav Sharma"}),
+            "title": forms.TextInput(attrs={"placeholder": "Certificate of Completion"}),
+            "issuer": forms.TextInput(attrs={"placeholder": "Narvyn Academy"}),
+            "issue_date": forms.DateInput(attrs={"type": "date"}),
+            "expiry_date": forms.DateInput(attrs={"type": "date"}),
+            "certificate_id": forms.TextInput(attrs={"placeholder": "CERT-2026-001"}),
+        }
+
+    def __init__(self, *args, workspace=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.workspace = workspace
+        input_class = (
+            "block w-full px-3.5 py-2.5 border border-surface-200 rounded-lg text-sm "
+            "focus:ring-2 focus:ring-primary-600 focus:border-transparent outline-none transition bg-white shadow-[0_1px_0_rgba(15,23,42,.03)]"
+        )
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", input_class)
+        self.fields["expiry_date"].required = False
+        self.fields["pdf_url"].required = False
+        self.fields["pdf_url"].widget.attrs.setdefault("accept", "application/pdf,.pdf")
+
+    def clean_certificate_id(self):
+        certificate_id = (self.cleaned_data.get("certificate_id") or "").strip()
+        if not certificate_id:
+            raise ValidationError("Certificate ID is required.")
+        if self.workspace:
+            qs = Certificate.objects.filter(workspace=self.workspace, certificate_id__iexact=certificate_id)
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise ValidationError("This certificate ID already exists in your workspace.")
+        return certificate_id
+
+    def clean_pdf_url(self):
+        uploaded = self.cleaned_data.get("pdf_url")
+        if not uploaded:
+            return uploaded
+        name = uploaded.name.lower()
+        content_type = getattr(uploaded, "content_type", "")
+        if not name.endswith(".pdf") or content_type not in ("application/pdf", "application/octet-stream", ""):
+            raise ValidationError("Upload a PDF file.")
+        if uploaded.size > 10 * 1024 * 1024:
+            raise ValidationError("PDF file must be 10 MB or smaller.")
+        return uploaded
+
+    def clean(self):
+        cleaned = super().clean()
+        issue_date = cleaned.get("issue_date")
+        expiry_date = cleaned.get("expiry_date")
+        if issue_date and issue_date > timezone.localdate():
+            raise ValidationError({"issue_date": "Issue date cannot be in the future."})
+        if issue_date and expiry_date and expiry_date < issue_date:
+            raise ValidationError({"expiry_date": "Expiry date must be after the issue date."})
+        return cleaned
+
+
+class CertificateBulkUploadForm(forms.Form):
+    """CSV upload for creating many certificate verification QR records."""
+
+    csv_file = forms.FileField(
+        label="CSV file",
+        widget=forms.FileInput(attrs={"accept": ".csv,text/csv", "class": "input"}),
+        help_text="Required columns: recipient_name, title, issuer, issue_date, certificate_id. Optional: expiry_date.",
+    )
+
+    required_columns = {"recipient_name", "title", "issuer", "issue_date", "certificate_id"}
+    optional_columns = {"expiry_date"}
+
+    def clean_csv_file(self):
+        uploaded = self.cleaned_data["csv_file"]
+        if not uploaded.name.lower().endswith(".csv"):
+            raise ValidationError("Upload a CSV file.")
+        if uploaded.size > 2 * 1024 * 1024:
+            raise ValidationError("CSV file must be 2 MB or smaller.")
+        return uploaded
+
+    def parsed_rows(self):
+        uploaded = self.cleaned_data["csv_file"]
+        uploaded.seek(0)
+        try:
+            text = uploaded.read().decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            raise ValidationError("CSV must be UTF-8 encoded.") from exc
+
+        reader = csv.DictReader(io.StringIO(text))
+        headers = {header.strip() for header in (reader.fieldnames or []) if header}
+        missing = self.required_columns - headers
+        if missing:
+            raise ValidationError(f"Missing required column(s): {', '.join(sorted(missing))}.")
+
+        rows = []
+        for index, row in enumerate(reader, start=2):
+            normalized = {
+                key.strip(): (value or "").strip()
+                for key, value in row.items()
+                if key
+            }
+            if not any(normalized.values()):
+                continue
+            normalized["_row_number"] = index
+            rows.append(normalized)
+        if not rows:
+            raise ValidationError("CSV does not contain certificate rows.")
+        if len(rows) > 500:
+            raise ValidationError("Upload 500 certificates or fewer at a time.")
+        return rows

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Scanner History - {{ PLATFORM_NAME }}{% endblock %}
+{% block meta_description %}Review your recent safe QR scanner history, including QR type, domain, risk level, and scan time.{% endblock %}
+{% block robots %}noindex,follow{% endblock %}
+
+{% block body %}
+<main class="min-h-screen bg-surface-50">
+  <header class="border-b border-surface-200 bg-white">
+    <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <a href="{% url 'safe_scanner' %}" class="btn-secondary px-3 py-2">Safe scanner</a>
+      <a href="{% url 'qrcodes:dashboard' %}" class="btn-primary px-3 py-2">Dashboard</a>
+    </div>
+  </header>
+
+  <section class="mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:py-8">
+    <div class="rounded-lg border border-surface-200 bg-white p-5 shadow-card sm:p-6">
+      <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Safe QR scanner</p>
+      <h1 class="mt-1 text-2xl font-black tracking-tight text-gray-950 sm:text-3xl">Scan history</h1>
+      <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-600">Recent QR safety previews for your account. Use this to revisit risky scans and copied destinations.</p>
+    </div>
+
+    <div class="mt-5 overflow-hidden rounded-lg border border-surface-200 bg-white shadow-card">
+      {% if history %}
+        <div class="hidden grid-cols-[150px_minmax(0,1fr)_150px_150px] gap-4 border-b border-surface-200 bg-surface-50 px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 md:grid">
+          <span>Type</span>
+          <span>Content</span>
+          <span>Risk</span>
+          <span>Scanned</span>
+        </div>
+        <div class="divide-y divide-surface-200">
+          {% for item in history %}
+            <article class="grid gap-3 px-4 py-4 md:grid-cols-[150px_minmax(0,1fr)_150px_150px] md:items-center">
+              <div>
+                <p class="md:hidden text-xs font-bold uppercase tracking-wider text-gray-500">Type</p>
+                <span class="badge badge-blue uppercase">{{ item.content_type }}</span>
+              </div>
+              <div class="min-w-0">
+                <p class="md:hidden text-xs font-bold uppercase tracking-wider text-gray-500">Content</p>
+                <p class="truncate font-mono text-sm text-gray-900">{{ item.raw_content }}</p>
+                {% if item.domain %}<p class="mt-1 text-xs text-gray-500">{{ item.domain }}</p>{% endif %}
+              </div>
+              <div>
+                <p class="md:hidden text-xs font-bold uppercase tracking-wider text-gray-500">Risk</p>
+                <span class="badge {% if item.risk_level == 'risky' %}badge-red{% elif item.risk_level == 'caution' %}badge-yellow{% else %}badge-green{% endif %}">{{ item.get_risk_level_display }}</span>
+              </div>
+              <div>
+                <p class="md:hidden text-xs font-bold uppercase tracking-wider text-gray-500">Scanned</p>
+                <time class="text-sm text-gray-600" datetime="{{ item.scanned_at|date:'c' }}">{{ item.scanned_at|date:"M d, H:i" }}</time>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="p-8 text-center">
+          <p class="text-xs font-bold uppercase tracking-wider text-primary-700">No scans yet</p>
+          <h2 class="mt-2 text-xl font-black text-gray-950">Your safe scan history will appear here.</h2>
+          <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-600">Analyze a QR while signed in and we will store the result summary for later review.</p>
+          <a href="{% url 'safe_scanner' %}" class="btn-primary mt-5">Scan safely</a>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+</main>
+{% endblock %}

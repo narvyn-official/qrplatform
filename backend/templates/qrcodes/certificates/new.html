@@ -1,0 +1,103 @@
+{% extends "dashboard/layout.html" %}
+{% block title %}New Certificate — {{ PLATFORM_NAME }}{% endblock %}
+{% block meta_description %}Create a certificate authenticity record and generate a public verification QR code.{% endblock %}
+{% block page_title %}New certificate{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'qrcodes:certificate_list' %}" class="btn-secondary">All certificates</a>
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+  <form method="post" enctype="multipart/form-data" class="space-y-5">
+    {% csrf_token %}
+    <section class="builder-shell p-4 sm:p-6">
+      <p class="page-kicker text-primary-700">Authenticity record</p>
+      <h2 class="page-title">Create a verification QR for a certificate.</h2>
+      <p class="page-copy">Only verified fields are shown publicly. The QR points to a Narvyn verification page with valid, expired, or revoked status.</p>
+    </section>
+
+    {% if form.non_field_errors %}
+    <div class="rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm font-semibold text-coral-700">{{ form.non_field_errors|striptags }}</div>
+    {% endif %}
+
+    <section class="builder-step">
+      <div class="mb-5">
+        <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Certificate details</p>
+        <h2 class="mt-1 text-lg font-black text-gray-950">Who received what?</h2>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="builder-field-tile">
+          <label for="{{ form.recipient_name.id_for_label }}" class="mb-1.5 block text-sm font-semibold text-gray-700">Recipient name</label>
+          {{ form.recipient_name }}
+          {% if form.recipient_name.errors %}<p class="mt-1 text-xs font-semibold text-coral-600">{{ form.recipient_name.errors|striptags }}</p>{% endif %}
+        </div>
+        <div class="builder-field-tile">
+          <label for="{{ form.title.id_for_label }}" class="mb-1.5 block text-sm font-semibold text-gray-700">Certificate title</label>
+          {{ form.title }}
+          {% if form.title.errors %}<p class="mt-1 text-xs font-semibold text-coral-600">{{ form.title.errors|striptags }}</p>{% endif %}
+        </div>
+        <div class="builder-field-tile">
+          <label for="{{ form.issuer.id_for_label }}" class="mb-1.5 block text-sm font-semibold text-gray-700">Issuing organization</label>
+          {{ form.issuer }}
+          {% if form.issuer.errors %}<p class="mt-1 text-xs font-semibold text-coral-600">{{ form.issuer.errors|striptags }}</p>{% endif %}
+        </div>
+        <div class="builder-field-tile">
+          <label for="{{ form.certificate_id.id_for_label }}" class="mb-1.5 block text-sm font-semibold text-gray-700">Certificate ID</label>
+          {{ form.certificate_id }}
+          {% if form.certificate_id.errors %}<p class="mt-1 text-xs font-semibold text-coral-600">{{ form.certificate_id.errors|striptags }}</p>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="builder-step">
+      <div class="mb-5">
+        <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Validity</p>
+        <h2 class="mt-1 text-lg font-black text-gray-950">Set dates and optional proof PDF.</h2>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="builder-field-tile">
+          <label for="{{ form.issue_date.id_for_label }}" class="mb-1.5 block text-sm font-semibold text-gray-700">Issue date</label>
+          {{ form.issue_date }}
+          {% if form.issue_date.errors %}<p class="mt-1 text-xs font-semibold text-coral-600">{{ form.issue_date.errors|striptags }}</p>{% endif %}
+        </div>
+        <div class="builder-field-tile">
+          <label for="{{ form.expiry_date.id_for_label }}" class="mb-1.5 block text-sm font-semibold text-gray-700">Expiry date <span class="font-normal text-gray-400">(optional)</span></label>
+          {{ form.expiry_date }}
+          {% if form.expiry_date.errors %}<p class="mt-1 text-xs font-semibold text-coral-600">{{ form.expiry_date.errors|striptags }}</p>{% endif %}
+        </div>
+        <div class="builder-field-tile sm:col-span-2">
+          <label for="{{ form.pdf_url.id_for_label }}" class="mb-1.5 block text-sm font-semibold text-gray-700">Certificate PDF <span class="font-normal text-gray-400">(optional)</span></label>
+          {{ form.pdf_url }}
+          <p class="mt-1 text-xs text-gray-400">PDF only, up to 10 MB. The public page keeps the core verification fields visible even without a PDF.</p>
+          {% if form.pdf_url.errors %}<p class="mt-1 text-xs font-semibold text-coral-600">{{ form.pdf_url.errors|striptags }}</p>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <div class="sticky bottom-20 z-10 rounded-lg border border-surface-200 bg-white/95 p-3 shadow-lg backdrop-blur md:static md:bg-transparent md:p-0 md:shadow-none">
+      <button type="submit" class="btn-primary w-full justify-center py-3">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m-7 8h8M7 3h10a2 2 0 012 2v14l-4-2-3 2-3-2-4 2V5a2 2 0 012-2z"/></svg>
+        Generate verification QR
+      </button>
+    </div>
+  </form>
+
+  <aside class="space-y-4">
+    <section class="card p-5">
+      <h2 class="text-base font-black text-gray-950">Public verification shows</h2>
+      <div class="mt-4 space-y-2 text-sm text-gray-600">
+        <p>Certificate ID</p>
+        <p>Recipient name</p>
+        <p>Certificate title</p>
+        <p>Issuer</p>
+        <p>Issue date and status</p>
+      </div>
+    </section>
+    <section class="rounded-lg border border-primary-100 bg-primary-50 p-5">
+      <h2 class="text-base font-black text-primary-950">Trust rule</h2>
+      <p class="mt-2 text-sm leading-6 text-primary-800">QR codes never prove a certificate by themselves. They prove that the record still exists in your Narvyn workspace and has not been revoked.</p>
+    </section>
+  </aside>
+</div>
+{% endblock %}

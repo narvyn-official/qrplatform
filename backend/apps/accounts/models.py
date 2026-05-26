@@ -274,6 +274,103 @@ class MembershipOrder(models.Model):
         return f"MembershipOrder({self.user.email}: {self.plan_code} {self.status})"
 
 
+class BusinessVerification(models.Model):
+    """Server-side proof that a workspace controls a business domain."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        VERIFIED = "verified", _("Verified")
+        FAILED = "failed", _("Failed")
+        REVOKED = "revoked", _("Revoked")
+
+    class Method(models.TextChoices):
+        DNS = "dns", _("DNS TXT record")
+        HTML_FILE = "html_file", _("HTML file upload")
+        META_TAG = "meta_tag", _("Meta tag")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="business_verifications",
+        db_column="workspace_id",
+    )
+    business_name = models.CharField(max_length=160)
+    domain = models.CharField(max_length=255, db_index=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    method = models.CharField(max_length=20, choices=Method.choices, default=Method.DNS)
+    verification_token = models.CharField(max_length=96, unique=True, db_index=True, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "accounts_business_verification"
+        ordering = ["-updated_at"]
+        indexes = [
+            models.Index(fields=["workspace", "status"]),
+            models.Index(fields=["domain", "status"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.verification_token:
+            self.verification_token = secrets.token_urlsafe(32)
+        self.domain = (self.domain or "").lower().strip().rstrip(".")
+        super().save(*args, **kwargs)
+
+    @property
+    def is_verified(self):
+        return self.status == self.Status.VERIFIED and bool(self.verified_at)
+
+    @property
+    def dns_record_name(self):
+        return f"_narvyn-verification.{self.domain}"
+
+    @property
+    def dns_record_value(self):
+        return f"narvyn-verification={self.verification_token}"
+
+    @property
+    def html_file_path(self):
+        return "/.well-known/narvyn-verification.html"
+
+    @property
+    def html_file_url(self):
+        return f"https://{self.domain}{self.html_file_path}"
+
+    @property
+    def meta_tag_value(self):
+        return f'<meta name="narvyn-verification" content="{self.verification_token}">'
+
+    def __str__(self):
+        return f"BusinessVerification({self.business_name}: {self.domain})"
+
+
+class BusinessVerificationAttempt(models.Model):
+    """Immutable verification check result for audit/admin review."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    verification = models.ForeignKey(BusinessVerification, on_delete=models.CASCADE, related_name="attempts")
+    method = models.CharField(max_length=20, choices=BusinessVerification.Method.choices)
+    success = models.BooleanField(default=False, db_index=True)
+    message = models.CharField(max_length=500, blank=True)
+    checked_at = models.DateTimeField(default=timezone.now, db_index=True)
+    checked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="verification_attempts")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        db_table = "accounts_business_verification_attempt"
+        ordering = ["-checked_at"]
+        indexes = [
+            models.Index(fields=["verification", "checked_at"]),
+            models.Index(fields=["success", "checked_at"]),
+        ]
+
+    def __str__(self):
+        return f"VerificationAttempt({self.verification.domain}: {self.success})"
+
+
 class AuditLog(models.Model):
 
     class Action(models.TextChoices):
@@ -289,6 +386,8 @@ class AuditLog(models.Model):
         QR_UPDATE = "qr_update", _("QR Updated")
         QR_DELETE = "qr_delete", _("QR Deleted")
         PROFILE_UPDATE = "profile_update", _("Profile Updated")
+        BUSINESS_VERIFY = "business_verify", _("Business Verification")
+        BUSINESS_REVOKE = "business_revoke", _("Business Verification Revoked")
 
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="audit_logs")
     action = models.CharField(max_length=30, choices=Action.choices, db_index=True)

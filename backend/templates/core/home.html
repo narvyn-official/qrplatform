@@ -1,52 +1,48 @@
 {% extends "base.html" %}
-{% block title %}{{ PLATFORM_NAME }} — Dynamic QR Code & Analytics Platform{% endblock %}
-{% block meta_description %}Create dynamic QR codes, update campaign destinations after printing, generate barcodes, export production files, and track scan analytics in {{ PLATFORM_NAME }}.{% endblock %}
-{% block og_title %}{{ PLATFORM_NAME }} — Dynamic QR Code & Analytics Platform{% endblock %}
-{% block og_description %}Create editable QR campaigns, barcodes, scan analytics, and exports from one responsive dashboard.{% endblock %}
-{% block twitter_title %}{{ PLATFORM_NAME }} — Dynamic QR Code & Analytics Platform{% endblock %}
-{% block twitter_description %}Create editable QR campaigns, barcodes, scan analytics, and exports from one responsive dashboard.{% endblock %}
+{% block title %}{{ PLATFORM_NAME }} — Trusted QR Platform for Businesses{% endblock %}
+{% block meta_description %}Create trusted QR codes for payments, menus, products, events, and campaigns with safety checks, editable destinations, exports, and scan analytics.{% endblock %}
+{% block og_title %}{{ PLATFORM_NAME }} — Trusted QR Platform for Businesses{% endblock %}
+{% block og_description %}Create trusted QR codes for payments, menus, products, events, and campaigns with safety checks, editable destinations, exports, and analytics.{% endblock %}
+{% block twitter_title %}{{ PLATFORM_NAME }} — Trusted QR Platform for Businesses{% endblock %}
+{% block twitter_description %}Create trusted QR codes for payments, menus, products, events, and campaigns with safety checks, editable destinations, exports, and analytics.{% endblock %}
 {% block extra_head %}
 <script type="application/ld+json">{{ schema_json|safe }}</script>
 {% endblock %}
 
 {% block body %}
-<nav class="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-slate-950/82 backdrop-blur-xl">
+<nav class="fixed left-0 right-0 top-0 z-50 border-b border-surface-200 bg-white/95 backdrop-blur-xl">
   <div class="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
     <a href="{% url 'core:home' %}" class="flex items-center gap-2.5">
-      <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-9 w-9 rounded-lg shadow-glow">
-      <span class="text-base font-black text-white">{{ PLATFORM_NAME }}</span>
+      <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-9 w-9 rounded-lg shadow-sm">
+      <span class="text-base font-black text-gray-950">{{ PLATFORM_NAME }}</span>
     </a>
     <div class="flex items-center gap-2 sm:gap-3">
       {% if request.user.is_authenticated %}
-      <a href="{% url 'qrcodes:dashboard' %}" class="btn-secondary border-white/15 bg-white/10 px-3 py-2 text-white hover:bg-white/15">Dashboard</a>
+      <a href="{% url 'qrcodes:dashboard' %}" class="btn-secondary px-3 py-2">Dashboard</a>
       <form method="post" action="{% url 'accounts:logout' %}">
         {% csrf_token %}
         <button type="submit" class="btn-primary px-3 py-2 sm:px-4">Logout</button>
       </form>
       {% else %}
-      <a href="{% url 'accounts:login' %}" class="btn-secondary border-white/15 bg-white/10 px-3 py-2 text-white hover:bg-white/15">Sign in</a>
+      <a href="{% url 'accounts:login' %}" class="btn-secondary px-3 py-2">Sign in</a>
       <a href="{% url 'accounts:signup' %}" class="btn-primary px-3 py-2 sm:px-4">Start free</a>
       {% endif %}
     </div>
   </div>
 </nav>
 
-<section class="hero-scene px-4 pb-10 pt-24 text-white sm:px-6 lg:pb-16 lg:pt-28">
-  <canvas id="ambient-particles" class="ambient-canvas z-0" aria-hidden="true"></canvas>
+<section class="bg-[#fafafa] px-4 pb-10 pt-24 text-gray-950 sm:px-6 lg:pb-16 lg:pt-28">
   <div class="relative z-10 mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(430px,0.78fr)] lg:px-2">
     <div class="max-w-3xl">
-      <p class="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-100 backdrop-blur">
-        QR codes, barcodes, analytics, and UPI plans
-      </p>
-      <h1 class="max-w-3xl text-5xl font-black leading-[1.02] text-white sm:text-6xl lg:text-7xl">
-        {{ PLATFORM_NAME }}
+      <h1 class="max-w-3xl text-4xl font-black leading-[1.04] text-gray-950 sm:text-5xl lg:text-6xl">
+        Trusted QR codes for payments, menus, products, events, and campaigns.
       </h1>
-      <p class="mt-5 max-w-2xl text-base leading-7 text-slate-200 sm:text-xl sm:leading-8">
-        Create editable QR campaigns, scan them, track every visit, and export production-ready files from one clean command center.
+      <p class="mt-5 max-w-2xl text-base leading-7 text-gray-600 sm:text-lg sm:leading-8">
+        {{ PLATFORM_NAME }} helps restaurants, shops, creators, and teams create editable QR campaigns with safety checks, scan analytics, and production-ready exports from one quiet workspace.
       </p>
       <div class="mt-7 flex flex-col gap-3 sm:flex-row">
         {% if request.user.is_authenticated %}
-        <a href="{% url 'qrcodes:dashboard' %}" class="btn-primary justify-center px-7 py-3 text-base shadow-glow">
+        <a href="{% url 'qrcodes:dashboard' %}" class="btn-primary justify-center px-7 py-3 text-base">
           Open dashboard
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
@@ -54,49 +50,49 @@
         </a>
         <form method="post" action="{% url 'accounts:logout' %}" class="sm:inline-flex">
           {% csrf_token %}
-          <button type="submit" class="btn-secondary w-full justify-center border-white/20 bg-white/10 px-6 py-3 text-white hover:bg-white/15 sm:w-auto">
+          <button type="submit" class="btn-secondary w-full justify-center px-6 py-3 sm:w-auto">
             Logout
           </button>
         </form>
         {% else %}
-        <a href="{% url 'accounts:signup' %}" class="btn-primary justify-center px-7 py-3 text-base shadow-glow">
+        <a href="{% url 'accounts:signup' %}" class="btn-primary justify-center px-7 py-3 text-base">
           Create free account
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
           </svg>
         </a>
-        <a href="{% url 'accounts:login' %}" class="btn-secondary justify-center border-white/20 bg-white/10 px-6 py-3 text-white hover:bg-white/15">
+        <a href="{% url 'accounts:login' %}" class="btn-secondary justify-center px-6 py-3">
           Sign in
         </a>
         {% endif %}
       </div>
 
       <div class="mt-8 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-        <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
-          <p class="text-xs font-semibold uppercase tracking-wider text-emerald-200">Create</p>
-          <p class="mt-2 font-bold">Dynamic QR codes</p>
-          <p class="mt-1 text-xs leading-5 text-slate-300">Edit destination links after printing.</p>
+        <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Trust</p>
+          <p class="mt-2 font-bold">Safe QR preview</p>
+          <p class="mt-1 text-xs leading-5 text-gray-500">Show risk warnings before opening links.</p>
         </div>
-        <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
-          <p class="text-xs font-semibold uppercase tracking-wider text-sky-200">Measure</p>
-          <p class="mt-2 font-bold">Scan intelligence</p>
-          <p class="mt-1 text-xs leading-5 text-slate-300">Track total, unique, and weekly scans.</p>
+        <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Create</p>
+          <p class="mt-2 font-bold">Business QR templates</p>
+          <p class="mt-1 text-xs leading-5 text-gray-500">Menus, payments, products, events, and more.</p>
         </div>
-        <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
-          <p class="text-xs font-semibold uppercase tracking-wider text-violet-200">Grow</p>
-          <p class="mt-2 font-bold">UPI plan upgrades</p>
-          <p class="mt-1 text-xs leading-5 text-slate-300">Unlock branding, exports, and limits.</p>
+        <div class="rounded-lg border border-surface-200 bg-white p-4 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Measure</p>
+          <p class="mt-2 font-bold">Campaign analytics</p>
+          <p class="mt-1 text-xs leading-5 text-gray-500">Track total, unique, and weekly scans.</p>
         </div>
       </div>
     </div>
 
-    <div class="hero-product-preview rounded-lg border border-white/15 bg-white/10 p-3 shadow-depth backdrop-blur lg:p-4">
-      <div class="overflow-hidden rounded-lg bg-white text-gray-900 shadow-depth">
+    <div class="hero-product-preview rounded-lg border border-surface-200 bg-white p-3 shadow-sm lg:p-4">
+      <div class="overflow-hidden rounded-lg bg-white text-gray-900 shadow-sm">
         <div class="flex items-center justify-between border-b border-surface-200 bg-slate-950 px-4 py-3 text-white">
           <div class="flex items-center gap-2">
-            <span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
-            <span class="h-2.5 w-2.5 rounded-full bg-amber-300"></span>
-            <span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-coral-400"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-graphite-300"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-primary-400"></span>
           </div>
           <span class="text-xs font-semibold text-slate-300">Production workspace</span>
         </div>
@@ -127,10 +123,10 @@
                 <p class="mt-2 text-3xl font-black text-gray-950">12.8k</p>
                 <p class="mt-1 text-xs font-semibold text-primary-700">+18% this week</p>
               </div>
-              <div class="rounded-lg bg-emerald-50 p-4">
-                <p class="text-xs font-semibold text-emerald-700">Unique visitors</p>
+              <div class="rounded-lg bg-coral-50 p-4">
+                <p class="text-xs font-semibold text-coral-700">Unique visitors</p>
                 <p class="mt-2 text-3xl font-black text-gray-950">8.4k</p>
-                <p class="mt-1 text-xs font-semibold text-emerald-700">64% returning</p>
+                <p class="mt-1 text-xs font-semibold text-coral-700">64% returning</p>
               </div>
             </div>
             <div class="mt-4 rounded-lg border border-surface-200 bg-white p-4">
@@ -141,10 +137,10 @@
               <div class="flex h-24 items-end gap-2">
                 <span class="h-[38%] flex-1 rounded-t-md bg-primary-200"></span>
                 <span class="h-[56%] flex-1 rounded-t-md bg-primary-300"></span>
-                <span class="h-[44%] flex-1 rounded-t-md bg-emerald-300"></span>
+                <span class="h-[44%] flex-1 rounded-t-md bg-coral-300"></span>
                 <span class="h-[72%] flex-1 rounded-t-md bg-primary-500"></span>
-                <span class="h-[61%] flex-1 rounded-t-md bg-sky-400"></span>
-                <span class="h-[84%] flex-1 rounded-t-md bg-emerald-500"></span>
+                <span class="h-[61%] flex-1 rounded-t-md bg-graphite-400"></span>
+                <span class="h-[84%] flex-1 rounded-t-md bg-coral-500"></span>
                 <span class="h-[68%] flex-1 rounded-t-md bg-primary-600"></span>
               </div>
             </div>

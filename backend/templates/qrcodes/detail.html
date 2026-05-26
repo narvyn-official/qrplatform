@@ -104,7 +104,7 @@
         <dt class="text-gray-500">UTM Auto-Append</dt>
         <dd class="mt-0.5 flex flex-wrap gap-1">
           {% for k, v in qr.utm_params.items %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 font-mono">{{ k }}={{ v }}</span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-coral-50 text-coral-700 font-mono">{{ k }}={{ v }}</span>
           {% endfor %}
         </dd>
       </div>
@@ -143,7 +143,7 @@
     <div class="mt-6 flex flex-col gap-3 border-t border-surface-100 pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
       <form method="post" action="{% url 'qrcodes:regenerate' qr.id %}">
         {% csrf_token %}
-        <button type="submit" class="text-sm text-indigo-600 hover:underline">↻ Regenerate images</button>
+        <button type="submit" class="text-sm text-primary-700 hover:underline">↻ Regenerate images</button>
       </form>
       <form method="post" action="{% url 'qrcodes:delete' qr.id %}"
             onsubmit="return confirm('Delete {{ qr.name }}? This cannot be undone.')">
@@ -154,6 +154,41 @@
   </div>
 
 </div>
+
+{% if open_report_count %}
+<section class="mb-5 rounded-lg border border-coral-200 bg-coral-50 p-5">
+  <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-wider text-coral-700">Suspicious report alert</p>
+      <h2 class="mt-1 text-xl font-black text-coral-950">{{ open_report_count }} open report{{ open_report_count|pluralize }} on this QR</h2>
+      <p class="mt-1 text-sm leading-6 text-coral-800">Review recent reports and pause the campaign if this QR may be printed or shared publicly.</p>
+    </div>
+    <form method="post" action="{% url 'qrcodes:pause_campaign' qr.id %}">
+      {% csrf_token %}
+      <button type="submit" class="rounded-lg bg-coral-600 px-4 py-3 text-sm font-bold text-white hover:bg-coral-700">
+        {% if qr.campaign %}Pause campaign{% else %}Pause QR{% endif %}
+      </button>
+    </form>
+  </div>
+</section>
+{% endif %}
+
+{% if reports %}
+<section class="card mb-5 p-5">
+  <h2 class="text-lg font-bold text-gray-950">Recent suspicious reports</h2>
+  <div class="mt-4 divide-y divide-surface-100">
+    {% for report in reports %}
+    <div class="py-3">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-sm font-semibold text-gray-950">{{ report.get_reason_display }} · {{ report.get_status_display }}</p>
+        <time class="text-xs text-gray-500">{{ report.created_at|date:"M d, Y H:i" }}</time>
+      </div>
+      {% if report.comment %}<p class="mt-1 text-sm text-gray-600">{{ report.comment }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 {% if daily_stats %}
 <div class="card p-4 sm:p-6">

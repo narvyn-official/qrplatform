@@ -1,0 +1,27 @@
+{% extends "platform_admin/layout.html" %}
+{% block title %}Billing Orders — Admin{% endblock %}
+{% block admin_title %}Billing orders{% endblock %}
+{% block admin_kicker %}Membership payments{% endblock %}
+
+{% block admin_content %}
+<form method="get" class="card grid grid-cols-1 gap-3 p-4 md:grid-cols-[minmax(0,1fr)_170px_170px_auto]">
+  <input class="input" name="q" value="{{ filters.q }}" placeholder="Search user, receipt, provider order">
+  <select class="input" name="status"><option value="">All statuses</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <select class="input" name="plan"><option value="">All plans</option>{% for code, plan in plan_choices %}<option value="{{ code }}" {% if filters.plan == code %}selected{% endif %}>{{ plan.name }}</option>{% endfor %}</select>
+  <button class="btn-primary">Filter</button>
+</form>
+<section class="card overflow-hidden">
+  <div class="divide-y divide-surface-100">
+    {% for order in orders %}
+    <article class="grid grid-cols-1 gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_130px_130px_140px_160px] lg:items-center">
+      <div class="min-w-0"><p class="truncate text-sm font-black">{{ order.user.email }}</p><p class="truncate text-xs text-gray-500">{{ order.receipt }} · {{ order.provider_order_id }}</p></div>
+      <span class="text-sm font-semibold capitalize">{{ order.plan_code }}</span>
+      <span class="text-sm">₹{% widthratio order.amount_paise 100 1 %}</span>
+      {% include "platform_admin/status_badge.html" with status=order.status label=order.get_status_display %}
+      <span class="text-sm text-gray-500">{{ order.created_at|date:"M d, Y H:i" }}</span>
+    </article>
+    {% empty %}<div class="p-10 text-center text-sm text-gray-500">No orders match these filters.</div>{% endfor %}
+  </div>
+</section>
+{% include "platform_admin/pagination.html" with page_obj=orders %}
+{% endblock %}

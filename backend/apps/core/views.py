@@ -157,13 +157,13 @@ def manifest(request):
         "id": "/",
         "name": settings.PLATFORM_NAME,
         "short_name": settings.PLATFORM_NAME,
-        "description": "Create dynamic QR codes, barcodes, and scan analytics.",
+        "description": "Create trusted QR codes, safe scanner previews, barcodes, certificates, and scan analytics.",
         "start_url": start_url,
         "scope": "/",
         "display": "standalone",
         "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
         "background_color": "#f8fafc",
-        "theme_color": "#4f46e5",
+        "theme_color": "#0B1331",
         "orientation": "portrait-primary",
         "categories": ["productivity", "business", "utilities"],
         "icons": [
@@ -196,7 +196,7 @@ def manifest(request):
 
 def service_worker(request):
     script = """
-const CACHE_NAME = 'qrflow-shell-v3';
+const CACHE_NAME = 'narvyn-qr-shell-v4';
 const OFFLINE_URL = '/offline/';
 const CORE_ASSETS = [
   OFFLINE_URL,

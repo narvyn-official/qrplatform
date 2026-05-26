@@ -16,8 +16,8 @@ PRIVATE_PATH_PREFIXES = (
 def platform_settings(request):
     canonical_url = request.build_absolute_uri(request.path)
     seo_description = (
-        "Create dynamic QR codes and barcodes, update destinations after printing, "
-        "track scans with analytics, and export production-ready campaign assets."
+        "Create trusted QR codes for payments, menus, products, events, and campaigns "
+        "with safety checks, editable destinations, scan analytics, and exports."
     )
     robots = "noindex, nofollow" if request.path.startswith(PRIVATE_PATH_PREFIXES) else "index, follow"
 

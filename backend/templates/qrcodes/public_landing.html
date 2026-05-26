@@ -19,16 +19,16 @@
   <meta name="twitter:image" content="{{ SEO_DEFAULT_IMAGE }}">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen bg-slate-950 text-white">
+<body class="min-h-screen bg-[#07111F] text-white">
   <main class="mx-auto flex min-h-screen max-w-md flex-col px-5 py-8">
     <section class="mt-auto rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur">
-      <div class="mb-5 inline-flex rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-semibold text-emerald-200">{{ landing.get_mode_display }}</div>
+      <div class="mb-5 inline-flex rounded-full bg-[#2563EB]/20 px-3 py-1 text-xs font-semibold text-[#BFDBFE]">{{ landing.get_mode_display }}</div>
       <h1 class="text-3xl font-bold tracking-tight">{{ landing.title }}</h1>
       {% if landing.body %}
       <p class="mt-4 whitespace-pre-line text-sm leading-6 text-slate-200">{{ landing.body }}</p>
       {% endif %}
       {% if landing.primary_url %}
-      <a href="/c/{{ qr.short_code }}/click/?next={{ landing.primary_url|urlencode }}" class="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-950">{{ landing.primary_label }}</a>
+      <a href="/c/{{ qr.short_code }}/click/?next={{ landing.primary_url|urlencode }}" class="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-bold text-[#111827]">{{ landing.primary_label }}</a>
       {% endif %}
     </section>
     <p class="mb-auto mt-5 text-center text-xs text-slate-400">{{ qr.name }}</p>

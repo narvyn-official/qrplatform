@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}QR Report Detail — Admin{% endblock %}
+{% block robots %}noindex,nofollow{% endblock %}
+
+{% block body %}
+<main class="min-h-screen bg-surface-50 px-4 py-6 sm:px-6 lg:px-8">
+  <div class="mx-auto max-w-5xl space-y-5">
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <a href="{% url 'admin_reports' %}" class="text-sm font-semibold text-primary-700">Back to reports</a>
+        <h1 class="mt-2 text-3xl font-black text-gray-950">Report review</h1>
+        <p class="mt-1 text-sm text-gray-500">{{ related_count }} related report{{ related_count|pluralize }} for this QR or domain.</p>
+      </div>
+      <span class="badge {% if report.status == 'open' %}badge-yellow{% elif report.status == 'resolved' %}badge-green{% elif report.status == 'dismissed' %}badge-gray{% else %}badge-blue{% endif %}">{{ report.get_status_display }}</span>
+    </header>
+
+    <section class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div class="card p-5">
+        <h2 class="text-lg font-bold text-gray-950">Submitted report</h2>
+        <dl class="mt-4 space-y-4 text-sm">
+          <div>
+            <dt class="font-semibold text-gray-500">Reason</dt>
+            <dd class="mt-1 font-bold text-gray-950">{{ report.get_reason_display }}</dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-gray-500">Scanned content</dt>
+            <dd class="mt-1 break-all font-mono text-xs text-gray-800">{{ report.scanned_value }}</dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-gray-500">Reported URL</dt>
+            <dd class="mt-1 break-all text-gray-800">{{ report.reported_url|default:"None" }}</dd>
+          </div>
+          <div>
+            <dt class="font-semibold text-gray-500">Comment</dt>
+            <dd class="mt-1 whitespace-pre-wrap text-gray-800">{{ report.comment|default:"No comment" }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <aside class="card p-5">
+        <h2 class="text-lg font-bold text-gray-950">Context</h2>
+        <dl class="mt-4 space-y-3 text-sm">
+          <div><dt class="text-gray-500">Risk level</dt><dd class="font-bold capitalize text-gray-950">{{ report.risk_level }}</dd></div>
+          <div><dt class="text-gray-500">Domain</dt><dd class="break-all text-gray-800">{{ report.host|default:"None" }}</dd></div>
+          <div><dt class="text-gray-500">QR code</dt><dd>{% if report.qrcode %}<a class="font-semibold text-primary-700" href="{% url 'qrcodes:detail' report.qrcode.id %}">{{ report.qrcode.name }}</a>{% else %}Unknown{% endif %}</dd></div>
+          <div><dt class="text-gray-500">Campaign</dt><dd>{{ report.campaign.name|default:"None" }}</dd></div>
+          <div><dt class="text-gray-500">Reporter</dt><dd class="break-all">{{ report.reporter.email|default:"Anonymous" }}</dd></div>
+          <div><dt class="text-gray-500">Created</dt><dd>{{ report.created_at|date:"M d, Y H:i" }}</dd></div>
+        </dl>
+      </aside>
+    </section>
+
+    <form method="post" class="card p-5">
+      {% csrf_token %}
+      <h2 class="text-lg font-bold text-gray-950">Admin action</h2>
+      <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+        <div>
+          <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="status">Status</label>
+          <select id="status" name="status" class="input">
+            {% for value,label in status_choices %}
+            <option value="{{ value }}" {% if report.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="admin_notes">Admin notes</label>
+          <textarea id="admin_notes" name="admin_notes" rows="4" class="input">{{ report.admin_notes }}</textarea>
+        </div>
+      </div>
+      <button type="submit" class="btn-primary mt-4">Save review</button>
+    </form>
+  </div>
+</main>
+{% endblock %}

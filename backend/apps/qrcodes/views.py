@@ -3,21 +3,28 @@ QR Code views — dashboard CRUD and dynamic redirect handler.
 """
 import io
 import csv
+import json
 import logging
 import zipfile
 from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.text import slugify
+from django.utils.dateparse import parse_date
 from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.http import (
     HttpResponse, JsonResponse, Http404, HttpResponseForbidden
 )
 from django.views.decorators.http import require_POST, require_http_methods
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.cache import never_cache
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum
+from django.core.cache import cache
+from django.db import transaction
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from django.conf import settings
 
@@ -29,15 +36,162 @@ from apps.qrcodes.models import (
     QRHealthCheck,
     QRLandingPage,
     QRConversionEvent,
+    QRSuspiciousReport,
+    QRScannerHistory,
+    Certificate,
 )
-from apps.qrcodes.forms import QRCodeForm
+from apps.accounts.models import BusinessVerification
+from apps.qrcodes.forms import CertificateBulkUploadForm, CertificateForm, QRCodeForm
 from apps.qrcodes.premium import assess_destination, build_preprint_check, resolve_smart_destination
+from apps.qrcodes.safety import analyze_scanned_value, analyze_scanner_content, analyze_url
+from apps.qrcodes.services import active_qr_count, can_create_qr, qr_quota_message
+from apps.qrcodes.template_gallery import (
+    TEMPLATE_CATEGORIES,
+    build_template_qr_data,
+    get_template,
+    template_context,
+    user_can_use_template,
+)
 from apps.qrcodes.tasks import generate_qr_images
 from apps.analytics.utils import get_client_ip, compute_scan_fingerprint
 from apps.analytics.tasks import process_scan_event, process_scan_event_now
 from apps.analytics.selectors import account_daily_scan_series
 
 logger = logging.getLogger(__name__)
+
+
+def _json_body(request):
+    try:
+        return json.loads(request.body.decode("utf-8") or "{}")
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+
+
+def _rate_limited(request, bucket, *, limit=30, window=60):
+    ip = get_client_ip(request) or "unknown"
+    key = f"qr:{bucket}:{ip}"
+    count = cache.get(key, 0)
+    if count >= limit:
+        return True
+    cache.set(key, count + 1, window)
+    return False
+
+
+def _qrcode_for_scanned_content(content, request):
+    raw = (content or "").strip()
+    if not raw.lower().startswith(("http://", "https://")):
+        return None
+
+    parsed = urlparse(raw)
+    if not parsed.hostname:
+        return None
+
+    candidate_hosts = {
+        urlparse(settings.QR_REDIRECT_BASE).netloc.lower(),
+        urlparse(settings.PLATFORM_URL).netloc.lower(),
+        request.get_host().lower(),
+    }
+    if parsed.netloc.lower() not in candidate_hosts:
+        return None
+
+    redirect_base = urlparse(settings.QR_REDIRECT_BASE).path.strip("/").split("/")
+    path_parts = [part for part in parsed.path.strip("/").split("/") if part]
+    if not path_parts:
+        return None
+
+    short_code = ""
+    if redirect_base and redirect_base[0] and path_parts[:len(redirect_base)] == redirect_base:
+        if len(path_parts) > len(redirect_base):
+            short_code = path_parts[len(redirect_base)]
+    elif path_parts[0] == "r" and len(path_parts) > 1:
+        short_code = path_parts[1]
+    if not short_code:
+        return None
+
+    return QRCode.objects.select_related("user", "campaign").filter(short_code=short_code).exclude(status=QRCode.Status.DELETED).first()
+
+
+def _verified_business_for_scanned_content(content, request):
+    qr = _qrcode_for_scanned_content(content, request)
+    if not qr:
+        return None
+    verification = (
+        BusinessVerification.objects
+        .filter(workspace=qr.user, status=BusinessVerification.Status.VERIFIED)
+        .order_by("-verified_at")
+        .first()
+    )
+    if not verification:
+        return None
+    return {
+        "verified": True,
+        "businessName": verification.business_name,
+        "domain": verification.domain,
+        "verifiedAt": verification.verified_at.isoformat() if verification.verified_at else "",
+        "verifiedDate": verification.verified_at.strftime("%b %d, %Y") if verification.verified_at else "",
+        "badgeText": "Verified by Narvyn",
+    }
+
+
+def _report_url_from_analysis(analysis, fallback=""):
+    if not analysis:
+        return fallback
+    return (
+        analysis.get("finalUrl")
+        or analysis.get("normalizedUrl")
+        or analysis.get("rawContent")
+        or fallback
+    )
+
+
+def _refresh_campaign_risk(campaign):
+    if not campaign:
+        return
+    open_count = QRSuspiciousReport.objects.filter(
+        campaign=campaign,
+        status__in=[QRSuspiciousReport.Status.OPEN, QRSuspiciousReport.Status.REVIEWING],
+    ).count()
+    if open_count >= 10:
+        risk_status = QRCodeCampaign.RiskStatus.HIGH
+    elif open_count >= 5:
+        risk_status = QRCodeCampaign.RiskStatus.ELEVATED
+    elif open_count > 0:
+        risk_status = QRCodeCampaign.RiskStatus.WATCH
+    else:
+        risk_status = QRCodeCampaign.RiskStatus.CLEAR
+    QRCodeCampaign.objects.filter(pk=campaign.pk).update(
+        suspicious_report_count=open_count,
+        risk_status=risk_status,
+        updated_at=timezone.now(),
+    )
+
+
+def _create_qr_report(request, *, content, reason, comment="", analysis=None):
+    allowed_reasons = {choice[0] for choice in QRSuspiciousReport.Reason.choices}
+    reason = reason if reason in allowed_reasons else QRSuspiciousReport.Reason.OTHER
+    qr = _qrcode_for_scanned_content(content, request)
+    campaign = qr.campaign if qr else None
+    parsed_url = urlparse(_report_url_from_analysis(analysis, content))
+    host = (parsed_url.hostname or "").lower()
+    if not analysis:
+        analysis = analyze_scanner_content(content, fetch_title=False)
+    report = QRSuspiciousReport.objects.create(
+        qrcode=qr,
+        campaign=campaign,
+        reporter=request.user if request.user.is_authenticated else None,
+        scanned_value=content,
+        normalized_url=analysis.get("normalizedUrl", "") or analysis.get("finalUrl", ""),
+        reported_url=_report_url_from_analysis(analysis, ""),
+        host=host or analysis.get("domain", ""),
+        reason=reason,
+        comment=comment,
+        risk_level=analysis.get("riskLevel", "unknown"),
+        safety_snapshot=analysis,
+        ip_address=get_client_ip(request),
+        user_agent_raw=request.META.get("HTTP_USER_AGENT", "")[:1000],
+    )
+    _refresh_campaign_risk(campaign)
+    return report
 
 
 def _qrcode_form_data(post_data):
@@ -65,13 +219,62 @@ def _generate_qr_now(qr):
         return False
 
 
-def _active_qr_count(user):
-    return QRCode.objects.filter(user=user, status__in=[QRCode.Status.ACTIVE, QRCode.Status.PAUSED]).count()
+def _validation_error_dict(error):
+    if hasattr(error, "message_dict"):
+        return {key: " ".join(messages) for key, messages in error.message_dict.items()}
+    return {"__all__": " ".join(error.messages)}
 
 
-def _can_create_qr(user):
-    max_qr = user.plan_limits["max_qr"]
-    return max_qr < 0 or _active_qr_count(user) < max_qr
+def _certificate_campaign(user):
+    campaign = QRCodeCampaign.objects.filter(user=user, name="Certificate verification", is_active=True).first()
+    if campaign:
+        return campaign
+    return QRCodeCampaign.objects.create(
+        user=user,
+        name="Certificate verification",
+        description="Verification QR codes issued from certificate records.",
+        tags=["certificates", "verification"],
+        color="#14B8A6",
+    )
+
+
+def _create_certificate_qr(request, certificate):
+    verification_url = request.build_absolute_uri(certificate.verify_path)
+    qr = QRCode.objects.create(
+        user=certificate.workspace,
+        campaign=_certificate_campaign(certificate.workspace),
+        name=f"Certificate verification - {certificate.certificate_id}",
+        qr_type=QRCode.QRType.DYNAMIC,
+        content=verification_url,
+        destination_url=verification_url,
+        tags=["certificate", certificate.certificate_id],
+        foreground_color="#07111F",
+        background_color="#FFFFFF",
+        frame_text="Verify certificate",
+        frame_color="#07111F",
+        error_correction="M",
+        qr_size=300,
+    )
+    certificate.qrcode = qr
+    certificate.save(update_fields=["qrcode", "updated_at"])
+    _generate_qr_now(qr)
+    return qr
+
+
+def _certificate_queryset_for_user(user):
+    qs = Certificate.objects.select_related("qrcode", "workspace")
+    if user.is_staff:
+        return qs
+    return qs.filter(workspace=user)
+
+
+def _parse_certificate_csv_date(value, field, row_number):
+    if not value:
+        return None
+    parsed = parse_date(value)
+    if not parsed:
+        raise ValidationError({field: f"Row {row_number}: use YYYY-MM-DD for {field}."})
+    return parsed
 
 
 def _tracked_content_response(request, qr):
@@ -139,6 +342,14 @@ def dashboard(request):
     weekly_stats = account_daily_scan_series(user, days=7)
     weekly_total_scans = sum(row["total_scans"] for row in weekly_stats)
     weekly_unique_scans = sum(row["unique_scans"] for row in weekly_stats)
+    open_report_count = QRSuspiciousReport.objects.filter(
+        qrcode__user=user,
+        status__in=[QRSuspiciousReport.Status.OPEN, QRSuspiciousReport.Status.REVIEWING],
+    ).count()
+    risky_campaigns = QRCodeCampaign.objects.filter(
+        user=user,
+        risk_status__in=[QRCodeCampaign.RiskStatus.ELEVATED, QRCodeCampaign.RiskStatus.HIGH],
+    ).order_by("-suspicious_report_count")[:5]
     limits = user.plan_limits
     qr_limit = limits.get("max_qr", 0)
     remaining_qr = None if qr_limit < 0 else max(qr_limit - total_qr, 0)
@@ -214,6 +425,8 @@ def dashboard(request):
         "weekly_stats": weekly_stats,
         "weekly_total_scans": weekly_total_scans,
         "weekly_unique_scans": weekly_unique_scans,
+        "open_report_count": open_report_count,
+        "risky_campaigns": risky_campaigns,
         "recent_qrcodes": recent_qrcodes,
         "top_qrcodes": top_qrcodes,
         "quick_actions": quick_actions,
@@ -230,7 +443,15 @@ def dashboard(request):
 @login_required
 def qrcode_list(request):
     user = request.user
-    qs = QRCode.objects.filter(user=user).exclude(status="deleted")
+    qs = QRCode.objects.filter(user=user).exclude(status="deleted").annotate(
+        open_report_count=Count(
+            "suspicious_reports",
+            filter=Q(suspicious_reports__status__in=[
+                QRSuspiciousReport.Status.OPEN,
+                QRSuspiciousReport.Status.REVIEWING,
+            ]),
+        )
+    )
 
     # Search & filter
     q = request.GET.get("q", "").strip()
@@ -267,9 +488,8 @@ def qrcode_list(request):
 
 @login_required
 def qrcode_create(request):
-    if not _can_create_qr(request.user):
-        limits = request.user.plan_limits
-        messages.error(request, f"Your current plan allows {limits['max_qr']} active QR codes. Upgrade to create more.")
+    if not can_create_qr(request.user):
+        messages.error(request, qr_quota_message(request.user, action="create"))
         return redirect("core:pricing")
 
     if request.method == "POST":
@@ -295,8 +515,448 @@ def qrcode_create(request):
 
 
 @login_required
+def qrcode_template_gallery(request):
+    if not can_create_qr(request.user):
+        messages.error(request, qr_quota_message(request.user, action="create"))
+        return redirect("core:pricing")
+
+    context = {
+        "templates": template_context(request.user),
+        "categories": TEMPLATE_CATEGORIES,
+        "active_tab": "templates",
+    }
+    return render(request, "qrcodes/templates/gallery.html", context)
+
+
+@login_required
+def qrcode_template_create(request, slug):
+    if not can_create_qr(request.user):
+        messages.error(request, qr_quota_message(request.user, action="create"))
+        return redirect("core:pricing")
+
+    if slug == "certificate-verification":
+        return redirect("qrcodes:certificate_new")
+
+    try:
+        template = get_template(slug)
+    except ValidationError:
+        raise Http404
+
+    if not user_can_use_template(request.user, template):
+        messages.error(request, f"{template.title} requires the {template.plan_label} plan.")
+        return redirect("core:pricing")
+
+    values = request.POST if request.method == "POST" else {}
+    errors = {}
+    if request.method == "POST":
+        try:
+            payload = build_template_qr_data(template, request.POST)
+        except ValidationError as error:
+            errors = _validation_error_dict(error)
+        else:
+            with transaction.atomic():
+                campaign = QRCodeCampaign.objects.create(
+                    user=request.user,
+                    name=payload["campaign_name"],
+                    description=f"Created from the {template.title} QR template.",
+                    tags=payload["tags"],
+                    color="#14B8A6",
+                )
+                qr = QRCode.objects.create(
+                    user=request.user,
+                    campaign=campaign,
+                    name=payload["name"],
+                    qr_type=payload["qr_type"],
+                    content=payload["content"],
+                    destination_url=payload["destination_url"],
+                    tags=payload["tags"],
+                    error_correction="M",
+                    qr_size=300,
+                )
+            if _generate_qr_now(qr):
+                messages.success(request, f"{template.title} QR created from template.")
+            else:
+                messages.warning(request, "QR code created, but image generation failed. Try downloading again.")
+            return redirect("qrcodes:detail", pk=qr.id)
+
+    context = {
+        "template": template,
+        "field_states": [
+            {
+                "field": field,
+                "value": values.get(field.name, "") if values else "",
+                "error": errors.get(field.name, ""),
+                "checked": values.get(field.name) in ("on", "true", "1") if values else False,
+            }
+            for field in template.fields
+        ],
+        "name_value": values.get("name", "") if values else "",
+        "campaign_name_value": values.get("campaign_name", "") if values else "",
+        "non_field_error": errors.get("__all__", ""),
+        "values": values,
+        "errors": errors,
+        "active_tab": "templates",
+    }
+    return render(request, "qrcodes/templates/create.html", context)
+
+
+@login_required
+def certificate_list(request):
+    certificates = Certificate.objects.filter(workspace=request.user).select_related("qrcode").order_by("-created_at")
+    query = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "").strip()
+    if query:
+        certificates = certificates.filter(
+            Q(recipient_name__icontains=query)
+            | Q(title__icontains=query)
+            | Q(issuer__icontains=query)
+            | Q(certificate_id__icontains=query)
+        )
+    if status in {choice[0] for choice in Certificate.Status.choices}:
+        certificates = certificates.filter(status=status)
+
+    paginator = Paginator(certificates, 20)
+    page = paginator.get_page(request.GET.get("page", 1))
+    today = timezone.localdate()
+    base_certificates = Certificate.objects.filter(workspace=request.user)
+    stats = {
+        "total": base_certificates.count(),
+        "valid": base_certificates.filter(status=Certificate.Status.VALID).filter(
+            Q(expiry_date__isnull=True) | Q(expiry_date__gte=today)
+        ).count(),
+        "revoked": base_certificates.filter(status=Certificate.Status.REVOKED).count(),
+    }
+    stats["expired"] = Certificate.objects.filter(
+        workspace=request.user,
+        expiry_date__lt=today,
+    ).exclude(status=Certificate.Status.REVOKED).count()
+
+    return render(request, "qrcodes/certificates/list.html", {
+        "certificates": page,
+        "bulk_form": CertificateBulkUploadForm(),
+        "query": query,
+        "stats": stats,
+        "active_tab": "certificates",
+    })
+
+
+@login_required
+def certificate_new(request):
+    if not can_create_qr(request.user):
+        messages.error(request, qr_quota_message(request.user, action="issue certificate QR codes"))
+        return redirect("core:pricing")
+
+    if request.method == "POST":
+        form = CertificateForm(request.POST, request.FILES, workspace=request.user)
+        if form.is_valid():
+            with transaction.atomic():
+                certificate = form.save(commit=False)
+                certificate.workspace = request.user
+                certificate.save()
+                _create_certificate_qr(request, certificate)
+            messages.success(request, "Certificate verification QR created.")
+            return redirect("qrcodes:certificate_detail", pk=certificate.pk)
+    else:
+        form = CertificateForm(workspace=request.user)
+
+    return render(request, "qrcodes/certificates/new.html", {
+        "form": form,
+        "active_tab": "certificates",
+    })
+
+
+@login_required
+def certificate_detail(request, pk):
+    certificate = get_object_or_404(_certificate_queryset_for_user(request.user), pk=pk)
+    return render(request, "qrcodes/certificates/detail.html", {
+        "certificate": certificate,
+        "active_tab": "certificates",
+    })
+
+
+@login_required
+@require_POST
+def certificate_revoke(request, pk):
+    certificate = get_object_or_404(_certificate_queryset_for_user(request.user), pk=pk)
+    if certificate.status != Certificate.Status.REVOKED:
+        certificate.status = Certificate.Status.REVOKED
+        certificate.revoked_at = timezone.now()
+        certificate.save(update_fields=["status", "revoked_at", "updated_at"])
+        if certificate.qrcode:
+            QRCode.objects.filter(pk=certificate.qrcode_id).update(status=QRCode.Status.PAUSED, updated_at=timezone.now())
+        messages.warning(request, "Certificate revoked. Public verification now shows a warning.")
+    else:
+        messages.info(request, "Certificate was already revoked.")
+    return redirect("qrcodes:certificate_detail", pk=certificate.pk)
+
+
+@login_required
+@require_POST
+def certificate_bulk_upload(request):
+    form = CertificateBulkUploadForm(request.POST, request.FILES)
+    if not form.is_valid():
+        messages.error(request, form.errors.get("csv_file", ["Upload a valid CSV file."])[0])
+        return redirect("qrcodes:certificate_list")
+
+    try:
+        rows = form.parsed_rows()
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+        return redirect("qrcodes:certificate_list")
+
+    max_qr = request.user.plan_limits["max_qr"]
+    if max_qr > 0 and active_qr_count(request.user) + len(rows) > max_qr:
+        messages.error(request, qr_quota_message(request.user, action="bulk upload certificates"))
+        return redirect("qrcodes:certificate_list")
+
+    seen_ids = set()
+    created = []
+    row_errors = []
+    try:
+        with transaction.atomic():
+            for row in rows:
+                row_number = row["_row_number"]
+                certificate_id = row.get("certificate_id", "").strip()
+                if certificate_id.lower() in seen_ids:
+                    row_errors.append(f"Row {row_number}: duplicate certificate_id in CSV.")
+                    continue
+                seen_ids.add(certificate_id.lower())
+                try:
+                    issue_date = _parse_certificate_csv_date(row.get("issue_date", ""), "issue_date", row_number)
+                    expiry_date = _parse_certificate_csv_date(row.get("expiry_date", ""), "expiry_date", row_number)
+                    certificate = Certificate(
+                        workspace=request.user,
+                        recipient_name=row.get("recipient_name", ""),
+                        title=row.get("title", ""),
+                        issuer=row.get("issuer", ""),
+                        issue_date=issue_date,
+                        expiry_date=expiry_date,
+                        certificate_id=certificate_id,
+                    )
+                    certificate.full_clean(exclude=["qrcode", "pdf_url", "verification_code"])
+                    certificate.save()
+                    _create_certificate_qr(request, certificate)
+                    created.append(certificate)
+                except ValidationError as error:
+                    if hasattr(error, "message_dict"):
+                        details = "; ".join(f"{field}: {' '.join(msgs)}" for field, msgs in error.message_dict.items())
+                    else:
+                        details = " ".join(error.messages)
+                    row_errors.append(f"Row {row_number}: {details}")
+
+            if row_errors:
+                raise ValidationError(row_errors[:5])
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+        return redirect("qrcodes:certificate_list")
+
+    messages.success(request, f"Bulk upload complete. Created {len(created)} certificate QR code{'' if len(created) == 1 else 's'}.")
+    return redirect("qrcodes:certificate_list")
+
+
+def certificate_verify(request, code):
+    certificate = get_object_or_404(
+        Certificate.objects.select_related("qrcode", "workspace"),
+        verification_code=code,
+    )
+    return render(request, "qrcodes/certificates/verify.html", {
+        "certificate": certificate,
+    })
+
+
+@login_required
 def qrcode_scan(request):
     return render(request, "qrcodes/scan.html", {"active_tab": "scan_qr"})
+
+
+@ensure_csrf_cookie
+def safe_scanner(request):
+    return render(request, "scanner/index.html")
+
+
+@ensure_csrf_cookie
+def safe_scanner_result(request):
+    return render(request, "scanner/result.html", {
+        "scanner_analysis_json": json.dumps(request.session.get("safe_scanner_last_analysis")),
+    })
+
+
+@login_required
+def safe_scanner_history(request):
+    history = QRScannerHistory.objects.filter(user=request.user).order_by("-scanned_at")[:100]
+    return render(request, "scanner/history.html", {"history": history})
+
+
+@require_POST
+def scanner_analyze_api(request):
+    if _rate_limited(request, "scanner-analyze", limit=60, window=60):
+        return JsonResponse({"error": "Too many scans. Please wait a moment."}, status=429)
+
+    content = (_json_body(request).get("content") or "").strip()
+    if not content:
+        return JsonResponse({"error": "QR content is required."}, status=400)
+    if len(content) > 4000:
+        return JsonResponse({"error": "QR content is too long to inspect safely."}, status=400)
+
+    analysis = analyze_scanner_content(content)
+    analysis["verifiedBusiness"] = _verified_business_for_scanned_content(content, request)
+    request.session["safe_scanner_last_analysis"] = analysis
+    request.session.modified = True
+    if request.user.is_authenticated:
+        QRScannerHistory.objects.create(
+            user=request.user,
+            raw_content=analysis["rawContent"],
+            content_type=analysis["type"],
+            domain=analysis["domain"][:255],
+            risk_level=analysis["riskLevel"],
+        )
+    return JsonResponse(analysis)
+
+
+@require_POST
+def scanner_report_api(request):
+    if _rate_limited(request, "scanner-report", limit=5, window=300):
+        return JsonResponse({"error": "Too many reports. Please wait before sending another."}, status=429)
+
+    body = _json_body(request)
+    content = (body.get("content") or "").strip()
+    reason = (body.get("reason") or QRSuspiciousReport.Reason.OTHER).strip()
+    comment = (body.get("comment") or "").strip()[:1000]
+    if not content:
+        return JsonResponse({"error": "Scanned QR content is required."}, status=400)
+    if len(content) > 4000:
+        return JsonResponse({"error": "QR content is too long to report."}, status=400)
+
+    analysis = request.session.get("safe_scanner_last_analysis")
+    if not analysis or analysis.get("rawContent") != content:
+        analysis = analyze_scanner_content(content, fetch_title=False)
+    report = _create_qr_report(
+        request,
+        content=content,
+        reason=reason,
+        comment=comment,
+        analysis=analysis,
+    )
+    return JsonResponse({"ok": True, "reportId": str(report.id), "status": report.status})
+
+
+@require_POST
+def url_analyze_api(request):
+    if _rate_limited(request, "url-analyze", limit=60, window=60):
+        return JsonResponse({"error": "Too many URL checks. Please wait a moment."}, status=429)
+
+    url = (_json_body(request).get("url") or "").strip()
+    if not url:
+        return JsonResponse({"error": "URL is required."}, status=400)
+    if len(url) > 4000:
+        return JsonResponse({"error": "URL is too long to inspect safely."}, status=400)
+    return JsonResponse(analyze_url(url))
+
+
+@login_required
+@require_POST
+def qrcode_safety_check(request):
+    if _rate_limited(request, "safety-check", limit=45, window=60):
+        return JsonResponse({"error": "Too many safety checks. Please wait a moment."}, status=429)
+    value = (_json_body(request).get("value") or "").strip()
+    if not value:
+        return JsonResponse({"error": "QR value is required."}, status=400)
+    if len(value) > 4000:
+        return JsonResponse({"error": "QR value is too long to inspect safely."}, status=400)
+    return JsonResponse(analyze_scanned_value(value))
+
+
+@login_required
+@require_POST
+def qrcode_report_suspicious(request):
+    if _rate_limited(request, "suspicious-report", limit=10, window=300):
+        return JsonResponse({"error": "Too many reports. Please wait before sending another."}, status=429)
+
+    body = _json_body(request)
+    value = (body.get("value") or "").strip()
+    reason = (body.get("reason") or QRSuspiciousReport.Reason.OTHER).strip()
+    comment = (body.get("comment") or body.get("reason") or "").strip()[:1000]
+    if not value:
+        return JsonResponse({"error": "QR value is required."}, status=400)
+    if len(value) > 4000:
+        return JsonResponse({"error": "QR value is too long to report."}, status=400)
+
+    analysis = analyze_scanner_content(value, fetch_title=False)
+    report = _create_qr_report(
+        request,
+        content=value,
+        reason=reason,
+        comment=comment,
+        analysis=analysis,
+    )
+    return JsonResponse({"ok": True, "report_id": str(report.id)})
+
+
+@staff_member_required
+def admin_reports(request):
+    qs = QRSuspiciousReport.objects.select_related("qrcode", "campaign", "reporter").order_by("-created_at")
+    status = request.GET.get("status", "").strip()
+    reason = request.GET.get("reason", "").strip()
+    risk_level = request.GET.get("risk_level", "").strip()
+    date = request.GET.get("date", "").strip()
+    if status:
+        qs = qs.filter(status=status)
+    if reason:
+        qs = qs.filter(reason=reason)
+    if risk_level:
+        qs = qs.filter(risk_level=risk_level)
+    if date:
+        qs = qs.filter(created_at__date=date)
+
+    grouped_reports = (
+        QRSuspiciousReport.objects
+        .values("qrcode_id", "host")
+        .annotate(total=Count("id"))
+        .filter(total__gt=1)
+        .order_by("-total")[:10]
+    )
+    paginator = Paginator(qs, 25)
+    context = {
+        "reports": paginator.get_page(request.GET.get("page", 1)),
+        "status_choices": QRSuspiciousReport.Status.choices,
+        "reason_choices": QRSuspiciousReport.Reason.choices,
+        "risk_levels": ["safe", "caution", "risky", "warning", "danger", "unknown"],
+        "grouped_reports": grouped_reports,
+        "filters": {
+            "status": status,
+            "reason": reason,
+            "risk_level": risk_level,
+            "date": date,
+        },
+    }
+    return render(request, "admin/reports.html", context)
+
+
+@staff_member_required
+def admin_report_detail(request, report_id):
+    report = get_object_or_404(
+        QRSuspiciousReport.objects.select_related("qrcode", "campaign", "reporter"),
+        id=report_id,
+    )
+    if request.method == "POST":
+        status = request.POST.get("status", report.status)
+        notes = request.POST.get("admin_notes", "").strip()[:5000]
+        if status in {choice[0] for choice in QRSuspiciousReport.Status.choices}:
+            report.status = status
+        report.admin_notes = notes
+        report.save(update_fields=["status", "admin_notes", "updated_at"])
+        _refresh_campaign_risk(report.campaign)
+        messages.success(request, "Report updated.")
+        return redirect("admin_report_detail", report_id=report.id)
+
+    related_count = QRSuspiciousReport.objects.filter(
+        Q(qrcode=report.qrcode) if report.qrcode else Q(host=report.host),
+    ).count()
+    return render(request, "admin/report_detail.html", {
+        "report": report,
+        "status_choices": QRSuspiciousReport.Status.choices,
+        "related_count": related_count,
+    })
 
 
 @login_required
@@ -310,13 +970,41 @@ def qrcode_detail(request, pk):
     daily_stats = DailyQRStats.objects.filter(
         qrcode_id=qr.id, date__gte=last_30_days
     ).order_by("date")
+    reports = QRSuspiciousReport.objects.filter(qrcode=qr).order_by("-created_at")[:10]
+    open_report_count = QRSuspiciousReport.objects.filter(
+        qrcode=qr,
+        status__in=[QRSuspiciousReport.Status.OPEN, QRSuspiciousReport.Status.REVIEWING],
+    ).count()
 
     context = {
         "qr": qr,
         "daily_stats": list(daily_stats.values("date", "total_scans", "unique_scans")),
+        "reports": reports,
+        "open_report_count": open_report_count,
         "active_tab": "qrcodes",
     }
     return render(request, "qrcodes/detail.html", context)
+
+
+@login_required
+@require_POST
+def qrcode_pause_campaign(request, pk):
+    qr = get_object_or_404(QRCode, id=pk, user=request.user)
+    if not qr.campaign:
+        qr.status = QRCode.Status.PAUSED
+        qr.save(update_fields=["status", "updated_at"])
+        messages.warning(request, f'"{qr.name}" has been paused while you review suspicious reports.')
+        return redirect("qrcodes:detail", pk=qr.id)
+
+    QRCode.objects.filter(
+        user=request.user,
+        campaign=qr.campaign,
+        status=QRCode.Status.ACTIVE,
+    ).update(status=QRCode.Status.PAUSED, updated_at=timezone.now())
+    qr.campaign.is_active = False
+    qr.campaign.save(update_fields=["is_active", "updated_at"])
+    messages.warning(request, f'"{qr.campaign.name}" campaign has been paused temporarily.')
+    return redirect("qrcodes:detail", pk=qr.id)
 
 
 @login_required
@@ -457,9 +1145,8 @@ def qr_redirect(request, short_code):
 @require_POST
 def qrcode_clone(request, pk):
     """Duplicate a QR code with the same settings (resets stats and images)."""
-    if not _can_create_qr(request.user):
-        limits = request.user.plan_limits
-        messages.error(request, f"Your current plan allows {limits['max_qr']} active QR codes. Upgrade to clone more.")
+    if not can_create_qr(request.user):
+        messages.error(request, qr_quota_message(request.user, action="clone"))
         return redirect("core:pricing")
 
     src = get_object_or_404(QRCode, id=pk, user=request.user)

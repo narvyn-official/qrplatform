@@ -13,11 +13,13 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 
 from apps.accounts.models import (
-    UserProfile, EmailVerificationToken, PasswordResetToken, APIKey, AuditLog, MembershipOrder
+    UserProfile, EmailVerificationToken, PasswordResetToken, APIKey, AuditLog,
+    MembershipOrder, BusinessVerification, BusinessVerificationAttempt,
 )
 from apps.accounts.forms import (
     SignupForm, LoginForm, ProfileForm, ChangePasswordForm,
     ForgotPasswordForm, ResetPasswordForm, ResendVerificationForm,
+    BusinessVerificationForm,
 )
 
 User = get_user_model()
@@ -673,6 +675,8 @@ class ProfileViewTests(TestCase):
     def test_get_profile_page(self):
         resp = self.client.get(reverse("accounts:profile"))
         self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Business Verification")
+        self.assertContains(resp, "Verify your official domain")
 
     @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
     def test_update_profile(self, mock_ip):
@@ -713,6 +717,69 @@ class ProfileViewTests(TestCase):
         self.client.logout()
         resp = self.client.get(reverse("accounts:profile"))
         self.assertEqual(resp.status_code, 302)
+
+    def test_business_verification_form_normalizes_domain(self):
+        form = BusinessVerificationForm({
+            "business_name": "Acme Foods",
+            "domain": "https://Example.COM/menu",
+            "method": BusinessVerification.Method.DNS,
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["domain"], "example.com")
+
+    def test_business_verification_form_rejects_localhost(self):
+        form = BusinessVerificationForm({
+            "business_name": "Local",
+            "domain": "localhost",
+            "method": BusinessVerification.Method.HTML_FILE,
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn("domain", form.errors)
+
+    def test_save_business_verification_creates_pending_setup(self):
+        resp = self.client.post(reverse("accounts:save_business_verification"), {
+            "business_name": "Acme Foods",
+            "domain": "acme.example",
+            "method": BusinessVerification.Method.META_TAG,
+        })
+        self.assertRedirects(resp, f"{reverse('accounts:profile')}#verification")
+        verification = BusinessVerification.objects.get(workspace=self.user)
+        self.assertEqual(verification.business_name, "Acme Foods")
+        self.assertEqual(verification.domain, "acme.example")
+        self.assertEqual(verification.status, BusinessVerification.Status.PENDING)
+        self.assertTrue(verification.verification_token)
+
+    @patch("apps.accounts.views.verify_business_domain", return_value=(True, "DNS TXT record matched."))
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_verify_business_success_sets_verified(self, mock_ip, mock_verify):
+        verification = BusinessVerification.objects.create(
+            workspace=self.user,
+            business_name="Acme Foods",
+            domain="acme.example",
+            method=BusinessVerification.Method.DNS,
+        )
+        resp = self.client.post(reverse("accounts:verify_business_verification"))
+        self.assertRedirects(resp, f"{reverse('accounts:profile')}#verification")
+        verification.refresh_from_db()
+        self.assertEqual(verification.status, BusinessVerification.Status.VERIFIED)
+        self.assertIsNotNone(verification.verified_at)
+        attempt = BusinessVerificationAttempt.objects.get(verification=verification)
+        self.assertTrue(attempt.success)
+        mock_verify.assert_called_once_with(verification)
+
+    @patch("apps.accounts.views.verify_business_domain", return_value=(False, "Token not found."))
+    def test_verify_business_failure_sets_failed(self, mock_verify):
+        verification = BusinessVerification.objects.create(
+            workspace=self.user,
+            business_name="Acme Foods",
+            domain="acme.example",
+            method=BusinessVerification.Method.HTML_FILE,
+        )
+        resp = self.client.post(reverse("accounts:verify_business_verification"))
+        self.assertRedirects(resp, f"{reverse('accounts:profile')}#verification")
+        verification.refresh_from_db()
+        self.assertEqual(verification.status, BusinessVerification.Status.FAILED)
+        self.assertIsNone(verification.verified_at)
 
 
 @override_settings(CACHES=CACHE_OVERRIDE)

@@ -1,0 +1,26 @@
+{% extends "platform_admin/layout.html" %}
+{% block title %}Business Verification — Admin{% endblock %}
+{% block admin_title %}Business verification{% endblock %}
+{% block admin_kicker %}Trust badges{% endblock %}
+
+{% block admin_content %}
+<form method="get" class="card grid grid-cols-1 gap-3 p-4 md:grid-cols-[minmax(0,1fr)_180px_auto]">
+  <input class="input" name="q" value="{{ filters.q }}" placeholder="Search business, domain, or owner">
+  <select class="input" name="status"><option value="">All statuses</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <button class="btn-primary">Filter</button>
+</form>
+<section class="card overflow-hidden">
+  <div class="divide-y divide-surface-100">
+    {% for verification in verifications %}
+    <article class="grid grid-cols-1 gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_130px_130px_110px] lg:items-center">
+      <div class="min-w-0"><p class="truncate text-sm font-black">{{ verification.business_name }}</p><p class="truncate text-xs text-gray-500">{{ verification.domain }}</p></div>
+      <a class="truncate text-sm font-semibold text-primary-700" href="{% url 'platform_admin:user_detail' verification.workspace.id %}">{{ verification.workspace.email }}</a>
+      <span class="text-sm">{{ verification.get_method_display }}</span>
+      {% include "platform_admin/status_badge.html" with status=verification.status label=verification.get_status_display %}
+      <a class="btn-secondary justify-center" href="{% url 'platform_admin:verification_detail' verification.id %}">Open</a>
+    </article>
+    {% empty %}<div class="p-10 text-center text-sm text-gray-500">No verification requests.</div>{% endfor %}
+  </div>
+</section>
+{% include "platform_admin/pagination.html" with page_obj=verifications %}
+{% endblock %}

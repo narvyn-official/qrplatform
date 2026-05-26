@@ -1,0 +1,172 @@
+{% extends "platform_admin/layout.html" %}
+{% block title %}Admin Overview — {{ PLATFORM_NAME }}{% endblock %}
+{% block admin_title %}Admin overview{% endblock %}
+{% block admin_kicker %}System health{% endblock %}
+
+{% block admin_content %}
+<section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <article class="metric-tile">
+    <p class="metric-label">Users</p>
+    <p class="metric-value">{{ user_totals.total }}</p>
+    <p class="mt-2 text-sm text-gray-500">{{ user_totals.active }} active · {{ user_totals.paid }} paid · {{ user_totals.new_30d }} new in 30d</p>
+  </article>
+  <article class="metric-tile">
+    <p class="metric-label">QR codes</p>
+    <p class="metric-value">{{ qr_totals.total }}</p>
+    <p class="mt-2 text-sm text-gray-500">{{ qr_totals.active }} active · {{ qr_totals.paused }} paused · {{ qr_totals.scans }} scans</p>
+  </article>
+  <article class="metric-tile">
+    <p class="metric-label">Safety reports</p>
+    <p class="metric-value">{{ report_totals.total }}</p>
+    <p class="mt-2 text-sm text-gray-500">{{ report_totals.open }} open · {{ report_totals.reviewing }} reviewing · {{ report_totals.risky }} risky</p>
+  </article>
+  <article class="metric-tile">
+    <p class="metric-label">Paid revenue</p>
+    <p class="metric-value">₹{{ order_totals.revenue_inr|floatformat:0 }}</p>
+    <p class="mt-2 text-sm text-gray-500">{{ order_totals.paid }} paid order{{ order_totals.paid|pluralize }} · Paytm checkout</p>
+  </article>
+</section>
+
+<section class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,.75fr)]">
+  <div class="card p-5">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-lg font-black">Scan trend</h2>
+        <p class="text-sm text-gray-500">Aggregated scans from daily analytics.</p>
+      </div>
+      <a href="{% url 'platform_admin:qrcodes' %}" class="btn-secondary">Inspect QR codes</a>
+    </div>
+    <div class="mt-5 h-72">
+      <canvas id="adminScanChart" aria-label="Daily scan chart"></canvas>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4">
+    <article class="card p-5">
+      <p class="metric-label">Trust layer</p>
+      <div class="mt-4 grid grid-cols-3 gap-3 text-center">
+        <div class="rounded-lg bg-primary-50 p-3"><p class="text-2xl font-black">{{ verification_totals.verified }}</p><p class="text-xs text-gray-500">Verified</p></div>
+        <div class="rounded-lg bg-amber-50 p-3"><p class="text-2xl font-black">{{ verification_totals.pending }}</p><p class="text-xs text-gray-500">Pending</p></div>
+        <div class="rounded-lg bg-coral-50 p-3"><p class="text-2xl font-black">{{ verification_totals.revoked }}</p><p class="text-xs text-gray-500">Revoked</p></div>
+      </div>
+      <a href="{% url 'platform_admin:verifications' %}" class="btn-secondary mt-4 w-full">Review verifications</a>
+    </article>
+    <article class="card p-5">
+      <p class="metric-label">Certificates & barcodes</p>
+      <div class="mt-4 space-y-3 text-sm">
+        <div class="flex justify-between"><span class="text-gray-500">Certificates</span><strong>{{ certificate_totals.total }}</strong></div>
+        <div class="flex justify-between"><span class="text-gray-500">Valid certificates</span><strong>{{ certificate_totals.valid }}</strong></div>
+        <div class="flex justify-between"><span class="text-gray-500">Barcodes</span><strong>{{ barcode_totals.total }}</strong></div>
+        <div class="flex justify-between"><span class="text-gray-500">Bulk jobs</span><strong>{{ barcode_totals.bulk_jobs }}</strong></div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+  <div class="card overflow-hidden">
+    <div class="flex items-center justify-between border-b border-surface-100 px-5 py-4">
+      <h2 class="font-black">Recent users</h2>
+      <a href="{% url 'platform_admin:users' %}" class="text-sm font-semibold text-primary-700">View all</a>
+    </div>
+    <div class="divide-y divide-surface-100">
+      {% for account in recent_users %}
+      <a href="{% url 'platform_admin:user_detail' account.id %}" class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 p-4 hover:bg-surface-50">
+        <span class="min-w-0">
+          <span class="block truncate text-sm font-bold">{{ account.email }}</span>
+          <span class="block text-xs text-gray-500">{{ account.date_joined|date:"M d, Y H:i" }} · {{ account.active_plan_code|title }}</span>
+        </span>
+        {% include "platform_admin/status_badge.html" with status=account.is_active|yesno:"active,inactive" label=account.is_active|yesno:"Active,Inactive" %}
+      </a>
+      {% empty %}
+      <p class="p-5 text-sm text-gray-500">No users yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card overflow-hidden">
+    <div class="flex items-center justify-between border-b border-surface-100 px-5 py-4">
+      <h2 class="font-black">Recent safety reports</h2>
+      <a href="{% url 'platform_admin:reports' %}" class="text-sm font-semibold text-primary-700">Review queue</a>
+    </div>
+    <div class="divide-y divide-surface-100">
+      {% for report in recent_reports %}
+      <a href="{% url 'platform_admin:report_detail' report.id %}" class="block p-4 hover:bg-surface-50">
+        <div class="flex items-center justify-between gap-3">
+          <p class="truncate text-sm font-bold">{{ report.host|default:"No domain" }}</p>
+          {% include "platform_admin/status_badge.html" with status=report.status label=report.get_status_display %}
+        </div>
+        <p class="mt-1 truncate text-xs text-gray-500">{{ report.get_reason_display }} · {{ report.risk_level|title }} · {{ report.created_at|date:"M d, Y H:i" }}</p>
+      </a>
+      {% empty %}
+      <p class="p-5 text-sm text-gray-500">No suspicious reports yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+  <div class="card overflow-hidden">
+    <div class="flex items-center justify-between border-b border-surface-100 px-5 py-4">
+      <h2 class="font-black">Recent QR codes</h2>
+      <a href="{% url 'platform_admin:qrcodes' %}" class="text-sm font-semibold text-primary-700">Manage</a>
+    </div>
+    <div class="divide-y divide-surface-100">
+      {% for qr in recent_qrcodes %}
+      <a href="{% url 'platform_admin:qrcode_detail' qr.id %}" class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 p-4 hover:bg-surface-50">
+        <span class="min-w-0">
+          <span class="block truncate text-sm font-bold">{{ qr.name }}</span>
+          <span class="block truncate text-xs text-gray-500">{{ qr.user.email }} · {{ qr.total_scans }} scans</span>
+        </span>
+        {% include "platform_admin/status_badge.html" with status=qr.status label=qr.get_status_display %}
+      </a>
+      {% empty %}
+      <p class="p-5 text-sm text-gray-500">No QR codes yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card overflow-hidden">
+    <div class="flex items-center justify-between border-b border-surface-100 px-5 py-4">
+      <h2 class="font-black">Recent billing orders</h2>
+      <a href="{% url 'platform_admin:orders' %}" class="text-sm font-semibold text-primary-700">View all</a>
+    </div>
+    <div class="divide-y divide-surface-100">
+      {% for order in recent_orders %}
+      <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 p-4">
+        <span class="min-w-0">
+          <span class="block truncate text-sm font-bold">{{ order.user.email }}</span>
+          <span class="block text-xs text-gray-500">{{ order.plan_code|title }} · ₹{% widthratio order.amount_paise 100 1 %} · {{ order.created_at|date:"M d" }}</span>
+        </span>
+        {% include "platform_admin/status_badge.html" with status=order.status label=order.get_status_display %}
+      </div>
+      {% empty %}
+      <p class="p-5 text-sm text-gray-500">No orders yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ daily_scans|json_script:"admin-daily-scans" }}
+<script>
+  (() => {
+    const node = document.getElementById('admin-daily-scans');
+    const canvas = document.getElementById('adminScanChart');
+    if (!node || !canvas || !window.Chart) return;
+    const data = JSON.parse(node.textContent || '[]');
+    new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: data.map(row => row.date),
+        datasets: [
+          { label: 'Total scans', data: data.map(row => row.total), borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,.12)', tension: .35, fill: true },
+          { label: 'Unique scans', data: data.map(row => row.unique), borderColor: '#E11D48', backgroundColor: 'rgba(225,29,72,.08)', tension: .35, fill: true }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
+    });
+  })();
+</script>
+{% endblock %}

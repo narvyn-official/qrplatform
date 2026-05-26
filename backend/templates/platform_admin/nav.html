@@ -1,0 +1,8 @@
+<a href="{% url 'platform_admin:overview' %}" class="sidebar-link {% if admin_active_tab == 'overview' %}active{% endif %}">Overview</a>
+<a href="{% url 'platform_admin:users' %}" class="sidebar-link {% if admin_active_tab == 'users' %}active{% endif %}">Users & plans</a>
+<a href="{% url 'platform_admin:qrcodes' %}" class="sidebar-link {% if admin_active_tab == 'qrcodes' %}active{% endif %}">QR codes</a>
+<a href="{% url 'platform_admin:certificates' %}" class="sidebar-link {% if admin_active_tab == 'certificates' %}active{% endif %}">Certificates</a>
+<a href="{% url 'platform_admin:verifications' %}" class="sidebar-link {% if admin_active_tab == 'verifications' %}active{% endif %}">Business verification</a>
+<a href="{% url 'platform_admin:reports' %}" class="sidebar-link {% if admin_active_tab == 'reports' %}active{% endif %}">Suspicious reports</a>
+<a href="{% url 'platform_admin:orders' %}" class="sidebar-link {% if admin_active_tab == 'orders' %}active{% endif %}">Billing orders</a>
+<a href="{% url 'platform_admin:audit_logs' %}" class="sidebar-link {% if admin_active_tab == 'audit_logs' %}active{% endif %}">Audit logs</a>

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Verify Certificate {{ certificate.certificate_id }} — {{ PLATFORM_NAME }}{% endblock %}
+{% block meta_description %}Public certificate authenticity verification for {{ certificate.certificate_id }} issued by {{ certificate.issuer }}.{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+{% block og_title %}Certificate Verification — {{ certificate.certificate_id }}{% endblock %}
+{% block og_description %}Check whether this certificate is valid, expired, or revoked.{% endblock %}
+
+{% block body %}
+<main class="min-h-dvh bg-[#f8fafc] px-4 py-6 sm:px-6 lg:px-8">
+  <div class="mx-auto max-w-4xl">
+    <header class="mb-6 flex items-center justify-between gap-4">
+      <a href="/" class="flex items-center gap-2.5">
+        <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-9 w-9 rounded-lg shadow-sm">
+        <span class="text-base font-bold tracking-tight text-gray-950">{{ PLATFORM_NAME }}</span>
+      </a>
+      <span class="rounded-full border border-surface-200 bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-gray-500">Certificate verify</span>
+    </header>
+
+    <section class="overflow-hidden rounded-lg border {% if certificate.effective_status == 'valid' %}border-primary-200 bg-primary-50{% elif certificate.effective_status == 'revoked' %}border-coral-200 bg-coral-50{% else %}border-amber-200 bg-amber-50{% endif %} p-5 shadow-sm sm:p-7">
+      <span class="badge {% if certificate.effective_status == 'valid' %}badge-green{% elif certificate.effective_status == 'revoked' %}badge-red{% else %}badge-yellow{% endif %}">
+        {{ certificate.status_label }}
+      </span>
+      <h1 class="mt-4 text-3xl font-black tracking-tight text-gray-950 sm:text-5xl">Certificate verification</h1>
+      {% if certificate.effective_status == 'valid' %}
+      <p class="mt-3 max-w-2xl text-base leading-7 text-gray-600">This certificate record is currently valid in the issuer workspace.</p>
+      {% elif certificate.effective_status == 'revoked' %}
+      <p class="mt-3 max-w-2xl text-base font-semibold leading-7 text-coral-800">Do not trust this certificate. The issuer has revoked this record.</p>
+      {% else %}
+      <p class="mt-3 max-w-2xl text-base font-semibold leading-7 text-amber-800">This certificate has expired. Ask the issuer for a renewed certificate before accepting it.</p>
+      {% endif %}
+    </section>
+
+    <section class="mt-5 rounded-lg border border-surface-200 bg-white p-5 shadow-sm sm:p-7">
+      <dl class="grid gap-4 sm:grid-cols-2">
+        <div class="rounded-lg bg-surface-50 p-4">
+          <dt class="text-xs font-bold uppercase tracking-wider text-gray-500">Certificate ID</dt>
+          <dd class="mt-1 break-all font-mono text-sm font-bold text-gray-950">{{ certificate.certificate_id }}</dd>
+        </div>
+        <div class="rounded-lg bg-surface-50 p-4">
+          <dt class="text-xs font-bold uppercase tracking-wider text-gray-500">Recipient name</dt>
+          <dd class="mt-1 text-sm font-bold text-gray-950">{{ certificate.recipient_name }}</dd>
+        </div>
+        <div class="rounded-lg bg-surface-50 p-4">
+          <dt class="text-xs font-bold uppercase tracking-wider text-gray-500">Certificate title</dt>
+          <dd class="mt-1 text-sm font-bold text-gray-950">{{ certificate.title }}</dd>
+        </div>
+        <div class="rounded-lg bg-surface-50 p-4">
+          <dt class="text-xs font-bold uppercase tracking-wider text-gray-500">Issuer</dt>
+          <dd class="mt-1 text-sm font-bold text-gray-950">{{ certificate.issuer }}</dd>
+        </div>
+        <div class="rounded-lg bg-surface-50 p-4">
+          <dt class="text-xs font-bold uppercase tracking-wider text-gray-500">Issue date</dt>
+          <dd class="mt-1 text-sm font-bold text-gray-950">{{ certificate.issue_date|date:"M d, Y" }}</dd>
+        </div>
+        <div class="rounded-lg bg-surface-50 p-4">
+          <dt class="text-xs font-bold uppercase tracking-wider text-gray-500">Expiry date</dt>
+          <dd class="mt-1 text-sm font-bold text-gray-950">{{ certificate.expiry_date|date:"M d, Y"|default:"No expiry" }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="mt-5 rounded-lg border border-surface-200 bg-white p-5 shadow-sm sm:p-7">
+      <h2 class="text-lg font-black text-gray-950">Verification note</h2>
+      <p class="mt-2 text-sm leading-6 text-gray-600">This page confirms the status of the record stored by the issuer. If the printed certificate details do not match this page, treat the certificate as suspicious.</p>
+      <div class="mt-4 rounded-lg bg-surface-50 p-3 font-mono text-xs text-gray-500 break-all">Verification code: {{ certificate.verification_code }}</div>
+    </section>
+  </div>
+</main>
+{% endblock %}

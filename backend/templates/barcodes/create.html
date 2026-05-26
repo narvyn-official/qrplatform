@@ -20,41 +20,57 @@
   showText: {% if form.show_text.value == False %}false{% else %}true{% endif %}
 }">
   {% if form.non_field_errors %}
-  <div class="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+  <div class="mb-5 rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700">
     {{ form.non_field_errors|join:", " }}
   </div>
   {% endif %}
 
+  <section class="builder-shell mb-6 p-5 sm:p-6">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p class="page-kicker text-primary-700">Barcode builder</p>
+        <h2 class="page-title">Generate production barcodes with fewer guesses.</h2>
+        <p class="page-copy">Pick a standard, enter the encoded value, and preview the file before download.</p>
+      </div>
+      <div class="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+        <span class="builder-mini-stat">PNG export</span>
+        <span class="builder-mini-stat">SVG export</span>
+        <span class="builder-mini-stat">Server checked</span>
+      </div>
+    </div>
+  </section>
+
   <form method="post" class="grid grid-cols-1 gap-6 lg:grid-cols-12">
     {% csrf_token %}
     <section class="lg:col-span-7 space-y-6">
-      <div class="card p-5 sm:p-6">
+      <div class="builder-step">
         <div class="mb-5">
-          <h2 class="text-lg font-bold text-gray-950">Barcode details</h2>
+          <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Step 1</p>
+          <h2 class="mt-1 text-lg font-black text-gray-950">Barcode details</h2>
           <p class="mt-1 text-sm text-gray-500">Choose a format, enter valid content, and generate downloadable PNG/SVG assets.</p>
         </div>
 
         <div class="space-y-4">
-          <div>
+          <div class="builder-field-tile">
             <label class="mb-1.5 block text-sm font-semibold text-gray-700">Name</label>
             <input type="text" name="name" class="input" placeholder="Product SKU-001" required value="{{ form.name.value|default:'' }}">
-            {% if form.name.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.name.errors|join:", " }}</p>{% endif %}
+            {% if form.name.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.name.errors|join:", " }}</p>{% endif %}
           </div>
 
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
+            <div class="builder-field-tile">
               <label class="mb-1.5 block text-sm font-semibold text-gray-700">Format</label>
               <select name="barcode_format" class="input" x-model="format">
                 {% for value, label in formats %}
                 <option value="{{ value }}" {% if form.barcode_format.value == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
               </select>
-              {% if form.barcode_format.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.barcode_format.errors|join:", " }}</p>{% endif %}
+              {% if form.barcode_format.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.barcode_format.errors|join:", " }}</p>{% endif %}
             </div>
-            <div>
+            <div class="builder-field-tile">
               <label class="mb-1.5 block text-sm font-semibold text-gray-700">Content</label>
               <input type="text" name="content" class="input font-mono" placeholder="Value to encode" required x-model="content" value="{{ form.content.value|default:'' }}">
-              {% if form.content.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.content.errors|join:", " }}</p>{% endif %}
+              {% if form.content.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.content.errors|join:", " }}</p>{% endif %}
             </div>
           </div>
 
@@ -64,36 +80,37 @@
         </div>
       </div>
 
-      <div class="card p-5 sm:p-6">
+      <div class="builder-step">
         <div class="mb-5">
-          <h2 class="text-lg font-bold text-gray-950">Appearance</h2>
+          <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Step 2</p>
+          <h2 class="mt-1 text-lg font-black text-gray-950">Appearance</h2>
           <p class="mt-1 text-sm text-gray-500">Tune production dimensions and text rendering.</p>
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
+          <div class="builder-field-tile">
             <label class="mb-1.5 block text-sm font-semibold text-gray-700">Foreground</label>
             <input type="color" name="foreground_color" x-model="foreground" value="{{ form.foreground_color.value|default:'#000000' }}" class="h-11 w-full rounded-lg border border-surface-200 bg-white p-1">
           </div>
-          <div>
+          <div class="builder-field-tile">
             <label class="mb-1.5 block text-sm font-semibold text-gray-700">Background</label>
             <input type="color" name="background_color" x-model="background" value="{{ form.background_color.value|default:'#FFFFFF' }}" class="h-11 w-full rounded-lg border border-surface-200 bg-white p-1">
           </div>
-          <div>
+          <div class="builder-field-tile">
             <label class="mb-1.5 block text-sm font-semibold text-gray-700">Width (px)</label>
             <input type="number" name="width" class="input" value="{{ form.width.value|default:300 }}" min="100" max="1200">
-            {% if form.width.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.width.errors|join:", " }}</p>{% endif %}
+            {% if form.width.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.width.errors|join:", " }}</p>{% endif %}
           </div>
-          <div>
+          <div class="builder-field-tile">
             <label class="mb-1.5 block text-sm font-semibold text-gray-700">Height (px)</label>
             <input type="number" name="height" class="input" value="{{ form.height.value|default:100 }}" min="40" max="400">
-            {% if form.height.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.height.errors|join:", " }}</p>{% endif %}
+            {% if form.height.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.height.errors|join:", " }}</p>{% endif %}
           </div>
-          <div>
+          <div class="builder-field-tile">
             <label class="mb-1.5 block text-sm font-semibold text-gray-700">Font Size</label>
             <input type="number" name="font_size" class="input" value="{{ form.font_size.value|default:10 }}" min="0" max="48">
-            {% if form.font_size.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.font_size.errors|join:", " }}</p>{% endif %}
+            {% if form.font_size.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.font_size.errors|join:", " }}</p>{% endif %}
           </div>
-          <label class="flex items-center gap-3 pt-7 text-sm font-semibold text-gray-700">
+          <label class="builder-field-tile flex items-center gap-3 text-sm font-semibold text-gray-700">
             <input type="checkbox" name="show_text" x-model="showText" class="rounded border-surface-300 text-primary-600 focus:ring-primary-500" {% if form.show_text.value != False %}checked{% endif %}>
             Show text below barcode
           </label>
@@ -133,7 +150,7 @@
             </div>
             <div class="flex items-center justify-between gap-4">
               <dt class="text-gray-500">Validation</dt>
-              <dd class="font-semibold text-emerald-700">Server checked</dd>
+              <dd class="font-semibold text-primary-700">Server checked</dd>
             </div>
           </dl>
         </section>

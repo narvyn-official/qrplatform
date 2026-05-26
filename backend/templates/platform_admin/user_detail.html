@@ -1,0 +1,68 @@
+{% extends "platform_admin/layout.html" %}
+{% block title %}{{ account.email }} — Admin{% endblock %}
+{% block admin_title %}User account{% endblock %}
+{% block admin_kicker %}{{ account.email }}{% endblock %}
+
+{% block admin_content %}
+<section class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+  <div class="space-y-5">
+    <section class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <article class="metric-tile"><p class="metric-label">QR codes</p><p class="metric-value">{{ qrcode_stats.total }}</p><p class="text-sm text-gray-500">{{ qrcode_stats.active }} active</p></article>
+      <article class="metric-tile"><p class="metric-label">Scans</p><p class="metric-value">{{ qrcode_stats.scans }}</p><p class="text-sm text-gray-500">All QR codes</p></article>
+      <article class="metric-tile"><p class="metric-label">Plan</p><p class="metric-value capitalize">{{ account.active_plan_code }}</p><p class="text-sm text-gray-500">Stored: {{ account.plan }}</p></article>
+    </section>
+
+    <section class="card overflow-hidden">
+      <div class="border-b border-surface-100 px-5 py-4"><h2 class="font-black">Recent QR codes</h2></div>
+      <div class="divide-y divide-surface-100">
+        {% for qr in recent_qrcodes %}
+        <a href="{% url 'platform_admin:qrcode_detail' qr.id %}" class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 p-4 hover:bg-surface-50">
+          <span class="min-w-0"><span class="block truncate text-sm font-bold">{{ qr.name }}</span><span class="text-xs text-gray-500">{{ qr.total_scans }} scans · {{ qr.created_at|date:"M d" }}</span></span>
+          {% include "platform_admin/status_badge.html" with status=qr.status label=qr.get_status_display %}
+        </a>
+        {% empty %}<p class="p-5 text-sm text-gray-500">No QR codes.</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div class="card overflow-hidden">
+        <div class="border-b border-surface-100 px-5 py-4"><h2 class="font-black">Orders</h2></div>
+        <div class="divide-y divide-surface-100">
+          {% for order in recent_orders %}
+          <div class="p-4 text-sm"><strong>{{ order.plan_code|title }}</strong><p class="text-xs text-gray-500">{{ order.get_status_display }} · {{ order.created_at|date:"M d, Y" }}</p></div>
+          {% empty %}<p class="p-5 text-sm text-gray-500">No orders.</p>{% endfor %}
+        </div>
+      </div>
+      <div class="card overflow-hidden">
+        <div class="border-b border-surface-100 px-5 py-4"><h2 class="font-black">Certificates</h2></div>
+        <div class="divide-y divide-surface-100">
+          {% for certificate in recent_certificates %}
+          <a href="{% url 'platform_admin:certificate_detail' certificate.id %}" class="block p-4 text-sm hover:bg-surface-50"><strong>{{ certificate.certificate_id }}</strong><p class="text-xs text-gray-500">{{ certificate.recipient_name }} · {{ certificate.status_label }}</p></a>
+          {% empty %}<p class="p-5 text-sm text-gray-500">No certificates.</p>{% endfor %}
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="card p-5">
+    <h2 class="text-lg font-black">Operator controls</h2>
+    <p class="mt-1 text-sm text-gray-500">Change account access and membership details. These changes are audit logged.</p>
+    <form method="post" class="mt-5 space-y-4">
+      {% csrf_token %}
+      <div><label class="mb-1.5 block text-sm font-semibold" for="{{ form.full_name.id_for_label }}">Full name</label>{{ form.full_name }}</div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div><label class="mb-1.5 block text-sm font-semibold" for="{{ form.role.id_for_label }}">Role</label>{{ form.role }}</div>
+        <div><label class="mb-1.5 block text-sm font-semibold" for="{{ form.plan.id_for_label }}">Plan</label>{{ form.plan }}</div>
+      </div>
+      <div><label class="mb-1.5 block text-sm font-semibold" for="{{ form.plan_expires_at.id_for_label }}">Plan expires</label>{{ form.plan_expires_at }}</div>
+      <div class="space-y-3 rounded-lg border border-surface-200 bg-surface-50 p-3 text-sm">
+        <label class="flex items-center gap-2">{{ form.is_active }} <span>Account active</span></label>
+        <label class="flex items-center gap-2">{{ form.is_email_verified }} <span>Email verified</span></label>
+        <label class="flex items-center gap-2">{{ form.is_staff }} <span>Staff access</span></label>
+      </div>
+      {% if form.errors %}<div class="rounded-lg bg-coral-50 p-3 text-sm text-coral-700">{{ form.errors }}</div>{% endif %}
+      <button class="btn-primary w-full">Save account changes</button>
+    </form>
+  </aside>
+</section>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% if page_obj.has_other_pages %}
+<nav class="flex flex-wrap items-center justify-center gap-2" aria-label="Pagination">
+  {% if page_obj.has_previous %}
+  <a class="btn-secondary" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+  {% endif %}
+  <span class="rounded-lg border border-surface-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600">
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+  </span>
+  {% if page_obj.has_next %}
+  <a class="btn-secondary" href="?page={{ page_obj.next_page_number }}">Next</a>
+  {% endif %}
+</nav>
+{% endif %}

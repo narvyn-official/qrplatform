@@ -16,7 +16,7 @@
         <div>
           <label class="mb-1.5 block text-sm font-semibold text-gray-700">{{ field.label }}</label>
           {{ field }}
-          {% if field.errors %}<p class="mt-1 text-xs text-rose-600">{{ field.errors|join:", " }}</p>{% endif %}
+          {% if field.errors %}<p class="mt-1 text-xs text-coral-600">{{ field.errors|join:", " }}</p>{% endif %}
         </div>
         {% endfor %}
         <button type="submit" class="btn-primary w-full justify-center py-3 sm:w-auto">Start bulk job</button>

@@ -40,6 +40,10 @@ class CorePageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Terms of Service")
+        self.assertContains(response, "contact@narvyn.com")
+        self.assertContains(response, "Prohibited Uses")
+        self.assertContains(response, "Limitation of Liability")
+        self.assertContains(response, "Indemnity")
 
     def test_offline_page_renders(self):
         response = self.client.get(reverse("core:offline"))
@@ -109,3 +113,11 @@ class CorePageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Session security refreshed")
+
+    def test_secure_history_restore_script_is_present(self):
+        response = self.client.get(reverse("accounts:login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "shouldRefreshSecureHistoryPage")
+        self.assertContains(response, "back_forward")
+        self.assertContains(response, "csrf-history-refresh")

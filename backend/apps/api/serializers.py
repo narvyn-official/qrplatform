@@ -3,7 +3,8 @@ DRF serializers for the public API.
 """
 from rest_framework import serializers
 from apps.qrcodes.models import QRCode, QRCodeCampaign
-from apps.qrcodes.forms import (
+from apps.qrcodes.services import assert_can_create_qr
+from apps.qrcodes.validation import (
     MAX_LOGO_SIZE_RATIO,
     MAX_QR_SIZE,
     MIN_QR_SIZE,
@@ -115,14 +116,8 @@ class QRCodeCreateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         user = self.context["request"].user
         limits = user.plan_limits
-        max_qr = limits["max_qr"]
-        if self.instance is None and max_qr > 0:
-            active_count = QRCode.objects.filter(
-                user=user,
-                status__in=[QRCode.Status.ACTIVE, QRCode.Status.PAUSED],
-            ).count()
-            if active_count >= max_qr:
-                raise serializers.ValidationError({"plan": f"Your current plan allows {max_qr} active QR codes."})
+        if self.instance is None:
+            assert_can_create_qr(user, serializers.ValidationError)
 
         qr_type = attrs.get("qr_type", self.instance.qr_type if self.instance else QRCode.QRType.URL)
         content = (attrs.get("content", self.instance.content if self.instance else "") or "").strip()

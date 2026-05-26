@@ -1,0 +1,46 @@
+{% extends "platform_admin/layout.html" %}
+{% block title %}Report Review — Admin{% endblock %}
+{% block admin_title %}Report review{% endblock %}
+{% block admin_kicker %}{{ related_count }} related report{{ related_count|pluralize }}{% endblock %}
+
+{% block admin_content %}
+<section class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+  <div class="space-y-5">
+    <section class="card p-5">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div><h2 class="text-2xl font-black">{{ report.get_reason_display }}</h2><p class="mt-1 text-gray-500">{{ report.created_at|date:"M d, Y H:i" }}</p></div>
+        {% include "platform_admin/status_badge.html" with status=report.status label=report.get_status_display %}
+      </div>
+      <dl class="mt-6 space-y-4 text-sm">
+        <div><dt class="font-semibold text-gray-500">Scanned content</dt><dd class="mt-1 break-all rounded-lg bg-surface-50 p-3 font-mono text-xs">{{ report.scanned_value }}</dd></div>
+        <div><dt class="font-semibold text-gray-500">Reported URL</dt><dd class="mt-1 break-all">{{ report.reported_url|default:"None" }}</dd></div>
+        <div><dt class="font-semibold text-gray-500">Comment</dt><dd class="mt-1 whitespace-pre-wrap">{{ report.comment|default:"No comment" }}</dd></div>
+      </dl>
+    </section>
+    <section class="card p-5">
+      <h2 class="font-black">Safety snapshot</h2>
+      <pre class="mt-4 max-h-80 overflow-auto rounded-lg bg-gray-950 p-4 text-xs text-gray-100">{{ report.safety_snapshot }}</pre>
+    </section>
+  </div>
+  <aside class="space-y-5">
+    <section class="card p-5">
+      <h2 class="text-lg font-black">Context</h2>
+      <dl class="mt-4 space-y-3 text-sm">
+        <div><dt class="text-gray-500">Risk level</dt><dd class="font-bold capitalize">{{ report.risk_level }}</dd></div>
+        <div><dt class="text-gray-500">Domain</dt><dd class="break-all">{{ report.host|default:"None" }}</dd></div>
+        <div><dt class="text-gray-500">Reporter</dt><dd class="break-all">{{ report.reporter.email|default:"Anonymous" }}</dd></div>
+        <div><dt class="text-gray-500">QR</dt><dd>{% if report.qrcode %}<a class="font-semibold text-primary-700" href="{% url 'platform_admin:qrcode_detail' report.qrcode.id %}">{{ report.qrcode.name }}</a>{% else %}Unknown{% endif %}</dd></div>
+      </dl>
+    </section>
+    <form method="post" class="card p-5">
+      {% csrf_token %}
+      <h2 class="text-lg font-black">Admin action</h2>
+      <div class="mt-4 space-y-4">
+        <div><label class="mb-1.5 block text-sm font-semibold" for="{{ form.status.id_for_label }}">Status</label>{{ form.status }}</div>
+        <div><label class="mb-1.5 block text-sm font-semibold" for="{{ form.admin_notes.id_for_label }}">Admin notes</label>{{ form.admin_notes }}</div>
+      </div>
+      <button class="btn-primary mt-4 w-full">Save review</button>
+    </form>
+  </aside>
+</section>
+{% endblock %}

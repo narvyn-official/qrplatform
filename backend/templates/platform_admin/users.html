@@ -1,0 +1,46 @@
+{% extends "platform_admin/layout.html" %}
+{% block title %}Users & Plans — Admin{% endblock %}
+{% block admin_title %}Users & plans{% endblock %}
+{% block admin_kicker %}Accounts{% endblock %}
+
+{% block admin_content %}
+<form method="get" class="card grid grid-cols-1 gap-3 p-4 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
+  <input class="input" name="q" value="{{ filters.q }}" placeholder="Search email or name">
+  <select class="input" name="plan">
+    <option value="">All plans</option>
+    {% for code, plan in plan_choices %}
+    <option value="{{ code }}" {% if filters.plan == code %}selected{% endif %}>{{ plan.name }}</option>
+    {% endfor %}
+  </select>
+  <select class="input" name="status">
+    <option value="">All users</option>
+    <option value="active" {% if filters.status == "active" %}selected{% endif %}>Active</option>
+    <option value="inactive" {% if filters.status == "inactive" %}selected{% endif %}>Inactive</option>
+    <option value="staff" {% if filters.status == "staff" %}selected{% endif %}>Staff</option>
+  </select>
+  <button class="btn-primary">Filter</button>
+</form>
+
+<section class="card overflow-hidden">
+  <div class="hidden grid-cols-[minmax(0,1.4fr)_120px_120px_120px_130px] gap-3 border-b border-surface-100 bg-surface-50 px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500 lg:grid">
+    <span>User</span><span>Plan</span><span>Status</span><span>Role</span><span></span>
+  </div>
+  <div class="divide-y divide-surface-100">
+    {% for account in users %}
+    <article class="grid grid-cols-1 gap-3 p-4 lg:grid-cols-[minmax(0,1.4fr)_120px_120px_120px_130px] lg:items-center">
+      <div class="min-w-0">
+        <p class="truncate text-sm font-black">{{ account.email }}</p>
+        <p class="mt-1 truncate text-xs text-gray-500">{{ account.full_name|default:"No name" }} · Joined {{ account.date_joined|date:"M d, Y" }}</p>
+      </div>
+      <span class="text-sm font-semibold capitalize">{{ account.active_plan_code }}</span>
+      {% include "platform_admin/status_badge.html" with status=account.is_active|yesno:"active,inactive" label=account.is_active|yesno:"Active,Inactive" %}
+      <span class="text-sm font-semibold capitalize">{{ account.role }}</span>
+      <a href="{% url 'platform_admin:user_detail' account.id %}" class="btn-secondary justify-center">Manage</a>
+    </article>
+    {% empty %}
+    <div class="p-10 text-center text-sm text-gray-500">No users match these filters.</div>
+    {% endfor %}
+  </div>
+</section>
+{% include "platform_admin/pagination.html" with page_obj=users %}
+{% endblock %}

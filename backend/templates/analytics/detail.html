@@ -126,15 +126,15 @@ new Chart(timelineCtx, {
       {
         label: 'Total',
         data: dailyStats.map(d => d.total_scans),
-        borderColor: '#6366f1',
-        backgroundColor: 'rgba(99,102,241,0.1)',
+        borderColor: '#2563EB',
+        backgroundColor: 'rgba(37,99,235,0.10)',
         fill: true, tension: 0.4, borderWidth: 2.5,
       },
       {
         label: 'Unique',
         data: dailyStats.map(d => d.unique_scans),
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16,185,129,0.05)',
+        borderColor: '#E11D48',
+        backgroundColor: 'rgba(225,29,72,0.07)',
         fill: true, tension: 0.4, borderWidth: 2,
       },
     ]
@@ -154,7 +154,7 @@ new Chart(deviceCtx, {
   type: 'doughnut',
   data: {
     labels: ['Mobile', 'Desktop', 'Tablet'],
-    datasets: [{ data: [mobile, desktop, 0], backgroundColor: ['#6366f1','#10b981','#f59e0b'], borderWidth: 0 }]
+    datasets: [{ data: [mobile, desktop, 0], backgroundColor: ['#2563EB','#111827','#E11D48'], borderWidth: 0 }]
   },
   options: {
     responsive: true, maintainAspectRatio: false,

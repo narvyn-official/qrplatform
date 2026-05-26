@@ -8,8 +8,10 @@ from unittest.mock import patch, MagicMock
 from django.test import TestCase, RequestFactory, override_settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.utils import timezone
 
-from apps.analytics.models import DailyQRStats, HourlyQRStats, GeoStats
+from apps.analytics.models import DailyQRStats, HourlyQRStats, GeoStats, UserDailyStats
+from apps.analytics.selectors import account_daily_scan_series
 from apps.analytics.tasks import process_pending_scan_events_now
 from apps.analytics.utils import (
     compute_scan_fingerprint,
@@ -183,6 +185,57 @@ class PendingScanProcessingTest(TestCase):
         self.assertIn("device_type", result)
         self.assertIn("os_family", result)
         self.assertIn("browser_family", result)
+
+
+class AccountDailyScanSeriesTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="series@example.com",
+            password="testpass123",
+            full_name="Series User",
+        )
+        self.user.is_active = True
+        self.user.save(update_fields=["is_active"])
+
+    def test_uses_user_daily_stats_when_available(self):
+        today = timezone.localdate()
+        UserDailyStats.objects.create(
+            user_id=self.user.id,
+            date=today,
+            total_scans=12,
+            unique_scans=7,
+            active_qr_count=2,
+        )
+
+        rows = account_daily_scan_series(self.user, days=1)
+
+        self.assertEqual(rows, [{
+            "date": today,
+            "total_scans": 12,
+            "unique_scans": 7,
+        }])
+
+    def test_falls_back_to_processed_scan_events_for_missing_dates(self):
+        qr = QRCode.objects.create(
+            user=self.user,
+            name="Fallback QR",
+            content="https://example.com",
+        )
+        QRScanEvent.objects.create(
+            qrcode=qr,
+            ip_address="127.0.0.1",
+            user_agent_raw=DESKTOP_UA,
+            fingerprint="series-1",
+            is_unique=True,
+            is_processed=True,
+            device_type="desktop",
+        )
+
+        rows = account_daily_scan_series(self.user, days=1)
+
+        self.assertEqual(rows[0]["total_scans"], 1)
+        self.assertEqual(rows[0]["unique_scans"], 1)
 
 
 class GeolocateIPTest(TestCase):

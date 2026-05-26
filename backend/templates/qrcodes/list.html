@@ -10,112 +10,135 @@
 {% endblock %}
 
 {% block content %}
+<section class="page-band mb-5">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="page-kicker">QR library</p>
+      <h2 class="page-title">Manage printed and digital campaigns.</h2>
+      <p class="page-copy">Search, inspect scan health, edit destinations, and download production files without leaving the list.</p>
+    </div>
+    <a href="{% url 'qrcodes:create' %}" class="btn-primary justify-center">Create QR</a>
+  </div>
+</section>
 
-<!-- Filters -->
-<div class="card p-4 mb-5">
-  <form method="get" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center">
-    <input type="text" name="q" value="{{ query }}" placeholder="Search QR codes…"
-           class="input lg:max-w-xs" id="search-input">
-    <select name="type" class="input lg:max-w-[160px]">
+<details class="disclosure-card group mb-5" {% if query or request.GET.type or request.GET.status or request.GET.campaign %}open{% endif %}>
+  <summary class="disclosure-summary">
+    <div>
+      <h2 class="text-base font-semibold text-gray-950">Filters</h2>
+      <p class="mt-1 text-sm text-gray-500">Keep the library quiet until you need search or status controls.</p>
+    </div>
+    <span class="disclosure-chevron">
+      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+    </span>
+  </summary>
+  <form method="get" class="grid grid-cols-1 gap-3 border-t border-surface-100 p-4 sm:grid-cols-2 lg:grid-cols-5">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search QR codes…" class="input lg:col-span-2" id="search-input">
+    <select name="type" class="input">
       <option value="">All types</option>
       {% for value, label in qr_types %}
       <option value="{{ value }}" {% if request.GET.type == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <select name="status" class="input lg:max-w-[140px]">
+    <select name="status" class="input">
       <option value="">All statuses</option>
       <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
       <option value="paused" {% if request.GET.status == 'paused' %}selected{% endif %}>Paused</option>
       <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>Expired</option>
     </select>
-    <button type="submit" class="btn-secondary w-full sm:w-auto">Filter</button>
-    {% if query or request.GET.type or request.GET.status %}
-    <a href="{% url 'qrcodes:list' %}" class="btn-secondary w-full sm:w-auto">Clear</a>
-    {% endif %}
-  </form>
-</div>
-
-<!-- QR Code grid -->
-{% if qrcodes %}
-<div class="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-  {% for qr in qrcodes %}
-  <div class="card p-4 hover:shadow-card-hover transition-shadow group">
-
-    <!-- QR image -->
-    <div class="w-full aspect-square bg-surface-50 rounded-xl mb-3 flex items-center justify-center overflow-hidden">
-      {% if qr.image_png %}
-      <img src="{{ qr.image_png.url }}" alt="{{ qr.name }}" class="w-full h-full object-contain p-2">
-      {% else %}
-      <div class="text-center">
-        <svg class="w-12 h-12 text-gray-300 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/></svg>
-        <p class="text-xs text-gray-300 mt-1">Generating…</p>
-      </div>
+    <div class="flex gap-2">
+      <button type="submit" class="btn-secondary flex-1">Apply</button>
+      {% if query or request.GET.type or request.GET.status %}
+      <a href="{% url 'qrcodes:list' %}" class="btn-secondary flex-1">Clear</a>
       {% endif %}
     </div>
+  </form>
+</details>
 
-    <!-- Info -->
-    <div class="flex items-start justify-between mb-2">
-      <div class="min-w-0">
-        <a href="{% url 'qrcodes:detail' qr.id %}" class="font-semibold text-gray-900 hover:text-primary-700 text-sm truncate block">
-          {{ qr.name }}
+{% if qrcodes %}
+<section class="card overflow-hidden">
+  <div class="hidden grid-cols-[minmax(0,1.4fr)_120px_120px_140px_180px] gap-4 border-b border-surface-100 bg-surface-50 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 lg:grid">
+    <span>Campaign</span>
+    <span>Status</span>
+    <span>Scans</span>
+    <span>Type</span>
+    <span class="text-right">Actions</span>
+  </div>
+  <div class="divide-y divide-surface-100">
+    {% for qr in qrcodes %}
+    <article class="grid grid-cols-1 gap-4 p-4 transition hover:bg-surface-50 lg:grid-cols-[minmax(0,1.4fr)_120px_120px_140px_180px] lg:items-center">
+      <div class="flex items-center gap-4">
+        <a href="{% url 'qrcodes:detail' qr.id %}" class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-surface-200 bg-white">
+          {% if qr.image_png %}
+          <img src="{{ qr.image_png.url }}" alt="{{ qr.name }}" class="h-full w-full object-contain p-1.5">
+          {% else %}
+          <svg class="h-7 w-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01"/></svg>
+          {% endif %}
         </a>
-        <span class="text-xs text-gray-400 font-mono">{{ qr.short_code }}</span>
-      </div>
-      <span class="badge ml-2 flex-shrink-0
-        {% if qr.status == 'active' %}badge-green
-        {% elif qr.status == 'paused' %}badge-yellow
-        {% elif qr.status == 'expired' %}badge-red
-        {% else %}badge-gray{% endif %}">
-        {{ qr.status }}
-      </span>
-    </div>
-
-    <div class="flex items-center gap-3 text-xs text-gray-400 mb-3">
-      <span>{{ qr.total_scans }} scans</span>
-      <span>•</span>
-      <span class="capitalize">{{ qr.get_qr_type_display }}</span>
-    </div>
-
-    <!-- Actions -->
-    <div class="flex items-center gap-2 border-t border-surface-100 pt-3 mt-1">
-      <a href="{% url 'qrcodes:detail' qr.id %}" class="flex-1 text-center text-xs font-medium text-gray-500 hover:text-primary-700 py-1">View</a>
-      <a href="{% url 'qrcodes:edit' qr.id %}" class="flex-1 text-center text-xs font-medium text-gray-500 hover:text-primary-700 py-1">Edit</a>
-      <div x-data="{ open: false }" class="relative flex-1">
-        <button @click="open=!open" class="w-full text-center text-xs font-medium text-gray-500 hover:text-primary-700 py-1">Download ▾</button>
-        <div x-show="open" @click.away="open=false" x-cloak
-             class="absolute bottom-8 right-0 bg-white border border-surface-200 rounded-xl shadow-lg p-1 z-10 min-w-[100px]">
-          <a href="{% url 'qrcodes:download' qr.id 'png' %}" class="block px-3 py-1.5 text-xs hover:bg-surface-50 rounded-lg">PNG</a>
-          <a href="{% url 'qrcodes:download' qr.id 'svg' %}" class="block px-3 py-1.5 text-xs hover:bg-surface-50 rounded-lg">SVG</a>
-          <a href="{% url 'qrcodes:download' qr.id 'pdf' %}" class="block px-3 py-1.5 text-xs hover:bg-surface-50 rounded-lg">PDF</a>
+        <div class="min-w-0">
+          <a href="{% url 'qrcodes:detail' qr.id %}" class="block truncate text-sm font-semibold text-gray-950 hover:text-primary-700">{{ qr.name }}</a>
+          <p class="mt-1 font-mono text-xs text-gray-500">{{ qr.short_code }}</p>
+          <p class="mt-1 truncate text-xs text-gray-500 lg:hidden">{{ qr.get_qr_type_display }} · {{ qr.total_scans }} scans</p>
+          {% if qr.open_report_count %}
+          <p class="mt-2 inline-flex rounded-full bg-coral-50 px-2 py-0.5 text-[11px] font-bold text-coral-700">{{ qr.open_report_count }} report{{ qr.open_report_count|pluralize }}</p>
+          {% endif %}
         </div>
       </div>
-    </div>
 
+      <div>
+        <span class="badge
+          {% if qr.status == 'active' %}badge-green
+          {% elif qr.status == 'paused' %}badge-yellow
+          {% elif qr.status == 'expired' %}badge-red
+          {% else %}badge-gray{% endif %}">
+          {{ qr.status }}
+        </span>
+      </div>
+
+      <div class="hidden text-sm font-semibold text-gray-950 lg:block">
+        {{ qr.total_scans }}
+        {% if qr.open_report_count %}
+        <span class="mt-1 block text-xs text-coral-600">{{ qr.open_report_count }} report{{ qr.open_report_count|pluralize }}</span>
+        {% endif %}
+      </div>
+      <div class="hidden text-sm text-gray-600 lg:block">{{ qr.get_qr_type_display }}</div>
+
+      <div class="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+        <a href="{% url 'qrcodes:detail' qr.id %}" class="btn-secondary px-3 py-2 text-xs">View</a>
+        <a href="{% url 'qrcodes:edit' qr.id %}" class="btn-secondary px-3 py-2 text-xs">Edit</a>
+        <div x-data="{ open: false }" class="relative">
+          <button type="button" @click="open=!open" class="btn-secondary px-3 py-2 text-xs">Export</button>
+          <div x-show="open" @click.away="open=false" x-cloak class="absolute right-0 top-9 z-20 min-w-[120px] rounded-lg border border-surface-200 bg-white p-1 shadow-lg">
+            <a href="{% url 'qrcodes:download' qr.id 'png' %}" class="block rounded-md px-3 py-2 text-xs hover:bg-surface-50">PNG</a>
+            <a href="{% url 'qrcodes:download' qr.id 'svg' %}" class="block rounded-md px-3 py-2 text-xs hover:bg-surface-50">SVG</a>
+            <a href="{% url 'qrcodes:download' qr.id 'pdf' %}" class="block rounded-md px-3 py-2 text-xs hover:bg-surface-50">PDF</a>
+          </div>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
   </div>
-  {% endfor %}
-</div>
+</section>
 
-<!-- Pagination -->
 {% if qrcodes.has_other_pages %}
-<div class="flex flex-col items-stretch justify-center gap-2 sm:flex-row sm:items-center">
+<div class="mt-5 flex flex-col items-stretch justify-center gap-2 sm:flex-row sm:items-center">
   {% if qrcodes.has_previous %}
-  <a href="?page={{ qrcodes.previous_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary px-3 py-1.5 text-sm">← Previous</a>
+  <a href="?page={{ qrcodes.previous_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary px-3 py-2 text-sm">Previous</a>
   {% endif %}
-  <span class="text-sm text-gray-500">Page {{ qrcodes.number }} of {{ qrcodes.paginator.num_pages }}</span>
+  <span class="text-center text-sm text-gray-500">Page {{ qrcodes.number }} of {{ qrcodes.paginator.num_pages }}</span>
   {% if qrcodes.has_next %}
-  <a href="?page={{ qrcodes.next_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary px-3 py-1.5 text-sm">Next →</a>
+  <a href="?page={{ qrcodes.next_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary px-3 py-2 text-sm">Next</a>
   {% endif %}
 </div>
 {% endif %}
 
 {% else %}
-<div class="card p-8 text-center sm:p-16">
-  <svg class="w-16 h-16 text-gray-200 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
-  <h2 class="text-lg font-semibold text-gray-700 mb-2">No QR Codes Yet</h2>
-  <p class="text-gray-400 mb-6">Create your first QR code and start tracking scans.</p>
-  <a href="{% url 'qrcodes:create' %}" class="btn-primary">
-    Create your first QR Code
-  </a>
+<div class="card p-8 text-center sm:p-14">
+  <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-surface-100 text-gray-400">
+    <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01"/></svg>
+  </div>
+  <h2 class="text-lg font-semibold text-gray-800">No QR codes yet</h2>
+  <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-gray-500">Create a dynamic QR first, scan-test it, then use analytics before printing at scale.</p>
+  <a href="{% url 'qrcodes:create' %}" class="btn-primary mt-5">Create your first QR code</a>
 </div>
 {% endif %}
 

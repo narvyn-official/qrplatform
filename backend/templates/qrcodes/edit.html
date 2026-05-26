@@ -10,9 +10,9 @@
 {% endblock %}
 
 {% block content %}
-<div class="max-w-4xl">
+<div class="max-w-5xl">
   {% if form.non_field_errors %}
-  <div class="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+  <div class="mb-5 rounded-lg border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700">
     {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
   </div>
   {% endif %}
@@ -21,10 +21,22 @@
     {% csrf_token %}
     {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
 
-    <div class="card p-5">
+    <section class="builder-shell mb-5 p-5 sm:p-6">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="page-kicker text-primary-700">Edit journey</p>
+          <h2 class="page-title">Refine this QR without breaking the printed code.</h2>
+          <p class="page-copy">Update the destination, access rules, design, or tracking options while keeping ownership and analytics intact.</p>
+        </div>
+        <span class="badge badge-blue">{{ qr.get_qr_type_display }}</span>
+      </div>
+    </section>
+
+    <div class="builder-step">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-5">
         <div>
-          <h2 class="text-base font-semibold text-gray-950">QR Details</h2>
+          <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Details</p>
+          <h2 class="mt-1 text-lg font-black text-gray-950">QR settings</h2>
           <p class="text-sm text-gray-500 mt-1">Update content, visual style, and access rules.</p>
         </div>
         <span class="badge badge-blue">{{ qr.get_qr_type_display }}</span>
@@ -32,10 +44,10 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {% for field in form.visible_fields %}
-      <div>
+      <div class="builder-field-tile">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ field.label }}</label>
         {{ field }}
-        {% if field.errors %}<p class="text-rose-600 text-xs mt-1">{{ field.errors|join:", " }}</p>{% endif %}
+        {% if field.errors %}<p class="text-coral-600 text-xs mt-1">{{ field.errors|join:", " }}</p>{% endif %}
         {% if field.help_text %}<p class="text-gray-400 text-xs mt-1">{{ field.help_text }}</p>{% endif %}
       </div>
       {% endfor %}

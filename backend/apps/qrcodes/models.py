@@ -8,6 +8,9 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
+from django.urls import reverse
+from django.conf import settings
 
 User = get_user_model()
 
@@ -22,8 +25,19 @@ def qr_logo_path(instance, filename):
     return f"qr_logos/{instance.user.id}/{uuid.uuid4().hex}.{ext}"
 
 
+def certificate_pdf_path(instance, filename):
+    ext = filename.rsplit(".", 1)[-1].lower()
+    return f"certificates/{instance.workspace_id}/{instance.verification_code or uuid.uuid4().hex}.{ext}"
+
+
 class QRCodeCampaign(models.Model):
     """Group QR codes under a campaign for bulk analytics."""
+
+    class RiskStatus(models.TextChoices):
+        CLEAR = "clear", _("Clear")
+        WATCH = "watch", _("Watch")
+        ELEVATED = "elevated", _("Elevated")
+        HIGH = "high", _("High")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="campaigns")
@@ -32,6 +46,8 @@ class QRCodeCampaign(models.Model):
     tags = models.JSONField(default=list)
     color = models.CharField(max_length=7, default="#6366F1")
     is_active = models.BooleanField(default=True)
+    risk_status = models.CharField(max_length=20, choices=RiskStatus.choices, default=RiskStatus.CLEAR, db_index=True)
+    suspicious_report_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -385,3 +401,172 @@ class QRConversionEvent(models.Model):
 
     def __str__(self):
         return f"Conversion({self.qrcode.short_code}: {self.event_type})"
+
+
+class QRSuspiciousReport(models.Model):
+    """User-submitted safety report for a scanned QR payload."""
+
+    class Reason(models.TextChoices):
+        PHISHING = "phishing", _("Phishing")
+        FAKE_PAYMENT = "fake_payment", _("Fake payment QR")
+        WRONG_BUSINESS = "wrong_business", _("Wrong business")
+        MALWARE = "malware", _("Malware/download")
+        SPAM = "spam", _("Spam")
+        OTHER = "other", _("Other")
+
+    class Status(models.TextChoices):
+        OPEN = "open", _("Open")
+        REVIEWING = "reviewing", _("Reviewing")
+        RESOLVED = "resolved", _("Resolved")
+        DISMISSED = "dismissed", _("Dismissed")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    qrcode = models.ForeignKey(QRCode, on_delete=models.SET_NULL, null=True, blank=True, related_name="suspicious_reports")
+    campaign = models.ForeignKey(QRCodeCampaign, on_delete=models.SET_NULL, null=True, blank=True, related_name="suspicious_reports")
+    reporter = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="qr_reports")
+    scanned_value = models.TextField()
+    normalized_url = models.URLField(max_length=2000, blank=True)
+    reported_url = models.URLField(max_length=2000, blank=True)
+    host = models.CharField(max_length=255, blank=True, db_index=True)
+    reason = models.CharField(max_length=30, choices=Reason.choices, default=Reason.OTHER, db_index=True)
+    comment = models.TextField(blank=True)
+    admin_notes = models.TextField(blank=True)
+    risk_level = models.CharField(max_length=20, default="unknown", db_index=True)
+    safety_snapshot = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent_raw = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "qrcodes_suspicious_report"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["host", "status"]),
+            models.Index(fields=["qrcode", "status"]),
+            models.Index(fields=["campaign", "status"]),
+            models.Index(fields=["reason", "created_at"]),
+            models.Index(fields=["risk_level", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"QR report({self.host or 'text'}: {self.status})"
+
+
+class QRScannerHistory(models.Model):
+    """Safe scanner history for signed-in users."""
+
+    class RiskLevel(models.TextChoices):
+        SAFE = "safe", _("Safe")
+        CAUTION = "caution", _("Caution")
+        RISKY = "risky", _("Risky")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="scanner_history", db_index=True)
+    raw_content = models.TextField()
+    content_type = models.CharField(max_length=20, db_index=True)
+    domain = models.CharField(max_length=255, blank=True, db_index=True)
+    risk_level = models.CharField(max_length=20, choices=RiskLevel.choices, db_index=True)
+    scanned_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        db_table = "qrcodes_scanner_history"
+        ordering = ["-scanned_at"]
+        indexes = [
+            models.Index(fields=["user", "scanned_at"]),
+            models.Index(fields=["user", "risk_level", "scanned_at"]),
+        ]
+
+    def __str__(self):
+        return f"ScannerHistory({self.user_id}: {self.content_type}/{self.risk_level})"
+
+
+class Certificate(models.Model):
+    """Certificate record backed by a public verification QR code."""
+
+    class Status(models.TextChoices):
+        VALID = "valid", _("Valid")
+        EXPIRED = "expired", _("Expired")
+        REVOKED = "revoked", _("Revoked")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(User, on_delete=models.CASCADE, related_name="certificates", db_index=True)
+    qrcode = models.OneToOneField(
+        QRCode,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="certificate",
+    )
+    recipient_name = models.CharField(max_length=180)
+    title = models.CharField(max_length=220)
+    issuer = models.CharField(max_length=220)
+    issue_date = models.DateField()
+    expiry_date = models.DateField(null=True, blank=True)
+    certificate_id = models.CharField(max_length=120)
+    verification_code = models.CharField(max_length=24, unique=True, db_index=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.VALID, db_index=True)
+    pdf_url = models.FileField(upload_to=certificate_pdf_path, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "qrcodes_certificate"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["workspace", "certificate_id"], name="unique_certificate_id_per_workspace"),
+        ]
+        indexes = [
+            models.Index(fields=["workspace", "status", "created_at"]),
+            models.Index(fields=["verification_code"]),
+            models.Index(fields=["certificate_id"]),
+        ]
+
+    def __str__(self):
+        return f"Certificate({self.certificate_id}: {self.recipient_name})"
+
+    def save(self, *args, **kwargs):
+        if not self.verification_code:
+            self.verification_code = self._generate_unique_verification_code()
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if self.issue_date and self.issue_date > timezone.localdate():
+            raise ValidationError({"issue_date": "Issue date cannot be in the future."})
+        if self.issue_date and self.expiry_date and self.expiry_date < self.issue_date:
+            raise ValidationError({"expiry_date": "Expiry date must be after the issue date."})
+
+    @staticmethod
+    def _generate_unique_verification_code(length=14):
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        while True:
+            code = shortuuid.ShortUUID(alphabet=alphabet).random(length)
+            if not Certificate.objects.filter(verification_code=code).exists():
+                return code
+
+    @property
+    def is_expired(self):
+        return bool(self.expiry_date and self.expiry_date < timezone.localdate())
+
+    @property
+    def effective_status(self):
+        if self.status == self.Status.REVOKED:
+            return self.Status.REVOKED
+        if self.status == self.Status.EXPIRED or self.is_expired:
+            return self.Status.EXPIRED
+        return self.Status.VALID
+
+    @property
+    def status_label(self):
+        return self.effective_status.title()
+
+    @property
+    def verify_path(self):
+        return reverse("certificate_verify", kwargs={"code": self.verification_code})
+
+    @property
+    def verification_url(self):
+        return f"{settings.PLATFORM_URL.rstrip('/')}{self.verify_path}"

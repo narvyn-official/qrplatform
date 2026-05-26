@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block robots %}noindex,nofollow{% endblock %}
+{% block meta_description %}Internal staff admin panel for {{ PLATFORM_NAME }} operations.{% endblock %}
+{% block og_title %}{% block admin_og_title %}{{ PLATFORM_NAME }} Admin{% endblock %}{% endblock %}
+{% block twitter_title %}{% block admin_twitter_title %}{{ PLATFORM_NAME }} Admin{% endblock %}{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-[#f7f8fb] text-gray-950" x-data="{ adminNav: false }">
+  <aside class="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-primary-900 bg-primary-950 text-white lg:flex lg:flex-col">
+    <div class="border-b border-white/10 px-5 py-5">
+      <a href="{% url 'platform_admin:overview' %}" class="flex items-center gap-3">
+        <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-10 w-10 rounded-lg shadow-glow">
+        <div>
+          <p class="text-base font-black tracking-tight text-white">{{ PLATFORM_NAME }}</p>
+          <p class="text-xs font-semibold uppercase tracking-wider text-teal-100/70">Admin command</p>
+        </div>
+      </a>
+    </div>
+    <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      {% include "platform_admin/nav.html" %}
+    </nav>
+    <div class="border-t border-white/10 p-4">
+      <a href="{% url 'qrcodes:dashboard' %}" class="btn-secondary w-full justify-center">Back to app</a>
+    </div>
+  </aside>
+
+  <div class="lg:pl-72">
+    <header class="sticky top-0 z-20 border-b border-surface-200 bg-white/95 backdrop-blur">
+      <div class="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div class="flex min-w-0 items-center gap-3">
+          <button type="button" class="btn-secondary px-3 lg:hidden" @click="adminNav = true" aria-label="Open admin navigation">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+          <div class="min-w-0">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">{% block admin_kicker %}Operations{% endblock %}</p>
+            <h1 class="truncate text-xl font-black tracking-tight sm:text-2xl">{% block admin_title %}Admin panel{% endblock %}</h1>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          {% if open_report_count %}
+          <a href="{% url 'platform_admin:reports' %}?status=open" class="badge badge-coral">{{ open_report_count }} reports</a>
+          {% endif %}
+          {% if pending_verification_count %}
+          <a href="{% url 'platform_admin:verifications' %}?status=pending" class="badge badge-yellow">{{ pending_verification_count }} pending</a>
+          {% endif %}
+          <a href="/admin/" class="btn-secondary hidden sm:inline-flex">Django admin</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="px-4 py-5 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-7xl space-y-5">
+        {% block admin_content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <div x-show="adminNav" x-cloak class="fixed inset-0 z-40 lg:hidden">
+    <div class="absolute inset-0 bg-gray-950/35" @click="adminNav = false"></div>
+    <aside class="absolute left-0 top-0 flex h-full w-[min(19rem,90vw)] flex-col bg-white shadow-depth">
+      <div class="flex items-center justify-between border-b border-surface-100 px-5 py-4">
+        <div class="flex items-center gap-3">
+          <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-9 w-9 rounded-lg">
+          <span class="font-black">{{ PLATFORM_NAME }} Admin</span>
+        </div>
+        <button type="button" class="btn-secondary px-3" @click="adminNav = false" aria-label="Close admin navigation">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4" @click="adminNav = false">
+        {% include "platform_admin/nav.html" %}
+      </nav>
+    </aside>
+  </div>
+</div>
+{% endblock %}

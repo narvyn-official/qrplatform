@@ -1,0 +1,122 @@
+{% extends "dashboard/layout.html" %}
+{% block title %}Certificate Verification — {{ PLATFORM_NAME }}{% endblock %}
+{% block meta_description %}Issue certificate verification QR codes, review certificate status, revoke compromised certificates, and bulk upload records by CSV.{% endblock %}
+{% block page_title %}Certificates{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'qrcodes:certificate_new' %}" class="btn-primary">
+  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+  New certificate
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+  <section class="builder-shell p-4 sm:p-6">
+    <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
+      <div>
+        <p class="page-kicker text-primary-700">Certificate verification</p>
+        <h2 class="page-title max-w-3xl">Issue certificates that anyone can verify by QR.</h2>
+        <p class="page-copy max-w-3xl">Create authenticity records for schools, institutes, trainers, and companies. Each certificate gets a unique verification QR and public status page.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+        <div class="metric-tile"><p class="metric-label">Total</p><p class="metric-value text-xl">{{ stats.total }}</p></div>
+        <div class="metric-tile"><p class="metric-label">Valid</p><p class="metric-value text-xl">{{ stats.valid }}</p></div>
+        <div class="metric-tile"><p class="metric-label">Expired</p><p class="metric-value text-xl">{{ stats.expired }}</p></div>
+        <div class="metric-tile"><p class="metric-label">Revoked</p><p class="metric-value text-xl">{{ stats.revoked }}</p></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <section class="card overflow-hidden">
+      <div class="border-b border-surface-100 p-4 sm:p-5">
+        <form method="get" class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_170px_auto]">
+          <input type="search" name="q" value="{{ query }}" class="input" placeholder="Search recipient, ID, issuer...">
+          <select name="status" class="input">
+            <option value="">All statuses</option>
+            <option value="valid" {% if request.GET.status == 'valid' %}selected{% endif %}>Valid</option>
+            <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>Expired</option>
+            <option value="revoked" {% if request.GET.status == 'revoked' %}selected{% endif %}>Revoked</option>
+          </select>
+          <button type="submit" class="btn-secondary justify-center">Filter</button>
+        </form>
+      </div>
+
+      {% if certificates %}
+      <div class="hidden grid-cols-[minmax(0,1.5fr)_150px_130px_130px_130px] gap-4 border-b border-surface-100 bg-surface-50 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 lg:grid">
+        <span>Certificate</span>
+        <span>Recipient</span>
+        <span>Status</span>
+        <span>Issue date</span>
+        <span class="text-right">Action</span>
+      </div>
+      <div class="divide-y divide-surface-100">
+        {% for certificate in certificates %}
+        <article class="grid gap-4 p-4 transition hover:bg-surface-50 lg:grid-cols-[minmax(0,1.5fr)_150px_130px_130px_130px] lg:items-center">
+          <div class="min-w-0">
+            <a href="{% url 'qrcodes:certificate_detail' certificate.id %}" class="block truncate text-sm font-bold text-gray-950 hover:text-primary-700">{{ certificate.title }}</a>
+            <p class="mt-1 font-mono text-xs text-gray-500">{{ certificate.certificate_id }}</p>
+            <p class="mt-1 text-xs text-gray-500 lg:hidden">{{ certificate.recipient_name }} · {{ certificate.issue_date|date:"M d, Y" }}</p>
+          </div>
+          <p class="hidden truncate text-sm font-semibold text-gray-700 lg:block">{{ certificate.recipient_name }}</p>
+          <div>
+            <span class="badge {% if certificate.effective_status == 'valid' %}badge-green{% elif certificate.effective_status == 'revoked' %}badge-red{% else %}badge-yellow{% endif %}">
+              {{ certificate.status_label }}
+            </span>
+          </div>
+          <p class="hidden text-sm text-gray-600 lg:block">{{ certificate.issue_date|date:"M d, Y" }}</p>
+          <div class="flex justify-start lg:justify-end">
+            <a href="{% url 'qrcodes:certificate_detail' certificate.id %}" class="btn-secondary px-3 py-2 text-xs">View</a>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="p-8 text-center sm:p-12">
+        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary-50 text-primary-700">
+          <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m-7 8h8M7 3h10a2 2 0 012 2v14l-4-2-3 2-3-2-4 2V5a2 2 0 012-2z"/></svg>
+        </div>
+        <h2 class="mt-4 text-lg font-bold text-gray-950">No certificates yet</h2>
+        <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">Issue your first certificate, then place the verification QR on PDFs, printouts, ID cards, or training records.</p>
+        <a href="{% url 'qrcodes:certificate_new' %}" class="btn-primary mt-5">Create certificate</a>
+      </div>
+      {% endif %}
+    </section>
+
+    <aside class="space-y-5">
+      <section class="card p-5">
+        <h2 class="text-base font-black text-gray-950">Bulk upload CSV</h2>
+        <p class="mt-1 text-sm leading-6 text-gray-500">Upload many certificate records at once. Each row creates its own verification QR.</p>
+        <form method="post" action="{% url 'qrcodes:certificate_bulk_upload' %}" enctype="multipart/form-data" class="mt-4 space-y-3">
+          {% csrf_token %}
+          {{ bulk_form.csv_file }}
+          <button type="submit" class="btn-secondary w-full justify-center">Upload CSV</button>
+        </form>
+        <div class="mt-4 rounded-lg bg-surface-50 p-3 text-xs leading-5 text-gray-500">
+          <p class="font-bold text-gray-700">Columns</p>
+          <p class="mt-1 font-mono">recipient_name,title,issuer,issue_date,certificate_id,expiry_date</p>
+          <p class="mt-2">Use dates as YYYY-MM-DD. PDF files can be attached from the single certificate form.</p>
+        </div>
+      </section>
+
+      <section class="card p-5">
+        <h2 class="text-base font-black text-gray-950">Verification workflow</h2>
+        <ol class="mt-4 space-y-3 text-sm text-gray-600">
+          <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-black text-primary-700">1</span><span>Create or upload certificate records.</span></li>
+          <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-black text-primary-700">2</span><span>Download the generated QR and place it on the certificate.</span></li>
+          <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-black text-primary-700">3</span><span>Anyone can scan and verify status publicly.</span></li>
+        </ol>
+      </section>
+    </aside>
+  </div>
+
+  {% if certificates.has_other_pages %}
+  <div class="flex flex-col items-stretch justify-center gap-2 sm:flex-row sm:items-center">
+    {% if certificates.has_previous %}<a href="?page={{ certificates.previous_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary">Previous</a>{% endif %}
+    <span class="text-center text-sm text-gray-500">Page {{ certificates.number }} of {{ certificates.paginator.num_pages }}</span>
+    {% if certificates.has_next %}<a href="?page={{ certificates.next_page_number }}&{{ request.GET.urlencode }}" class="btn-secondary">Next</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

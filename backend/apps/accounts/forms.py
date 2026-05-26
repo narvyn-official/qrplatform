@@ -6,7 +6,8 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from apps.accounts.models import UserProfile
+from apps.accounts.models import BusinessVerification, UserProfile
+from apps.accounts.verification import normalize_business_domain
 
 User = get_user_model()
 
@@ -117,6 +118,34 @@ class ProfileForm(forms.ModelForm):
         if phone and not re.match(r"^\+?[\d\s\-().]{7,20}$", phone):
             raise ValidationError("Enter a valid phone number.")
         return phone
+
+
+class BusinessVerificationForm(forms.ModelForm):
+    class Meta:
+        model = BusinessVerification
+        fields = ["business_name", "domain", "method"]
+        widgets = {
+            "business_name": forms.TextInput(attrs={
+                "class": INPUT_CLASS,
+                "placeholder": "Acme Foods Pvt Ltd",
+                "autocomplete": "organization",
+            }),
+            "domain": forms.TextInput(attrs={
+                "class": INPUT_CLASS,
+                "placeholder": "example.com",
+                "autocomplete": "url",
+            }),
+            "method": forms.Select(attrs={"class": INPUT_CLASS}),
+        }
+
+    def clean_business_name(self):
+        name = self.cleaned_data["business_name"].strip()
+        if len(name) < 2:
+            raise ValidationError("Business name is required.")
+        return name
+
+    def clean_domain(self):
+        return normalize_business_domain(self.cleaned_data.get("domain"))
 
 
 class ChangePasswordForm(forms.Form):

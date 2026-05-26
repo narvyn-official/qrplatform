@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Terms of Service — {{ PLATFORM_NAME }}{% endblock %}
-{% block meta_description %}Read the {{ PLATFORM_NAME }} terms for responsible QR code, barcode, analytics, and campaign-link usage.{% endblock %}
+{% block meta_description %}Read the {{ PLATFORM_NAME }} terms covering QR codes, barcodes, analytics, billing, acceptable use, account duties, service limits, and legal responsibilities.{% endblock %}
 {% block og_title %}Terms of Service — {{ PLATFORM_NAME }}{% endblock %}
-{% block og_description %}Terms for using {{ PLATFORM_NAME }} QR code, barcode, analytics, and campaign-link tools responsibly.{% endblock %}
+{% block og_description %}Terms for using {{ PLATFORM_NAME }} QR code, barcode, analytics, billing, and campaign-link tools responsibly.{% endblock %}
 {% block twitter_title %}Terms of Service — {{ PLATFORM_NAME }}{% endblock %}
-{% block twitter_description %}Terms for using {{ PLATFORM_NAME }} QR code, barcode, analytics, and campaign-link tools responsibly.{% endblock %}
+{% block twitter_description %}Terms for using {{ PLATFORM_NAME }} QR code, barcode, analytics, billing, and campaign-link tools responsibly.{% endblock %}
 
 {% block body %}
 <main class="min-h-screen bg-surface-50 px-4 py-12 sm:px-6">
-  <div class="mx-auto max-w-3xl">
+  <div class="mx-auto max-w-4xl">
     <a href="{% url 'core:home' %}" class="mb-8 inline-flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700">
       <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -20,28 +20,105 @@
       <p class="text-sm font-semibold uppercase tracking-wider text-primary-600">Terms</p>
       <h1 class="mt-2 text-3xl font-bold text-gray-900">Terms of Service</h1>
       <p class="mt-4 text-sm leading-6 text-gray-600">
-        By creating an account, you agree to use {{ PLATFORM_NAME }} responsibly and only for content you are allowed to publish or share.
+        Last updated: May 26, 2026. These Terms of Service govern access to and use of {{ PLATFORM_NAME }}, including QR codes, barcodes, dynamic links, scan analytics, exports, API keys, billing, and related services.
+        By creating an account, signing in, generating a code, scanning a code, using an API key, purchasing a plan, or otherwise using the service, you agree to these terms.
+      </p>
+      <p class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+        These terms are written to protect the service and its users, but they are not a substitute for legal advice. If your business requires jurisdiction-specific terms, have counsel review them before launch.
       </p>
 
-      <div class="mt-8 space-y-6 text-sm leading-6 text-gray-600">
+      <div class="mt-8 space-y-7 text-sm leading-6 text-gray-600">
         <section>
-          <h2 class="text-base font-semibold text-gray-900">Acceptable Use</h2>
-          <p class="mt-2">Do not create QR codes or barcodes that point to phishing pages, malware, illegal content, abusive material, or destinations that mislead scanners.</p>
+          <h2 class="text-base font-semibold text-gray-900">1. Eligibility and Account Responsibility</h2>
+          <p class="mt-2">You may use {{ PLATFORM_NAME }} only if you can legally enter into these terms. If you use the service for a company, client, organization, venue, campaign, or team, you confirm that you are authorized to bind that party.</p>
+          <p class="mt-2">You are responsible for your account, password, devices, sessions, API keys, billing choices, team access, and every action taken through your account. Keep credentials confidential and notify us immediately if you suspect unauthorized access.</p>
         </section>
 
         <section>
-          <h2 class="text-base font-semibold text-gray-900">Your Content</h2>
-          <p class="mt-2">You are responsible for the links, text, images, logos, and metadata you upload. You can edit or delete your codes from the dashboard.</p>
+          <h2 class="text-base font-semibold text-gray-900">2. Your Content and Destinations</h2>
+          <p class="mt-2">You are fully responsible for all URLs, landing pages, text, files, logos, colors, images, metadata, barcodes, QR payloads, UTM parameters, API requests, and other content you create, upload, enter, connect, export, or distribute through the service.</p>
+          <p class="mt-2">You confirm that you have all rights, permissions, licenses, consents, notices, and lawful bases needed to use your content and destinations. You must not use the service to hide, disguise, rotate, or redirect users to content that would be unlawful or prohibited if linked directly.</p>
+          <p class="mt-2">Dynamic QR codes can be edited after printing. You remain responsible for every previous, current, scheduled, or future destination connected to a code, including destinations changed by team members, API keys, automation, or compromised credentials.</p>
         </section>
 
         <section>
-          <h2 class="text-base font-semibold text-gray-900">Service Availability</h2>
-          <p class="mt-2">{{ PLATFORM_NAME }} aims to keep redirects and downloads available, but local development and preview environments may use console email, test domains, or temporary storage.</p>
+          <h2 class="text-base font-semibold text-gray-900">3. Prohibited Uses</h2>
+          <p class="mt-2">You must not use {{ PLATFORM_NAME }} for phishing, credential theft, malware, spyware, ransomware, spam, illegal goods or services, scams, impersonation, deceptive advertising, fake endorsements, hidden affiliate redirects, unlawful tracking, harassment, hate, sexual exploitation, child safety violations, privacy violations, defamation, intellectual property infringement, gambling where unlawful, money laundering, sanctions evasion, or any activity that violates applicable law or platform rules.</p>
+          <p class="mt-2">You must not interfere with the service, bypass plan limits, probe or attack infrastructure, scrape private data, abuse APIs, overload scanning or redirect systems, reverse engineer restricted parts of the service, resell access without permission, or attempt to avoid abuse detection.</p>
+          <p class="mt-2">We may investigate, throttle, suspend, block, delete, disable redirects, revoke API keys, cancel exports, remove content, or terminate accounts if we believe there is risk to users, Narvyn, payment partners, infrastructure, legal compliance, security, deliverability, reputation, or the public.</p>
         </section>
 
         <section>
-          <h2 class="text-base font-semibold text-gray-900">Contact</h2>
-          <p class="mt-2">Questions about these terms can be sent to <a class="font-medium text-primary-600 hover:text-primary-700" href="mailto:support@qrplatform.io">support@qrplatform.io</a>.</p>
+          <h2 class="text-base font-semibold text-gray-900">4. Plans, Limits, Billing, and UPI Payments</h2>
+          <p class="mt-2">Plans may include limits for QR codes, barcodes, scans, exports, analytics, API keys, users, branding, scheduling, password protection, and other features. Limits may be enforced automatically, and features may stop working, degrade, or become read-only if a plan expires, payment fails, usage exceeds limits, abuse is detected, or required verification is missing.</p>
+          <p class="mt-2">Paid plans, taxes, renewal rules, billing cycles, refunds, discounts, trials, and payment methods may change. UPI or payment gateway transactions are handled by third-party providers. We are not responsible for bank downtime, payment gateway failure, UPI delays, chargebacks, mistaken transfers, provider holds, or payment instrument issues outside our control.</p>
+          <p class="mt-2">Unless a written refund policy or mandatory law says otherwise, fees already paid are non-refundable. If a payment is reversed, disputed, fraudulent, or not verified, we may withhold or revoke plan access.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">5. Scan Analytics, Privacy, and Compliance</h2>
+          <p class="mt-2">Scan analytics may include timestamps, device signals, approximate location, referrers, user agents, campaign parameters, and similar operational data. Analytics can be incomplete, delayed, blocked, estimated, duplicated, filtered, or unavailable because of privacy tools, network behavior, browser settings, bots, offline scans, or processing errors.</p>
+          <p class="mt-2">You are responsible for providing any required privacy notices, consent banners, disclosures, opt-outs, and lawful bases for your campaigns, destinations, marketing, analytics, cookies, retargeting, and customer communications.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">6. Service Changes, Availability, and Data</h2>
+          <p class="mt-2">We aim to keep the service reliable, but we do not guarantee uninterrupted redirects, scans, exports, analytics, emails, APIs, storage, billing, or dashboard access. Maintenance, outages, third-party failures, DNS issues, security incidents, abuse controls, legal requests, or force majeure events may affect availability.</p>
+          <p class="mt-2">We may modify, pause, remove, or discontinue features, plans, formats, domains, APIs, limits, and integrations. You are responsible for keeping backups of exported files, campaign records, billing records, and important destination data.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">7. Intellectual Property</h2>
+          <p class="mt-2">Narvyn and its licensors own the service, software, design, workflows, branding, templates, documentation, and related intellectual property. These terms do not transfer ownership to you.</p>
+          <p class="mt-2">You keep ownership of your content. You grant us a worldwide, non-exclusive, royalty-free license to host, process, copy, display, transmit, modify for technical purposes, analyze, and use your content as needed to provide, secure, improve, support, and enforce the service.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">8. Third-Party Services and Destinations</h2>
+          <p class="mt-2">The service may connect to payment gateways, Google sign-in, email providers, hosting providers, analytics tools, storage, DNS, customer websites, and other third-party systems. Third-party services are governed by their own terms and policies. We are not responsible for third-party content, availability, security, pricing, actions, or failures.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">9. Disclaimers</h2>
+          <p class="mt-2">{{ PLATFORM_NAME }} is provided on an “as is” and “as available” basis. To the maximum extent permitted by law, we disclaim all warranties, including implied warranties of merchantability, fitness for a particular purpose, non-infringement, accuracy, uninterrupted availability, security, deliverability, compatibility, and error-free operation.</p>
+          <p class="mt-2">We do not guarantee that any QR code, barcode, scan count, redirect, campaign, export, landing page, integration, payment, or analytics report will meet your needs, produce revenue, remain reachable forever, or be accepted by printers, scanners, app stores, ad networks, marketplaces, regulators, or customers.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">10. Limitation of Liability</h2>
+          <p class="mt-2">To the maximum extent permitted by law, Narvyn, its owners, officers, employees, contractors, affiliates, suppliers, and partners will not be liable for indirect, incidental, special, consequential, exemplary, punitive, or lost-profit damages, including lost revenue, lost scans, lost customers, lost data, reputational harm, business interruption, or cost of substitute services.</p>
+          <p class="mt-2">To the maximum extent permitted by law, our total liability for all claims relating to the service will not exceed the amount you paid to us for the service in the three months before the event giving rise to the claim, or INR 1,000 if you paid nothing.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">11. Indemnity</h2>
+          <p class="mt-2">You agree to defend, indemnify, and hold harmless Narvyn, its owners, officers, employees, contractors, affiliates, suppliers, and partners from claims, losses, liabilities, damages, penalties, costs, and expenses, including reasonable legal fees, arising from your content, destinations, campaigns, scans, customers, account activity, payment disputes, legal violations, privacy violations, intellectual property claims, misuse of the service, or breach of these terms.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">12. Takedowns, Law Enforcement, and Compliance Requests</h2>
+          <p class="mt-2">We may respond to abuse reports, intellectual property complaints, platform complaints, payment partner requests, security reports, regulator requests, court orders, law enforcement requests, and legal obligations. We may preserve, disclose, restrict, or remove information where we believe it is required or appropriate.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">13. Termination</h2>
+          <p class="mt-2">You may stop using the service at any time. We may suspend or terminate access immediately if we believe you violated these terms, created risk, failed to pay, exceeded limits, abused the service, or used the service in a way that may harm users, Narvyn, infrastructure, partners, or the public.</p>
+          <p class="mt-2">After termination, QR codes, redirects, exports, analytics, API keys, dashboards, files, and plan features may stop working. Sections intended to survive termination, including payment obligations, disclaimers, limitation of liability, indemnity, ownership, and dispute provisions, will continue to apply.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">14. Changes to These Terms</h2>
+          <p class="mt-2">We may update these terms from time to time. Changes become effective when posted unless a later date is stated. Continued use of the service after changes means you accept the updated terms.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">15. Governing Law and Disputes</h2>
+          <p class="mt-2">These terms are governed by the laws of India, without regard to conflict-of-law principles, except where mandatory consumer protection law requires otherwise. Courts or tribunals with competent jurisdiction in India will handle disputes unless applicable law requires a different forum.</p>
+        </section>
+
+        <section>
+          <h2 class="text-base font-semibold text-gray-900">16. Contact</h2>
+          <p class="mt-2">Questions, abuse reports, legal notices, takedown requests, payment issues, and support requests can be sent to <a class="font-medium text-primary-600 hover:text-primary-700" href="mailto:contact@narvyn.com">contact@narvyn.com</a>.</p>
         </section>
       </div>
     </section>

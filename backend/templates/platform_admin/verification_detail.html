@@ -1,0 +1,41 @@
+{% extends "platform_admin/layout.html" %}
+{% block title %}{{ verification.business_name }} — Admin{% endblock %}
+{% block admin_title %}Verification detail{% endblock %}
+{% block admin_kicker %}{{ verification.domain }}{% endblock %}
+
+{% block admin_content %}
+<section class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+  <div class="space-y-5">
+    <section class="card p-5">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div><h2 class="text-2xl font-black">{{ verification.business_name }}</h2><p class="mt-1 break-all text-gray-500">{{ verification.domain }}</p></div>
+        {% include "platform_admin/status_badge.html" with status=verification.status label=verification.get_status_display %}
+      </div>
+      <dl class="mt-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+        <div><dt class="font-semibold text-gray-500">Owner</dt><dd><a class="text-primary-700 font-semibold" href="{% url 'platform_admin:user_detail' verification.workspace.id %}">{{ verification.workspace.email }}</a></dd></div>
+        <div><dt class="font-semibold text-gray-500">Method</dt><dd>{{ verification.get_method_display }}</dd></div>
+        <div><dt class="font-semibold text-gray-500">Verified at</dt><dd>{{ verification.verified_at|date:"M d, Y H:i"|default:"Not verified" }}</dd></div>
+        <div><dt class="font-semibold text-gray-500">Updated</dt><dd>{{ verification.updated_at|date:"M d, Y H:i" }}</dd></div>
+        <div class="md:col-span-2"><dt class="font-semibold text-gray-500">Token</dt><dd class="mt-1 break-all rounded-lg bg-surface-50 p-3 font-mono text-xs">{{ verification.verification_token }}</dd></div>
+      </dl>
+    </section>
+    <section class="card overflow-hidden">
+      <div class="border-b border-surface-100 px-5 py-4"><h2 class="font-black">Verification attempts</h2></div>
+      <div class="divide-y divide-surface-100">
+        {% for attempt in attempts %}
+        <div class="p-4 text-sm"><strong>{{ attempt.success|yesno:"Passed,Failed" }}</strong><p class="text-xs text-gray-500">{{ attempt.message|default:"No message" }} · {{ attempt.checked_at|date:"M d, H:i" }}</p></div>
+        {% empty %}<p class="p-5 text-sm text-gray-500">No attempts recorded.</p>{% endfor %}
+      </div>
+    </section>
+  </div>
+  <aside class="card p-5">
+    <h2 class="text-lg font-black">Change badge status</h2>
+    <p class="mt-1 text-sm text-gray-500">Only verified records show “Verified by Narvyn” in scanner results.</p>
+    <form method="post" class="mt-4 space-y-4">
+      {% csrf_token %}
+      <div><label class="mb-1.5 block text-sm font-semibold" for="{{ form.status.id_for_label }}">Status</label>{{ form.status }}</div>
+      <button class="btn-primary w-full">Save verification</button>
+    </form>
+  </aside>
+</section>
+{% endblock %}

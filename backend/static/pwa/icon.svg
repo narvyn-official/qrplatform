@@ -1,27 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QRFlow logo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Narvyn QR logo">
   <defs>
-    <linearGradient id="qrflow-bg" x1="74" y1="58" x2="438" y2="452" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#312E81"/>
-      <stop offset=".46" stop-color="#2563EB"/>
-      <stop offset="1" stop-color="#10B981"/>
+    <linearGradient id="narvyn-app-bg" x1="74" y1="56" x2="438" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#081331"/>
+      <stop offset="0.55" stop-color="#0B1B46"/>
+      <stop offset="1" stop-color="#123A91"/>
     </linearGradient>
-    <linearGradient id="qrflow-flow" x1="160" y1="342" x2="372" y2="148" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#14B8A6"/>
-      <stop offset=".55" stop-color="#22C55E"/>
-      <stop offset="1" stop-color="#A7F3D0"/>
+    <linearGradient id="narvyn-accent" x1="116" y1="92" x2="410" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D1C9"/>
+      <stop offset="0.48" stop-color="#00B7D7"/>
+      <stop offset="1" stop-color="#2563FF"/>
     </linearGradient>
-    <filter id="qrflow-shadow" x="56" y="62" width="400" height="400" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
-      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#0F172A" flood-opacity=".22"/>
+    <linearGradient id="narvyn-shield" x1="195" y1="185" x2="314" y2="329" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D1C9"/>
+      <stop offset="1" stop-color="#2563FF"/>
+    </linearGradient>
+    <filter id="narvyn-soft-shadow" x="-20%" y="-20%" width="140%" height="145%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#07111F" flood-opacity="0.28"/>
     </filter>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#qrflow-bg)"/>
-  <path d="M88 156c0-37.6 30.4-68 68-68h200c37.6 0 68 30.4 68 68v200c0 37.6-30.4 68-68 68H156c-37.6 0-68-30.4-68-68V156Z" fill="#FFFFFF" opacity=".96" filter="url(#qrflow-shadow)"/>
-  <path d="M122 155c0-18.2 14.8-33 33-33h72c18.2 0 33 14.8 33 33v72c0 18.2-14.8 33-33 33h-72c-18.2 0-33-14.8-33-33v-72Zm30 5v62c0 4.4 3.6 8 8 8h62c4.4 0 8-3.6 8-8v-62c0-4.4-3.6-8-8-8h-62c-4.4 0-8 3.6-8 8Zm200-38c20.4 0 37 16.6 37 37v68c0 18.2-14.8 33-33 33h-68c-18.2 0-33-14.8-33-33v-68c0-20.4 16.6-37 37-37h60Zm7 38c0-4.4-3.6-8-8-8h-60c-4.4 0-8 3.6-8 8v62c0 4.4 3.6 8 8 8h60c4.4 0 8-3.6 8-8v-62ZM155 288h72c18.2 0 33 14.8 33 33v72c0 18.2-14.8 33-33 33h-72c-18.2 0-33-14.8-33-33v-72c0-18.2 14.8-33 33-33Zm5 30c-4.4 0-8 3.6-8 8v62c0 4.4 3.6 8 8 8h62c4.4 0 8-3.6 8-8v-62c0-4.4-3.6-8-8-8h-62Z" fill="#111827"/>
-  <rect x="176" y="176" width="30" height="30" rx="8" fill="#111827"/>
-  <rect x="305" y="176" width="32" height="30" rx="8" fill="#111827"/>
-  <rect x="176" y="342" width="30" height="30" rx="8" fill="#111827"/>
-  <path d="M287 288h38v38h-38v-38Zm62 0h39v38h-39v-38Zm-62 62h38v39h-38v-39Zm62 0h39v39h-39v-39Zm-62-124h38v38h-38v-38Zm-124 39h39v38h-39v-38Zm62 0h39v38h-39v-38Z" fill="#111827" opacity=".92"/>
-  <path d="M167 360c74-10 139-53 188-125" fill="none" stroke="url(#qrflow-flow)" stroke-width="34" stroke-linecap="round"/>
-  <path d="M353 187l18 91-88-28 70-63Z" fill="url(#qrflow-flow)"/>
-  <path d="M167 360c74-10 139-53 188-125" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" opacity=".62"/>
+
+  <rect width="512" height="512" rx="112" fill="url(#narvyn-app-bg)"/>
+  <path d="M126 87H80a34 34 0 0 0-34 34v46" fill="none" stroke="#F8FBFF" stroke-width="20" stroke-linecap="round"/>
+  <path d="M386 87h46a34 34 0 0 1 34 34v46" fill="none" stroke="url(#narvyn-accent)" stroke-width="20" stroke-linecap="round"/>
+  <path d="M126 425H80a34 34 0 0 1-34-34v-46" fill="none" stroke="#F8FBFF" stroke-width="20" stroke-linecap="round"/>
+  <path d="M386 425h46a34 34 0 0 0 34-34v-46" fill="none" stroke="url(#narvyn-accent)" stroke-width="20" stroke-linecap="round"/>
+
+  <g filter="url(#narvyn-soft-shadow)">
+    <path d="M101 120h118v118H101V120Zm30 30v58h58v-58h-58Zm182-30h98v98h-98v-98Zm27 27v44h44v-44h-44ZM101 294h103v103H101V294Zm28 28v47h47v-47h-47Z" fill="#F8FBFF"/>
+    <path d="M146 166h28v28h-28Zm208-4h18v18h-18ZM231 135h25v46h-25Zm28 61h36v23h-36Zm74 54h34v34h-34Zm-86 101h26v45h-26Zm50-79h25v25h-25Zm84 35h30v26h-30Zm-51 61h24v24h-24Zm-39-31h26v26h-26Zm83 43h34v17h-34Zm-140-83h26v26h-26Z" fill="#F8FBFF"/>
+    <path d="M91 260c64 10 113-3 148-42 41-47 92-63 181-43-48 15-79 39-98 72-45 79-127 90-231 13Z" fill="url(#narvyn-accent)" opacity="0.9"/>
+    <path d="M257 194c35 25 69 31 103 22v62c0 53-30 92-103 119-73-27-103-66-103-119v-62c34 9 68 3 103-22Z" fill="url(#narvyn-shield)" stroke="#F8FBFF" stroke-width="13" stroke-linejoin="round"/>
+    <path d="m214 293 27 27 61-72" fill="none" stroke="#F8FBFF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>

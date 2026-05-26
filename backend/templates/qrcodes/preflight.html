@@ -14,7 +14,7 @@
     <p class="mt-2 text-sm text-gray-600">Pre-print checklist for {{ qr.name }}.</p>
     <div class="mt-5 space-y-3">
       {% for check in preprint.checks %}
-      <div class="rounded-lg border {% if check.ok %}border-emerald-200 bg-emerald-50{% else %}border-amber-200 bg-amber-50{% endif %} p-3">
+      <div class="rounded-lg border {% if check.ok %}border-primary-200 bg-primary-50{% else %}border-amber-200 bg-amber-50{% endif %} p-3">
         <div class="flex items-center justify-between gap-3">
           <p class="text-sm font-semibold text-gray-900">{{ check.label }}</p>
           <span class="badge {% if check.ok %}badge-green{% else %}badge-yellow{% endif %}">{% if check.ok %}Pass{% else %}Check{% endif %}</span>

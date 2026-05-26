@@ -10,6 +10,8 @@ from apps.qrcodes import views as qrcode_views
 
 urlpatterns = [
     # Admin
+    path("admin/reports/", qrcode_views.admin_reports, name="admin_reports"),
+    path("admin/reports/<uuid:report_id>/", qrcode_views.admin_report_detail, name="admin_report_detail"),
     path("admin/", admin.site.urls),
 
     # App routes
@@ -18,6 +20,11 @@ urlpatterns = [
     path("dashboard/", include("apps.qrcodes.urls", namespace="qrcodes")),
     path("barcodes/", include("apps.barcodes.urls", namespace="barcodes")),
     path("analytics/", include("apps.analytics.urls", namespace="analytics")),
+    path("admin-panel/", include("apps.platform_admin.urls", namespace="platform_admin")),
+    path("scanner/", qrcode_views.safe_scanner, name="safe_scanner"),
+    path("scanner/result/", qrcode_views.safe_scanner_result, name="safe_scanner_result"),
+    path("scanner/history/", qrcode_views.safe_scanner_history, name="safe_scanner_history"),
+    path("verify/certificate/<str:code>/", qrcode_views.certificate_verify, name="certificate_verify"),
     path("p/<str:short_code>/", qrcode_views.public_landing_page, name="public_landing"),
     path("c/<str:short_code>/<str:event_type>/", qrcode_views.conversion_redirect, name="conversion_redirect"),
 
@@ -25,6 +32,9 @@ urlpatterns = [
     path("r/", include("apps.qrcodes.redirect_urls")),
 
     # REST API v1
+    path("api/url/analyze", qrcode_views.url_analyze_api, name="url_analyze_api"),
+    path("api/scanner/analyze", qrcode_views.scanner_analyze_api, name="scanner_analyze_api"),
+    path("api/scanner/report", qrcode_views.scanner_report_api, name="scanner_report_api"),
     path("api/v1/", include("apps.api.urls", namespace="api_v1")),
 
     # OpenAPI docs

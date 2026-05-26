@@ -1,0 +1,39 @@
+{% extends "platform_admin/layout.html" %}
+{% block title %}{{ certificate.certificate_id }} — Admin{% endblock %}
+{% block admin_title %}Certificate detail{% endblock %}
+{% block admin_kicker %}{{ certificate.certificate_id }}{% endblock %}
+
+{% block admin_content %}
+<section class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+  <div class="card p-5">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-black">{{ certificate.recipient_name }}</h2>
+        <p class="mt-1 text-gray-500">{{ certificate.title }} · {{ certificate.issuer }}</p>
+      </div>
+      {% include "platform_admin/status_badge.html" with status=certificate.effective_status label=certificate.status_label %}
+    </div>
+    <dl class="mt-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+      <div><dt class="font-semibold text-gray-500">Certificate ID</dt><dd class="mt-1 font-mono">{{ certificate.certificate_id }}</dd></div>
+      <div><dt class="font-semibold text-gray-500">Verification code</dt><dd class="mt-1 font-mono">{{ certificate.verification_code }}</dd></div>
+      <div><dt class="font-semibold text-gray-500">Issue date</dt><dd class="mt-1">{{ certificate.issue_date|date:"M d, Y" }}</dd></div>
+      <div><dt class="font-semibold text-gray-500">Expiry date</dt><dd class="mt-1">{{ certificate.expiry_date|date:"M d, Y"|default:"No expiry" }}</dd></div>
+      <div><dt class="font-semibold text-gray-500">Owner</dt><dd class="mt-1"><a class="text-primary-700 font-semibold" href="{% url 'platform_admin:user_detail' certificate.workspace.id %}">{{ certificate.workspace.email }}</a></dd></div>
+      <div><dt class="font-semibold text-gray-500">QR status</dt><dd class="mt-1">{{ certificate.qrcode.get_status_display|default:"No QR attached" }}</dd></div>
+    </dl>
+    <div class="mt-6 flex flex-wrap gap-2">
+      <a class="btn-secondary" href="{{ certificate.verify_path }}" target="_blank" rel="noopener">Public verify page</a>
+      {% if certificate.qrcode %}<a class="btn-secondary" href="{% url 'platform_admin:qrcode_detail' certificate.qrcode.id %}">Open QR</a>{% endif %}
+    </div>
+  </div>
+  <aside class="card p-5">
+    <h2 class="text-lg font-black">Change certificate status</h2>
+    <p class="mt-1 text-sm text-gray-500">Revoking also pauses the attached QR so public verification shows a warning.</p>
+    <form method="post" class="mt-4 space-y-4">
+      {% csrf_token %}
+      <div><label class="mb-1.5 block text-sm font-semibold" for="{{ form.status.id_for_label }}">Status</label>{{ form.status }}</div>
+      <button class="btn-primary w-full">Save status</button>
+    </form>
+  </aside>
+</section>
+{% endblock %}

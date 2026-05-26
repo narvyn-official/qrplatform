@@ -6,22 +6,22 @@
   <div class="auth-grid">
     <section class="flex items-center justify-center px-4 py-8 sm:px-6 lg:px-10">
       <div class="w-full max-w-md">
-        <a href="{% url 'core:home' %}" class="mb-6 flex items-center gap-2.5">
-          <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-10 w-10 rounded-lg shadow-glow">
-          <span class="text-xl font-bold text-gray-950">{{ PLATFORM_NAME }}</span>
+        <a href="{% url 'core:home' %}" class="mb-6 flex items-center gap-3">
+          <img src="/static/pwa/icon.svg" alt="{{ PLATFORM_NAME }}" class="h-11 w-11 rounded-lg shadow-glow">
+          <span class="text-2xl font-black tracking-tight text-graphite-950">{{ PLATFORM_NAME }}</span>
         </a>
 
-        <div class="mb-5 grid grid-cols-3 gap-2 text-center text-[11px] font-semibold text-gray-600">
-          <span class="rounded-lg bg-white px-2 py-2 shadow-card">Edit after print</span>
-          <span class="rounded-lg bg-white px-2 py-2 shadow-card">Export files</span>
-          <span class="rounded-lg bg-white px-2 py-2 shadow-card">Scan reports</span>
+        <div class="mb-5 grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-graphite-700">
+          <span class="rounded-lg border border-surface-200 bg-white px-2 py-2 shadow-card">Trust & safety</span>
+          <span class="rounded-lg border border-surface-200 bg-white px-2 py-2 shadow-card">Analytics</span>
+          <span class="rounded-lg border border-surface-200 bg-white px-2 py-2 shadow-card">Editable QR</span>
         </div>
 
         <div class="auth-panel p-6 sm:p-8">
           <div class="mb-6">
-            <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">Account access</p>
-            <h1 class="mt-2 text-3xl font-bold tracking-tight text-gray-950">Sign in faster.</h1>
-            <p class="mt-2 text-sm leading-6 text-gray-500">Manage QR codes, barcodes, API keys, billing, and scan reports from one workspace.</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-primary-700">Secure account access</p>
+            <h1 class="mt-2 text-3xl font-black tracking-tight text-graphite-950">Welcome back.</h1>
+            <p class="mt-2 text-sm leading-6 text-gray-500">Manage trusted QR campaigns, scanner reports, billing, certificates, and analytics from one workspace.</p>
           </div>
 
           {% if verification_email %}
@@ -62,7 +62,7 @@
             <div>
               <label class="mb-1.5 block text-sm font-semibold text-gray-700" for="id_email">Email address</label>
               {{ form.email }}
-              {% if form.email.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.email.errors|join:", " }}</p>{% endif %}
+              {% if form.email.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.email.errors|join:", " }}</p>{% endif %}
             </div>
 
             <div>
@@ -70,8 +70,11 @@
                 <label class="block text-sm font-semibold text-gray-700" for="id_password">Password</label>
                 <a href="{% url 'accounts:forgot_password' %}" class="text-xs font-semibold text-primary-600 hover:text-primary-700">Forgot password?</a>
               </div>
-              {{ form.password }}
-              {% if form.password.errors %}<p class="mt-1 text-xs text-rose-600">{{ form.password.errors|join:", " }}</p>{% endif %}
+              <div class="password-toggle-field" data-password-toggle data-password-visible="false">
+                {{ form.password }}
+                {% include "includes/password_toggle_button.html" %}
+              </div>
+              {% if form.password.errors %}<p class="mt-1 text-xs text-coral-600">{{ form.password.errors|join:", " }}</p>{% endif %}
             </div>
 
             <label class="flex items-center gap-2 text-sm text-gray-600">
@@ -95,31 +98,30 @@
       </div>
     </section>
 
-    <aside class="auth-visual hidden items-center justify-center p-10 text-white lg:flex">
-      <canvas id="ambient-particles" class="ambient-canvas z-0" aria-hidden="true"></canvas>
+    <aside class="auth-visual hidden items-center justify-center p-10 text-gray-950 lg:flex">
       <div class="relative z-10 max-w-md">
-        <p class="badge bg-white/10 text-white">Built for paid QR campaigns</p>
-        <h2 class="mt-5 text-4xl font-black leading-tight">Turn every scan into a campaign you can improve.</h2>
-        <p class="mt-4 text-base leading-7 text-slate-200">Start free, then upgrade when you need branded exports, advanced scan reports, access controls, and team-ready campaign tools.</p>
+        <p class="badge badge-blue">Trusted QR Platform</p>
+        <h2 class="mt-5 text-4xl font-black leading-tight text-graphite-950">Secure. Smart. Scalable.</h2>
+        <p class="mt-4 text-base leading-7 text-gray-600">Narvyn QR gives businesses safety previews, editable destinations, verified badges, scan analytics, and UPI-ready plans.</p>
         <div class="mt-8 grid grid-cols-2 gap-3 text-sm">
-          <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
+          <div class="rounded-lg border border-surface-200 bg-surface-50 p-4">
             <p class="font-bold">Edit after print</p>
-            <p class="mt-1 text-slate-300">Change destinations anytime so printed menus, posters, and packaging never go stale.</p>
+            <p class="mt-1 text-gray-500">Change destinations anytime so printed menus, posters, and packaging never go stale.</p>
           </div>
-          <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
+          <div class="rounded-lg border border-surface-200 bg-surface-50 p-4">
             <p class="font-bold">Pro scan reports</p>
-            <p class="mt-1 text-slate-300">Track total, unique, weekly, device, and location signals for every campaign.</p>
+            <p class="mt-1 text-gray-500">Track total, unique, weekly, device, and location signals for every campaign.</p>
           </div>
-          <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
+          <div class="rounded-lg border border-surface-200 bg-surface-50 p-4">
             <p class="font-bold">Brand-ready exports</p>
-            <p class="mt-1 text-slate-300">Use logos, colors, custom shapes, SVG, PNG, and PDF files for production work.</p>
+            <p class="mt-1 text-gray-500">Use logos, colors, custom shapes, SVG, PNG, and PDF files for production work.</p>
           </div>
-          <div class="rounded-lg border border-white/10 bg-white/10 p-4 backdrop-blur">
+          <div class="rounded-lg border border-surface-200 bg-surface-50 p-4">
             <p class="font-bold">Growth controls</p>
-            <p class="mt-1 text-slate-300">Unlock schedules, scan limits, password gates, UTM tags, API keys, and paid plans.</p>
+            <p class="mt-1 text-gray-500">Unlock schedules, scan limits, password gates, UTM tags, API keys, and paid plans.</p>
           </div>
         </div>
-        <a href="{% url 'core:pricing' %}" class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-white underline underline-offset-4">
+        <a href="{% url 'core:pricing' %}" class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-gray-950 underline underline-offset-4">
           Compare paid plans
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>

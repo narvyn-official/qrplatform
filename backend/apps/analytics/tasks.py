@@ -77,15 +77,14 @@ def update_daily_stats_now(qrcode_id: str, date_str: str):
         },
     )
 
-    # Update hourly breakdown
-    for hour in range(24):
-        count = events.filter(timestamp__hour=hour).count()
-        if count > 0:
+    # Update hourly breakdown with one grouped query instead of 24 counts.
+    for row in events.values("timestamp__hour").annotate(c=Count("id")):
+        if row["c"] > 0:
             HourlyQRStats.objects.update_or_create(
                 qrcode_id=qrcode_id,
                 date=target_date,
-                hour=hour,
-                defaults={"scans": count},
+                hour=row["timestamp__hour"],
+                defaults={"scans": row["c"]},
             )
 
     # Update GeoStats

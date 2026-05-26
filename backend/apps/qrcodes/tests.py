@@ -11,16 +11,23 @@ from django.urls import reverse
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.http import QueryDict
+from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 
+from apps.accounts.models import BusinessVerification
 from apps.qrcodes.models import (
+    Certificate,
     QRCode,
     QRCodeCampaign,
     QRScanEvent,
     QRDestinationRule,
     QRLandingPage,
     QRConversionEvent,
+    QRSuspiciousReport,
+    QRScannerHistory,
 )
 from apps.qrcodes.forms import QRCodeForm
+from apps.qrcodes.safety import analyze_scanned_value, analyze_scanner_content, analyze_url
 from apps.qrcodes.views import _qrcode_form_data
 
 User = get_user_model()
@@ -49,6 +56,19 @@ def make_qrcode(user, **kw):
     }
     defaults.update(kw)
     return QRCode.objects.create(user=user, **defaults)
+
+
+def make_certificate(user, **kw):
+    defaults = {
+        "workspace": user,
+        "recipient_name": "Aarav Sharma",
+        "title": "Certificate of Completion",
+        "issuer": "Narvyn Academy",
+        "issue_date": timezone.localdate(),
+        "certificate_id": f"CERT-{uuid.uuid4().hex[:8].upper()}",
+    }
+    defaults.update(kw)
+    return Certificate.objects.create(**defaults)
 
 
 # ── Model tests ───────────────────────────────────────────────────────────────
@@ -537,7 +557,9 @@ class DashboardViewTest(TestCase):
     def test_scan_page_renders(self):
         resp = self.client.get(reverse("qrcodes:scan"))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Scan, confirm, then open")
+        self.assertContains(resp, "Scan safely before you open")
+        self.assertContains(resp, "Result opens as a popup")
+        self.assertContains(resp, "Report suspicious QR")
         self.assertContains(resp, "Scanned successfully")
 
     def test_dashboard_renders(self):
@@ -548,9 +570,10 @@ class DashboardViewTest(TestCase):
         self.assertEqual(resp.context["completed_steps"], 0)
         self.assertEqual(resp.context["recommended_action"]["label"], "Create your first QR")
         self.assertContains(resp, "Campaign launch checklist")
-        self.assertContains(resp, "Launch a QR campaign customers can trust.")
+        self.assertContains(resp, "Launch trusted QR campaigns.")
         self.assertContains(resp, reverse("accounts:logout"))
         self.assertContains(resp, "Logout")
+
 
     def test_dashboard_recommends_scan_after_first_qr(self):
         make_qrcode(self.user, name="Needs scan")
@@ -624,6 +647,554 @@ class DashboardViewTest(TestCase):
         self.assertEqual(resp.context["total_scans"], 5)
         self.assertEqual(resp.context["unique_scans"], 3)
 
+
+class CertificateVerificationViewTest(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.user = make_active_user(email="certs@example.com")
+        self.client.force_login(self.user)
+
+    @patch("apps.qrcodes.views._generate_qr_now", return_value=True)
+    def test_certificate_create_generates_verification_qr(self, mock_generate):
+        resp = self.client.post(reverse("qrcodes:certificate_new"), {
+            "recipient_name": "Priya Mehta",
+            "title": "Advanced Python Training",
+            "issuer": "Narvyn Institute",
+            "issue_date": timezone.localdate().isoformat(),
+            "certificate_id": "CERT-2026-001",
+        })
+
+        certificate = Certificate.objects.get(certificate_id="CERT-2026-001")
+        self.assertRedirects(resp, reverse("qrcodes:certificate_detail", kwargs={"pk": certificate.pk}))
+        self.assertEqual(certificate.workspace, self.user)
+        self.assertIsNotNone(certificate.qrcode)
+        self.assertEqual(certificate.qrcode.qr_type, QRCode.QRType.DYNAMIC)
+        self.assertIn(certificate.verification_code, certificate.qrcode.destination_url)
+        mock_generate.assert_called_once_with(certificate.qrcode)
+
+    def test_certificate_form_validates_required_fields(self):
+        resp = self.client.post(reverse("qrcodes:certificate_new"), {
+            "recipient_name": "",
+            "title": "Completion",
+            "issuer": "Narvyn Institute",
+            "issue_date": timezone.localdate().isoformat(),
+            "certificate_id": "CERT-MISSING-NAME",
+        })
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "This field is required")
+        self.assertFalse(Certificate.objects.exists())
+
+    @patch("apps.qrcodes.views._generate_qr_now", return_value=True)
+    def test_certificate_bulk_upload_creates_records_and_qrs(self, mock_generate):
+        csv_file = SimpleUploadedFile(
+            "certificates.csv",
+            (
+                "recipient_name,title,issuer,issue_date,certificate_id,expiry_date\n"
+                "Aarav Sharma,Data Science Bootcamp,Narvyn Academy,2026-05-01,CERT-BULK-1,\n"
+                "Meera Rao,Design Workshop,Narvyn Academy,2026-05-02,CERT-BULK-2,2027-05-02\n"
+            ).encode(),
+            content_type="text/csv",
+        )
+
+        resp = self.client.post(reverse("qrcodes:certificate_bulk_upload"), {"csv_file": csv_file})
+
+        self.assertRedirects(resp, reverse("qrcodes:certificate_list"))
+        self.assertEqual(Certificate.objects.count(), 2)
+        self.assertEqual(QRCode.objects.filter(qr_type=QRCode.QRType.DYNAMIC).count(), 2)
+        self.assertEqual(mock_generate.call_count, 2)
+
+    def test_public_certificate_verification_shows_valid_status(self):
+        certificate = make_certificate(self.user, certificate_id="CERT-VALID-1")
+
+        resp = self.client.get(reverse("certificate_verify", kwargs={"code": certificate.verification_code}))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "CERT-VALID-1")
+        self.assertContains(resp, "Aarav Sharma")
+        self.assertContains(resp, "Valid")
+
+    def test_public_certificate_verification_shows_expired_status(self):
+        certificate = make_certificate(
+            self.user,
+            certificate_id="CERT-OLD-1",
+            expiry_date=timezone.localdate() - timedelta(days=1),
+        )
+
+        resp = self.client.get(reverse("certificate_verify", kwargs={"code": certificate.verification_code}))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Expired")
+        self.assertContains(resp, "This certificate has expired")
+
+    def test_revoke_certificate_updates_public_warning_and_pauses_qr(self):
+        qr = make_qrcode(self.user, qr_type=QRCode.QRType.DYNAMIC, destination_url="https://example.com/verify")
+        certificate = make_certificate(self.user, certificate_id="CERT-REVOKE-1", qrcode=qr)
+
+        resp = self.client.post(reverse("qrcodes:certificate_revoke", kwargs={"pk": certificate.pk}))
+
+        self.assertRedirects(resp, reverse("qrcodes:certificate_detail", kwargs={"pk": certificate.pk}))
+        certificate.refresh_from_db()
+        qr.refresh_from_db()
+        self.assertEqual(certificate.status, Certificate.Status.REVOKED)
+        self.assertEqual(qr.status, QRCode.Status.PAUSED)
+
+        public = self.client.get(reverse("certificate_verify", kwargs={"code": certificate.verification_code}))
+        self.assertContains(public, "Revoked")
+        self.assertContains(public, "Do not trust this certificate")
+
+    def test_certificate_detail_rejects_other_workspace(self):
+        other = make_active_user(email="cert-other@example.com")
+        certificate = make_certificate(other)
+
+        resp = self.client.get(reverse("qrcodes:certificate_detail", kwargs={"pk": certificate.pk}))
+
+        self.assertEqual(resp.status_code, 404)
+
+    def test_template_gallery_certificate_shortcut_opens_certificate_form(self):
+        resp = self.client.get(reverse("qrcodes:template_create", args=["certificate-verification"]))
+
+        self.assertRedirects(resp, reverse("qrcodes:certificate_new"))
+
+
+class QRScannerSafetyViewTest(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.user = make_active_user(email="scanner-safety@example.com")
+        self.client.force_login(self.user)
+
+    @patch("apps.qrcodes.views.analyze_scanned_value")
+    def test_safety_check_returns_url_preview(self, mock_analyze):
+        mock_analyze.return_value = {
+            "kind": "url",
+            "normalized_url": "https://example.com",
+            "host": "example.com",
+            "risk_level": "safe",
+            "summary": "URL preview ready.",
+            "warnings": [],
+            "redirect_chain": [{"host": "example.com", "url": "https://example.com"}],
+            "can_open": True,
+        }
+
+        resp = self.client.post(
+            reverse("qrcodes:safety_check"),
+            data='{"value":"https://example.com"}',
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["host"], "example.com")
+        self.assertEqual(resp.json()["risk_level"], "safe")
+        mock_analyze.assert_called_once_with("https://example.com")
+
+    def test_safety_check_requires_value(self):
+        resp = self.client.post(
+            reverse("qrcodes:safety_check"),
+            data="{}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.json())
+
+    @patch("apps.qrcodes.views.analyze_scanner_content")
+    def test_report_suspicious_creates_report(self, mock_analyze):
+        mock_analyze.return_value = {
+            "type": "url",
+            "rawContent": "http://example.com/login.apk",
+            "normalizedUrl": "http://example.com/login.apk",
+            "finalUrl": "http://example.com/login.apk",
+            "domain": "example.com",
+            "riskLevel": "risky",
+            "warnings": ["This link points to a downloadable file type commonly abused for malware."],
+        }
+        resp = self.client.post(
+            reverse("qrcodes:report_suspicious"),
+            data='{"value":"http://example.com/login.apk","reason":"malware","comment":"Looks unsafe"}',
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["ok"])
+        report = QRSuspiciousReport.objects.get()
+        self.assertEqual(report.reporter, self.user)
+        self.assertEqual(report.host, "example.com")
+        self.assertIn("login.apk", report.scanned_value)
+        self.assertEqual(report.reason, QRSuspiciousReport.Reason.MALWARE)
+        self.assertEqual(report.comment, "Looks unsafe")
+        self.assertEqual(report.risk_level, "risky")
+        mock_analyze.assert_called_once_with("http://example.com/login.apk", fetch_title=False)
+
+    def test_report_suspicious_requires_value(self):
+        resp = self.client.post(
+            reverse("qrcodes:report_suspicious"),
+            data="{}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 400)
+
+    def test_safety_analyzer_blocks_private_network_urls(self):
+        analysis = analyze_scanned_value("http://127.0.0.1/admin", follow_redirects=False)
+
+        self.assertEqual(analysis["kind"], "url")
+        self.assertEqual(analysis["risk_level"], "danger")
+        self.assertFalse(analysis["can_open"])
+        self.assertIn("Private/internal network destination blocked.", analysis["warnings"])
+
+    def test_safety_analyzer_warns_on_risky_downloads(self):
+        analysis = analyze_scanned_value("http://example.com/install.apk", follow_redirects=False)
+
+        self.assertEqual(analysis["risk_level"], "warning")
+        self.assertTrue(analysis["can_open"])
+        self.assertIn(
+            "This link points to a downloadable file type commonly abused for malware.",
+            analysis["warnings"],
+        )
+
+    def test_public_scanner_pages_render(self):
+        scanner = self.client.get(reverse("safe_scanner"))
+        self.assertEqual(scanner.status_code, 200)
+        self.assertContains(scanner, "Scan first. Preview before opening.")
+        self.assertContains(scanner, "Upload QR image")
+        self.assertContains(scanner, "Flashlight")
+
+        result = self.client.get(reverse("safe_scanner_result"))
+        self.assertEqual(result.status_code, 200)
+        self.assertContains(result, "Safety preview")
+        self.assertContains(result, "Open this link anyway?")
+
+        history = self.client.get(reverse("safe_scanner_history"))
+        self.assertEqual(history.status_code, 200)
+        self.assertContains(history, "Scan history")
+
+    def test_scanner_analyze_api_requires_content(self):
+        resp = self.client.post(
+            reverse("scanner_analyze_api"),
+            data="{}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.json())
+
+    @patch("apps.qrcodes.views.analyze_scanner_content")
+    def test_scanner_analyze_api_returns_schema_and_stores_history(self, mock_analyze):
+        mock_analyze.return_value = {
+            "type": "url",
+            "rawContent": "https://example.com",
+            "domain": "example.com",
+            "finalUrl": "https://example.com",
+            "pageTitle": "Example",
+            "isHttps": True,
+            "redirectCount": 0,
+            "redirectChain": [],
+            "usesUrlShortener": False,
+            "riskScore": 0,
+            "riskLevel": "safe",
+            "warnings": [],
+            "recommendation": "Looks acceptable. Confirm the domain before opening.",
+        }
+
+        resp = self.client.post(
+            reverse("scanner_analyze_api"),
+            data='{"content":"https://example.com"}',
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["type"], "url")
+        self.assertEqual(data["rawContent"], "https://example.com")
+        self.assertIn("riskScore", data)
+        history = QRScannerHistory.objects.get()
+        self.assertEqual(history.user, self.user)
+        self.assertEqual(history.raw_content, "https://example.com")
+        self.assertEqual(history.content_type, "url")
+        self.assertEqual(history.domain, "example.com")
+        self.assertEqual(history.risk_level, "safe")
+
+    @patch("apps.qrcodes.views.analyze_scanner_content")
+    def test_scanner_analyze_api_does_not_store_history_for_anonymous(self, mock_analyze):
+        self.client.logout()
+        mock_analyze.return_value = {
+            "type": "text",
+            "rawContent": "hello",
+            "domain": "",
+            "finalUrl": "",
+            "pageTitle": "",
+            "isHttps": False,
+            "redirectCount": 0,
+            "redirectChain": [],
+            "usesUrlShortener": False,
+            "riskScore": 0,
+            "riskLevel": "safe",
+            "warnings": [],
+            "recommendation": "No obvious risk detected. Review the content before using it.",
+        }
+
+        resp = self.client.post(
+            reverse("scanner_analyze_api"),
+            data='{"content":"hello"}',
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(QRScannerHistory.objects.exists())
+
+    @patch("apps.qrcodes.views.analyze_scanner_content")
+    def test_scanner_analyze_api_includes_verified_business_for_platform_qr(self, mock_analyze):
+        qr = make_qrcode(self.user, short_code="verified1")
+        mock_analyze.return_value = {
+            "type": "url",
+            "rawContent": qr.redirect_url,
+            "domain": "127.0.0.1",
+            "finalUrl": "",
+            "pageTitle": "",
+            "isHttps": False,
+            "redirectCount": 0,
+            "redirectChain": [],
+            "usesUrlShortener": False,
+            "riskScore": 60,
+            "riskLevel": "risky",
+            "warnings": ["Preview only."],
+            "recommendation": "Review before opening.",
+        }
+        verified_at = timezone.now()
+        BusinessVerification.objects.create(
+            workspace=self.user,
+            business_name="Acme Foods",
+            domain="acme.example",
+            method=BusinessVerification.Method.DNS,
+            status=BusinessVerification.Status.VERIFIED,
+            verified_at=verified_at,
+        )
+
+        resp = self.client.post(
+            reverse("scanner_analyze_api"),
+            data=f'{{"content":"{qr.redirect_url}"}}',
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        badge = resp.json()["verifiedBusiness"]
+        self.assertTrue(badge["verified"])
+        self.assertEqual(badge["badgeText"], "Verified by Narvyn")
+        self.assertEqual(badge["businessName"], "Acme Foods")
+        self.assertEqual(badge["domain"], "acme.example")
+
+    @patch("apps.qrcodes.views.analyze_scanner_content")
+    def test_scanner_report_api_allows_anonymous_and_links_qr(self, mock_analyze):
+        cache.clear()
+        campaign = QRCodeCampaign.objects.create(user=self.user, name="Menu Campaign")
+        qr = make_qrcode(self.user, short_code="reportme", campaign=campaign)
+        mock_analyze.return_value = {
+            "type": "url",
+            "rawContent": qr.redirect_url,
+            "normalizedUrl": qr.redirect_url,
+            "finalUrl": qr.redirect_url,
+            "domain": "127.0.0.1",
+            "riskLevel": "caution",
+            "warnings": [],
+        }
+        self.client.logout()
+
+        resp = self.client.post(
+            reverse("scanner_report_api"),
+            data=f'{{"content":"{qr.redirect_url}","reason":"phishing","comment":"Fake login"}}',
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        report = QRSuspiciousReport.objects.get(qrcode=qr)
+        self.assertIsNone(report.reporter)
+        self.assertEqual(report.campaign, campaign)
+        self.assertEqual(report.reason, QRSuspiciousReport.Reason.PHISHING)
+        self.assertEqual(report.comment, "Fake login")
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.suspicious_report_count, 1)
+        self.assertEqual(campaign.risk_status, QRCodeCampaign.RiskStatus.WATCH)
+
+    @patch("apps.qrcodes.views.analyze_scanner_content")
+    def test_scanner_report_api_rate_limits_anonymous_reports(self, mock_analyze):
+        cache.clear()
+        mock_analyze.return_value = {
+            "type": "url",
+            "rawContent": "https://example.com",
+            "normalizedUrl": "https://example.com",
+            "finalUrl": "https://example.com",
+            "domain": "example.com",
+            "riskLevel": "caution",
+            "warnings": [],
+        }
+        self.client.logout()
+
+        statuses = [
+            self.client.post(
+                reverse("scanner_report_api"),
+                data='{"content":"https://example.com","reason":"phishing"}',
+                content_type="application/json",
+                REMOTE_ADDR="203.0.113.25",
+            ).status_code
+            for _ in range(6)
+        ]
+
+        self.assertEqual(statuses[:5], [200, 200, 200, 200, 200])
+        self.assertEqual(statuses[5], 429)
+
+    def test_repeated_open_reports_escalate_campaign_risk(self):
+        campaign = QRCodeCampaign.objects.create(user=self.user, name="Risk Campaign")
+        qr = make_qrcode(self.user, campaign=campaign)
+        for _ in range(5):
+            QRSuspiciousReport.objects.create(
+                qrcode=qr,
+                campaign=campaign,
+                scanned_value=qr.redirect_url,
+                reported_url=qr.redirect_url,
+                reason=QRSuspiciousReport.Reason.PHISHING,
+                risk_level="risky",
+            )
+        from apps.qrcodes.views import _refresh_campaign_risk
+
+        _refresh_campaign_risk(campaign)
+
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.suspicious_report_count, 5)
+        self.assertEqual(campaign.risk_status, QRCodeCampaign.RiskStatus.ELEVATED)
+
+    def test_admin_reports_requires_staff_and_renders_report(self):
+        qr = make_qrcode(self.user)
+        QRSuspiciousReport.objects.create(
+            qrcode=qr,
+            scanned_value=qr.redirect_url,
+            reported_url=qr.redirect_url,
+            reason=QRSuspiciousReport.Reason.SPAM,
+            risk_level="caution",
+        )
+        resp = self.client.get(reverse("admin_reports"))
+        self.assertEqual(resp.status_code, 302)
+
+        self.user.is_staff = True
+        self.user.is_superuser = True
+        self.user.save(update_fields=["is_staff", "is_superuser"])
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse("admin_reports"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Suspicious QR reports")
+        self.assertContains(resp, "Spam")
+
+    def test_admin_report_detail_updates_status_and_notes(self):
+        self.user.is_staff = True
+        self.user.is_superuser = True
+        self.user.save(update_fields=["is_staff", "is_superuser"])
+        report = QRSuspiciousReport.objects.create(
+            scanned_value="https://example.com",
+            reported_url="https://example.com",
+            reason=QRSuspiciousReport.Reason.OTHER,
+            risk_level="safe",
+        )
+        resp = self.client.post(
+            reverse("admin_report_detail", args=[report.id]),
+            {"status": QRSuspiciousReport.Status.RESOLVED, "admin_notes": "Reviewed"},
+        )
+        self.assertRedirects(resp, reverse("admin_report_detail", args=[report.id]))
+        report.refresh_from_db()
+        self.assertEqual(report.status, QRSuspiciousReport.Status.RESOLVED)
+        self.assertEqual(report.admin_notes, "Reviewed")
+
+    def test_scanner_analyzer_blocks_private_network_urls(self):
+        analysis = analyze_scanner_content("http://127.0.0.1/admin")
+
+        self.assertEqual(analysis["type"], "url")
+        self.assertEqual(analysis["riskLevel"], "risky")
+        self.assertGreaterEqual(analysis["riskScore"], 60)
+        self.assertLessEqual(analysis["safetyScore"], 40)
+        self.assertIn("Private/internal network destination blocked.", analysis["warnings"])
+
+    def test_scanner_analyzer_warns_on_upi_missing_payee_name(self):
+        analysis = analyze_scanner_content("upi://pay?pa=merchant@upi&am=50")
+
+        self.assertEqual(analysis["type"], "upi")
+        self.assertEqual(analysis["riskLevel"], "caution")
+        self.assertIn("UPI payee name is missing.", analysis["warnings"])
+
+    @patch("apps.qrcodes.views.analyze_url")
+    def test_url_analyze_api_returns_redirect_schema(self, mock_analyze):
+        mock_analyze.return_value = {
+            "inputUrl": "https://short.example",
+            "normalizedUrl": "https://short.example",
+            "finalUrl": "https://final.example/login",
+            "domain": "short.example",
+            "finalDomain": "final.example",
+            "redirectChain": [
+                {"url": "https://short.example", "statusCode": 301, "domain": "short.example"},
+                {"url": "https://final.example/login", "statusCode": 200, "domain": "final.example"},
+            ],
+            "redirectCount": 1,
+            "isHttps": True,
+            "usesUrlShortener": False,
+            "hasSuspiciousKeywords": True,
+            "hasExecutableDownload": False,
+            "riskLevel": "caution",
+            "riskScore": 55,
+            "warnings": ["The original domain and final domain do not match."],
+        }
+
+        resp = self.client.post(
+            reverse("url_analyze_api"),
+            data='{"url":"https://short.example"}',
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["finalDomain"], "final.example")
+        self.assertEqual(data["redirectChain"][0]["statusCode"], 301)
+        mock_analyze.assert_called_once_with("https://short.example")
+
+    def test_url_analyze_api_requires_url(self):
+        resp = self.client.post(
+            reverse("url_analyze_api"),
+            data="{}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 400)
+
+    def test_url_analyzer_blocks_private_network_without_request(self):
+        analysis = analyze_url("http://127.0.0.1/admin")
+
+        self.assertEqual(analysis["riskLevel"], "risky")
+        self.assertEqual(analysis["safetyScore"], 0)
+        self.assertEqual(analysis["redirectCount"], 0)
+        self.assertIn("Blocked localhost, private IP, or internal network destination.", analysis["warnings"])
+
+    @patch("apps.qrcodes.safety._safe_redirect_chain")
+    def test_url_analyzer_detects_keywords_executable_and_punycode(self, mock_chain):
+        mock_chain.return_value = {
+            "finalUrl": "https://xn--paytm-9ve.example/update-password.apk",
+            "pageTitle": "",
+            "redirectChain": [
+                {
+                    "url": "https://xn--paytm-9ve.example/update-password.apk",
+                    "statusCode": 200,
+                    "domain": "xn--paytm-9ve.example",
+                }
+            ],
+            "redirectCount": 0,
+            "warning": "",
+        }
+
+        analysis = analyze_url("https://xn--paytm-9ve.example/update-password.apk")
+
+        self.assertEqual(analysis["riskLevel"], "risky")
+        self.assertLess(analysis["safetyScore"], 50)
+        self.assertTrue(analysis["hasSuspiciousKeywords"])
+        self.assertTrue(analysis["hasExecutableDownload"])
+        self.assertTrue(any("punycode" in warning.lower() for warning in analysis["warnings"]))
+
     def test_free_plan_blocks_qr_creation_after_limit(self):
         for idx in range(5):
             make_qrcode(self.user, name=f"Limit QR {idx}")
@@ -646,6 +1217,65 @@ class DashboardViewTest(TestCase):
             "qr_type": "url",
             "content": "https://example.com",
         })
+
+        self.assertRedirects(resp, reverse("core:pricing"))
+
+    def test_template_gallery_renders_categories_and_templates(self):
+        resp = self.client.get(reverse("qrcodes:templates"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Template Gallery")
+        self.assertContains(resp, "Restaurant")
+        self.assertContains(resp, "UPI payment")
+        self.assertContains(resp, "Use template")
+
+    @patch("apps.qrcodes.views._generate_qr_now", return_value=True)
+    def test_website_template_creates_dynamic_qr_and_campaign(self, mock_generate):
+        resp = self.client.post(reverse("qrcodes:template_create", args=["website-url"]), {
+            "name": "Main website",
+            "campaign_name": "Website launch",
+            "url": "example.com",
+        })
+
+        qr = QRCode.objects.get(name="Main website")
+        self.assertRedirects(resp, reverse("qrcodes:detail", args=[qr.id]))
+        self.assertEqual(qr.qr_type, QRCode.QRType.DYNAMIC)
+        self.assertEqual(qr.destination_url, "https://example.com")
+        self.assertEqual(qr.content, "https://example.com")
+        self.assertEqual(qr.campaign.name, "Website launch")
+        self.assertIn("website-url", qr.tags)
+        mock_generate.assert_called_once_with(qr)
+
+    def test_template_create_validates_relevant_fields(self):
+        resp = self.client.post(reverse("qrcodes:template_create", args=["website-url"]), {
+            "name": "Broken website",
+        })
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Website URL is required.")
+        self.assertFalse(QRCode.objects.filter(name="Broken website").exists())
+
+    @patch("apps.qrcodes.views._generate_qr_now", return_value=True)
+    def test_upi_template_builds_payment_payload(self, mock_generate):
+        resp = self.client.post(reverse("qrcodes:template_create", args=["upi-payment"]), {
+            "name": "Counter payment",
+            "payee_vpa": "merchant@upi",
+            "payee_name": "Narvyn Cafe",
+            "amount": "149.50",
+            "note": "Table order",
+        })
+
+        qr = QRCode.objects.get(name="Counter payment")
+        self.assertRedirects(resp, reverse("qrcodes:detail", args=[qr.id]))
+        self.assertEqual(qr.qr_type, QRCode.QRType.TEXT)
+        self.assertIn("upi://pay?", qr.content)
+        self.assertIn("pa=merchant%40upi", qr.content)
+        self.assertIn("am=149.50", qr.content)
+        self.assertIsNotNone(qr.campaign)
+        mock_generate.assert_called_once_with(qr)
+
+    def test_paid_template_requires_plan(self):
+        resp = self.client.get(reverse("qrcodes:template_create", args=["invoice-payment"]))
 
         self.assertRedirects(resp, reverse("core:pricing"))
         self.assertFalse(QRCode.objects.filter(user=self.user, name="Blocked QR").exists())
@@ -708,9 +1338,9 @@ class QRCodeCreateViewTest(TestCase):
         resp = self.client.get(reverse("qrcodes:create"))
         self.assertEqual(resp.status_code, 200)
         self.assertIn("form", resp.context)
-        self.assertContains(resp, "<details class=\"card group\"", count=4)
+        self.assertContains(resp, "<details class=\"disclosure-card group\"", count=4)
         self.assertContains(resp, "Ready with the basic details?")
-        self.assertContains(resp, "Colors, dots, corners, logo, frame, and output size.")
+        self.assertContains(resp, "Optional colors, logo, frame, shape, and output size.")
 
     @patch("apps.qrcodes.views._generate_qr_now", return_value=True)
     def test_post_valid_creates_qr(self, mock_generate):
@@ -1055,6 +1685,7 @@ class QRPremiumFeatureTest(TestCase):
         self.assertContains(resp, "capture=\"environment\"")
         self.assertContains(resp, "Open result")
         self.assertContains(resp, "showResult")
+        self.assertContains(resp, "startCamera({ auto: true })")
 
     def test_premium_studio_renders(self):
         make_qrcode(self.user, name="Studio QR")
