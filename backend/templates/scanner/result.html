@@ -225,7 +225,11 @@
       : Number(analysis?.safetyScore || 0);
     return Math.max(0, Math.min(100, Math.round(score)));
   };
-  const csrfToken = () => document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
+  const csrfToken = () => (
+    document.querySelector('meta[name="csrf-token"]')?.content ||
+    document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] ||
+    ''
+  );
   window.scannerResultSafetyScoreFor = safetyScoreFor;
   window.scannerResultCsrfToken = csrfToken;
 
