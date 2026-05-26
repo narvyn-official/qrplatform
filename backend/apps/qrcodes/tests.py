@@ -15,6 +15,7 @@ from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.accounts.models import BusinessVerification
+from apps.analytics.models import UserDailyStats
 from apps.qrcodes.models import (
     Certificate,
     QRCode,
@@ -629,6 +630,43 @@ class DashboardViewTest(TestCase):
         self.assertEqual(resp.context["weekly_unique_scans"], 1)
         self.assertContains(resp, 'id="weeklyTotal">2</p>')
         self.assertContains(resp, 'id="weeklyUnique">1</p>')
+
+    def test_dashboard_lifetime_total_never_falls_below_weekly_event_total(self):
+        qr = make_qrcode(self.user, name="Stale counter QR", total_scans=10, unique_scans=4)
+        for index in range(11):
+            QRScanEvent.objects.create(
+                qrcode=qr,
+                ip_address="127.0.0.1",
+                user_agent_raw="Mozilla/5.0",
+                fingerprint=f"scan-{index}",
+                is_unique=index < 5,
+                is_processed=True,
+                device_type="desktop",
+            )
+
+        resp = self.client.get(reverse("qrcodes:dashboard"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["weekly_total_scans"], 11)
+        self.assertEqual(resp.context["total_scans"], 11)
+        self.assertGreaterEqual(resp.context["total_scans"], resp.context["weekly_total_scans"])
+        self.assertContains(resp, '<p class="metric-value">11</p>')
+        self.assertContains(resp, 'id="weeklyTotal">11</p>')
+
+    def test_dashboard_lifetime_total_uses_rolled_up_daily_stats_floor(self):
+        make_qrcode(self.user, name="Rolled up QR", total_scans=10, unique_scans=2)
+        UserDailyStats.objects.create(
+            user_id=self.user.id,
+            date=timezone.localdate() - timedelta(days=30),
+            total_scans=18,
+            unique_scans=7,
+        )
+
+        resp = self.client.get(reverse("qrcodes:dashboard"))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["total_scans"], 18)
+        self.assertEqual(resp.context["unique_scans"], 7)
 
     def test_dashboard_total_scans_include_expired_codes(self):
         make_qrcode(self.user, name="Expired QR", status=QRCode.Status.EXPIRED, total_scans=8)

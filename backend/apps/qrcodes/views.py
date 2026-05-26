@@ -55,7 +55,7 @@ from apps.qrcodes.template_gallery import (
 from apps.qrcodes.tasks import generate_qr_images
 from apps.analytics.utils import get_client_ip, compute_scan_fingerprint
 from apps.analytics.tasks import process_scan_event, process_scan_event_now
-from apps.analytics.selectors import account_daily_scan_series
+from apps.analytics.selectors import account_daily_scan_series, account_lifetime_scan_totals
 
 logger = logging.getLogger(__name__)
 
@@ -337,11 +337,22 @@ def dashboard(request):
         total=Sum("total_scans"),
         unique=Sum("unique_scans"),
     )
-    total_scans = scan_totals["total"] or 0
-    unique_scans = scan_totals["unique"] or 0
     weekly_stats = account_daily_scan_series(user, days=7)
     weekly_total_scans = sum(row["total_scans"] for row in weekly_stats)
     weekly_unique_scans = sum(row["unique_scans"] for row in weekly_stats)
+    stored_total_scans = scan_totals["total"] or 0
+    stored_unique_scans = scan_totals["unique"] or 0
+    analytics_totals = account_lifetime_scan_totals(user)
+    total_scans = max(
+        stored_total_scans,
+        analytics_totals["total_scans"],
+        weekly_total_scans,
+    )
+    unique_scans = max(
+        stored_unique_scans,
+        analytics_totals["unique_scans"],
+        weekly_unique_scans,
+    )
     open_report_count = QRSuspiciousReport.objects.filter(
         qrcode__user=user,
         status__in=[QRSuspiciousReport.Status.OPEN, QRSuspiciousReport.Status.REVIEWING],

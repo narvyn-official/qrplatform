@@ -1,7 +1,7 @@
 """Read-side analytics helpers used by dashboards and APIs."""
 from datetime import timedelta
 
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from apps.analytics.models import UserDailyStats
@@ -64,3 +64,37 @@ def account_daily_scan_series(user, days=7):
         }
         for day in dates
     ]
+
+
+def account_lifetime_scan_totals(user):
+    """Return all-time account scan totals from processed analytics data.
+
+    QRCode.total_scans is still the fast denormalized counter used throughout
+    the app, but dashboards need a defensible analytics floor because old
+    deployments or failed retries can leave those counters behind raw/rolled-up
+    scan events. We combine daily aggregates with raw processed events for dates
+    that have not been aggregated yet.
+    """
+    daily_rows = UserDailyStats.objects.filter(user_id=user.id)
+    daily_totals = daily_rows.aggregate(
+        total_scans=Sum("total_scans"),
+        unique_scans=Sum("unique_scans"),
+    )
+    aggregated_dates = list(daily_rows.values_list("date", flat=True))
+
+    raw_events = QRScanEvent.objects.filter(
+        qrcode__user=user,
+        is_processed=True,
+    ).exclude(device_type="bot")
+    if aggregated_dates:
+        raw_events = raw_events.exclude(timestamp__date__in=aggregated_dates)
+
+    raw_totals = raw_events.aggregate(
+        total_scans=Count("id"),
+        unique_scans=Count("id", filter=Q(is_unique=True)),
+    )
+
+    return {
+        "total_scans": (daily_totals["total_scans"] or 0) + (raw_totals["total_scans"] or 0),
+        "unique_scans": (daily_totals["unique_scans"] or 0) + (raw_totals["unique_scans"] or 0),
+    }
