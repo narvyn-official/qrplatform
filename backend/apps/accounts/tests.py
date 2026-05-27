@@ -1079,6 +1079,17 @@ class CashfreeMembershipBillingTests(TestCase):
 
         self.assertEqual(resp.status_code, 200)
 
+    def test_cashfree_webhook_allows_signed_malformed_dashboard_probe(self):
+        resp = self.client.post(
+            reverse("accounts:cashfree_webhook"),
+            data=b"cashfree-test",
+            content_type="text/plain",
+            HTTP_X_WEBHOOK_SIGNATURE="dashboard-probe",
+            HTTP_X_WEBHOOK_TIMESTAMP="1760000000",
+        )
+
+        self.assertEqual(resp.status_code, 200)
+
     def test_cashfree_webhook_allows_unsigned_unknown_test_order(self):
         raw_body = json.dumps({
             "data": {
