@@ -70,7 +70,7 @@ services:
       - -c
       - "python manage.py migrate --noinput && python manage.py collectstatic --noinput && exec gunicorn --bind 0.0.0.0:8000 --workers 4 --worker-class gthread --threads 4 --timeout 120 --max-requests 1000 --max-requests-jitter 100 qrplatform.wsgi:application"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      test: ["CMD-SHELL", "curl -f -H 'Host: ${PLATFORM_DOMAIN:-localhost}' -H 'X-Forwarded-Proto: https' http://localhost:8000/health/"]
       interval: 30s
       timeout: 10s
       retries: 3

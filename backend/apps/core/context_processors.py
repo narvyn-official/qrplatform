@@ -2,6 +2,7 @@
 Template context processors — inject platform-wide settings into all templates.
 """
 from django.conf import settings
+from django.core.exceptions import DisallowedHost
 
 
 PRIVATE_PATH_PREFIXES = (
@@ -14,7 +15,11 @@ PRIVATE_PATH_PREFIXES = (
 
 
 def platform_settings(request):
-    canonical_url = request.build_absolute_uri(request.path)
+    try:
+        canonical_url = request.build_absolute_uri(request.path)
+    except DisallowedHost:
+        canonical_base = settings.PLATFORM_URL.rstrip("/")
+        canonical_url = f"{canonical_base}{request.path}"
     seo_description = (
         "Create trusted QR codes for payments, menus, products, events, and campaigns "
         "with safety checks, editable destinations, scan analytics, and exports."

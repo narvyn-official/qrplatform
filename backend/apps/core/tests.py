@@ -1,7 +1,8 @@
-from django.test import Client, TestCase, override_settings
+from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import reverse
 
 from apps.accounts.tests import make_active_user
+from apps.core.context_processors import platform_settings
 
 
 class CorePageTests(TestCase):
@@ -92,6 +93,14 @@ class CorePageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "ok")
+
+    @override_settings(ALLOWED_HOSTS=["qrplatform.io"], PLATFORM_URL="https://qrplatform.io")
+    def test_platform_context_handles_disallowed_health_host(self):
+        request = RequestFactory().get("/health/", HTTP_HOST="localhost:8000")
+
+        context = platform_settings(request)
+
+        self.assertEqual(context["CANONICAL_URL"], "https://qrplatform.io/health/")
 
     @override_settings(CSRF_FAILURE_VIEW="apps.core.views.csrf_failure")
     def test_csrf_failure_redirects_to_fresh_form(self):
