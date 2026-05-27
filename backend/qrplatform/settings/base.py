@@ -306,6 +306,9 @@ PLATFORM_URL = config("PLATFORM_URL", default="https://qr.narvyn.com")
 QR_REDIRECT_BASE = config("QR_REDIRECT_BASE", default="https://qr.narvyn.com/r/")
 SHORT_URL_BASE = config("SHORT_URL_BASE", default="https://qr.narvyn.com/r/")
 
+# Payment gateway. Supported values: "paytm", "cashfree".
+PAYMENT_GATEWAY = config("PAYMENT_GATEWAY", default="paytm")
+
 # Paytm payment gateway (UPI, Paytm wallet, cards, netbanking through JS Checkout).
 PAYTM_ENVIRONMENT = config("PAYTM_ENVIRONMENT", default="staging")
 PAYTM_MID = config("PAYTM_MID", default="")
@@ -314,6 +317,14 @@ PAYTM_WEBSITE_NAME = config(
     "PAYTM_WEBSITE_NAME",
     default="DEFAULT" if PAYTM_ENVIRONMENT == "production" else "WEBSTAGING",
 )
+
+# Cashfree payment gateway (hosted checkout).
+CASHFREE_ENVIRONMENT = config("CASHFREE_ENVIRONMENT", default="sandbox")
+CASHFREE_CLIENT_ID = config("CASHFREE_CLIENT_ID", default="")
+CASHFREE_CLIENT_SECRET = config("CASHFREE_CLIENT_SECRET", default="")
+CASHFREE_API_VERSION = config("CASHFREE_API_VERSION", default="2025-01-01")
+CASHFREE_PAYMENT_METHODS = config("CASHFREE_PAYMENT_METHODS", default="upi")
+CASHFREE_DEFAULT_CUSTOMER_PHONE = config("CASHFREE_DEFAULT_CUSTOMER_PHONE", default="9999999999")
 
 # Free tier limits
 FREE_TIER_QR_LIMIT = 5

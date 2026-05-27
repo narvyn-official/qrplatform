@@ -3,6 +3,10 @@ Comprehensive tests for the accounts app.
 Covers: models, forms, and views.
 """
 import uuid
+import base64
+import hashlib
+import hmac
+import json
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
@@ -914,3 +918,129 @@ class MembershipBillingTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(self.user.active_plan_code, "free")
         self.assertEqual(order.status, MembershipOrder.Status.FAILED)
+
+
+@override_settings(
+    CACHES=CACHE_OVERRIDE,
+    PAYMENT_GATEWAY="cashfree",
+    CASHFREE_ENVIRONMENT="production",
+    CASHFREE_CLIENT_ID="cf_client_id",
+    CASHFREE_CLIENT_SECRET="cf_client_secret",
+    CASHFREE_PAYMENT_METHODS="upi",
+)
+class CashfreeMembershipBillingTests(TestCase):
+
+    def setUp(self):
+        self.user = make_active_user(email="cashfree-billing@example.com")
+        self.client.force_login(self.user)
+
+    @patch("apps.accounts.billing_views.create_cashfree_order")
+    def test_checkout_creates_cashfree_membership_order(self, mock_create_order):
+        mock_create_order.return_value = {
+            "order_id": "CF_REMOTE_ORDER",
+            "cf_order_id": "12345",
+            "payment_session_id": "session_123",
+            "order_status": "ACTIVE",
+        }
+
+        resp = self.client.get(reverse("accounts:billing_checkout", args=["pro"]) + "?billing=monthly")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Pay with UPI")
+        self.assertContains(resp, "session_123")
+        order = MembershipOrder.objects.get(provider="cashfree")
+        self.assertEqual(order.plan_code, "pro")
+        self.assertEqual(order.amount_paise, 49900)
+        mock_create_order.assert_called_once()
+        kwargs = mock_create_order.call_args.kwargs
+        self.assertIn("billing/callback/cashfree/", kwargs["return_url"])
+        self.assertIn("billing/webhook/cashfree/", kwargs["notify_url"])
+
+    @override_settings(CASHFREE_CLIENT_ID="", CASHFREE_CLIENT_SECRET="")
+    def test_cashfree_checkout_requires_gateway_configuration(self):
+        resp = self.client.get(reverse("accounts:billing_checkout", args=["pro"]))
+
+        self.assertEqual(resp.status_code, 503)
+        self.assertContains(resp, "Cashfree is not configured", status_code=503)
+
+    @patch("apps.accounts.billing_views.fetch_cashfree_order_payments")
+    @patch("apps.accounts.billing_views.fetch_cashfree_order")
+    def test_cashfree_callback_activates_membership_after_server_verification(self, mock_order, mock_payments):
+        order = MembershipOrder.objects.create(
+            user=self.user,
+            plan_code="pro",
+            billing_cycle="monthly",
+            amount_paise=49900,
+            provider="cashfree",
+            provider_order_id="CF_CALLBACK_ORDER",
+            receipt="CF_CALLBACK_ORDER",
+        )
+        mock_order.return_value = {
+            "order_id": order.provider_order_id,
+            "cf_order_id": "cf_123",
+            "order_status": "PAID",
+        }
+        mock_payments.return_value = [{"cf_payment_id": "pay_123", "payment_status": "SUCCESS"}]
+
+        resp = self.client.get(reverse("accounts:cashfree_callback") + f"?order_id={order.provider_order_id}")
+
+        self.assertRedirects(resp, reverse("qrcodes:dashboard"))
+        self.user.refresh_from_db()
+        order.refresh_from_db()
+        self.assertEqual(self.user.active_plan_code, "pro")
+        self.assertEqual(order.status, MembershipOrder.Status.PAID)
+        self.assertEqual(order.provider_payment_id, "pay_123")
+
+    @patch("apps.accounts.billing_views.fetch_cashfree_order_payments")
+    @patch("apps.accounts.billing_views.fetch_cashfree_order")
+    def test_cashfree_webhook_requires_valid_signature_and_marks_paid(self, mock_order, mock_payments):
+        order = MembershipOrder.objects.create(
+            user=self.user,
+            plan_code="enterprise",
+            billing_cycle="yearly",
+            amount_paise=1999900,
+            provider="cashfree",
+            provider_order_id="CF_WEBHOOK_ORDER",
+            receipt="CF_WEBHOOK_ORDER",
+        )
+        mock_order.return_value = {
+            "order_id": order.provider_order_id,
+            "cf_order_id": "cf_456",
+            "order_status": "PAID",
+        }
+        mock_payments.return_value = [{"cf_payment_id": "pay_456", "payment_status": "SUCCESS"}]
+        raw_body = json.dumps({
+            "data": {
+                "order": {"order_id": order.provider_order_id, "order_status": "PAID"},
+                "payment": {"cf_payment_id": "pay_456", "payment_status": "SUCCESS"},
+            }
+        }).encode("utf-8")
+        timestamp = "1760000000"
+        signature = base64.b64encode(
+            hmac.new(b"cf_client_secret", timestamp.encode("utf-8") + raw_body, hashlib.sha256).digest()
+        ).decode("utf-8")
+
+        resp = self.client.post(
+            reverse("accounts:cashfree_webhook"),
+            data=raw_body,
+            content_type="application/json",
+            HTTP_X_WEBHOOK_SIGNATURE=signature,
+            HTTP_X_WEBHOOK_TIMESTAMP=timestamp,
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.user.refresh_from_db()
+        order.refresh_from_db()
+        self.assertEqual(self.user.active_plan_code, "enterprise")
+        self.assertEqual(order.status, MembershipOrder.Status.PAID)
+
+    def test_cashfree_webhook_rejects_invalid_signature(self):
+        resp = self.client.post(
+            reverse("accounts:cashfree_webhook"),
+            data=b'{"data": {}}',
+            content_type="application/json",
+            HTTP_X_WEBHOOK_SIGNATURE="bad",
+            HTTP_X_WEBHOOK_TIMESTAMP="1760000000",
+        )
+
+        self.assertEqual(resp.status_code, 400)

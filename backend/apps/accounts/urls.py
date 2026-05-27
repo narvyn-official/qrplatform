@@ -22,5 +22,7 @@ urlpatterns = [
     path("api-keys/<uuid:key_id>/revoke/", views.revoke_api_key, name="revoke_api_key"),
     path("billing/checkout/<str:plan_code>/", billing_views.checkout, name="billing_checkout"),
     path("billing/callback/", billing_views.billing_callback, name="billing_callback"),
+    path("billing/callback/cashfree/", billing_views.cashfree_callback, name="cashfree_callback"),
     path("billing/webhook/paytm/", billing_views.paytm_webhook, name="paytm_webhook"),
+    path("billing/webhook/cashfree/", billing_views.cashfree_webhook, name="cashfree_webhook"),
 ]
