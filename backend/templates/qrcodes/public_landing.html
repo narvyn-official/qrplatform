@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,7 +18,7 @@
   <meta name="twitter:title" content="{{ landing.title }}">
   <meta name="twitter:description" content="{% if landing.body %}{{ landing.body|striptags|truncatechars:155 }}{% else %}{{ qr.name }}{% endif %}">
   <meta name="twitter:image" content="{{ SEO_DEFAULT_IMAGE }}">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body class="min-h-screen bg-[#07111F] text-white">
   <main class="mx-auto flex min-h-screen max-w-md flex-col px-5 py-8">
