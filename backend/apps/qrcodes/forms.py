@@ -90,6 +90,20 @@ class QRCodeForm(forms.ModelForm):
         self.fields["tags"].required = False
         self.fields["scheduled_active_from"].required = False
         self.fields["scheduled_active_until"].required = False
+        self.fields["outer_shape"].widget = forms.HiddenInput()
+        self.fields["outer_shape"].required = False
+        self.fields["outer_shape"].initial = self.instance.outer_shape or QRCode.OuterShape.SQUARE
+        self.fields["dot_style"].choices = [
+            (QRCode.DotStyle.SQUARE, "Classic"),
+            (QRCode.DotStyle.ROUNDED, "Soft rounded"),
+            (QRCode.DotStyle.DOTS, "Dots"),
+            (QRCode.DotStyle.CLASSY, "Clean grid"),
+        ]
+        self.fields["corner_style"].choices = [
+            (QRCode.CornerStyle.SQUARE, "Square"),
+            (QRCode.CornerStyle.EXTRA_ROUNDED, "Rounded"),
+            (QRCode.CornerStyle.DOT, "Dot"),
+        ]
 
         # Pre-populate UTM fields from existing utm_params JSON
         if self.instance and self.instance.pk and self.instance.utm_params:
@@ -126,6 +140,7 @@ class QRCodeForm(forms.ModelForm):
         qr_type = cleaned.get("qr_type")
         content = (cleaned.get("content") or "").strip()
         destination_url = (cleaned.get("destination_url") or "").strip()
+        cleaned["outer_shape"] = cleaned.get("outer_shape") or QRCode.OuterShape.SQUARE
         is_password_protected = cleaned.get("is_password_protected")
         access_password = cleaned.get("access_password")
 

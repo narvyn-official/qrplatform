@@ -118,13 +118,16 @@ def checkout(request, plan_code):
         messages.error(request, "Choose a valid paid membership plan.")
         return redirect("core:pricing")
 
-    amount_paise = amount_to_paise(plan.price(billing_cycle))
+    selected_billing = plan.billing_option(billing_cycle)
+    amount_paise = amount_to_paise(selected_billing.price_inr)
     gateway = active_payment_gateway()
     context = {
         "plan": plan,
         "billing_cycle": billing_cycle,
+        "billing_options": plan.billing_options(),
+        "selected_billing": selected_billing,
         "amount_paise": amount_paise,
-        "amount_inr": plan.price(billing_cycle),
+        "amount_inr": selected_billing.price_inr,
         "amount_cashfree": amount_to_cashfree_value(amount_paise),
         "amount_paytm": amount_to_paytm_value(amount_paise),
         "gateway": gateway,

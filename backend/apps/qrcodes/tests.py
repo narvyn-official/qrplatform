@@ -16,12 +16,14 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.accounts.models import BusinessVerification
 from apps.analytics.models import UserDailyStats
+from apps.barcodes.models import Barcode
 from apps.qrcodes.models import (
     Certificate,
     QRCode,
     QRCodeCampaign,
     QRScanEvent,
     QRDestinationRule,
+    QRHealthCheck,
     QRLandingPage,
     QRConversionEvent,
     QRSuspiciousReport,
@@ -536,6 +538,29 @@ class QRCodeFormTest(TestCase):
         self.assertIn("logo", form.errors)
 
 
+class QRCodeImageGenerationTest(TestCase):
+
+    def test_dot_and_corner_styles_change_rendered_output(self):
+        from apps.qrcodes.utils import generate_qr_image, image_to_bytes
+
+        base = generate_qr_image(
+            "https://example.com",
+            dot_style=QRCode.DotStyle.SQUARE,
+            corner_style=QRCode.CornerStyle.SQUARE,
+            size=260,
+        )
+        styled = generate_qr_image(
+            "https://example.com",
+            dot_style=QRCode.DotStyle.DOTS,
+            corner_style=QRCode.CornerStyle.DOT,
+            size=260,
+        )
+
+        self.assertEqual(base.size, (260, 260))
+        self.assertEqual(styled.size, (260, 260))
+        self.assertNotEqual(image_to_bytes(base), image_to_bytes(styled))
+
+
 # ── View tests ────────────────────────────────────────────────────────────────
 
 @override_settings(
@@ -568,13 +593,88 @@ class DashboardViewTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("quick_actions", resp.context)
         self.assertIn("launch_checklist", resp.context)
+        self.assertIn("attention_items", resp.context)
+        self.assertIn("recent_workspace_items", resp.context)
+        self.assertIn("scan_pulse", resp.context)
+        self.assertIn("workspace_totals", resp.context)
         self.assertEqual(resp.context["completed_steps"], 0)
         self.assertEqual(resp.context["recommended_action"]["label"], "Create your first QR")
         self.assertContains(resp, "Campaign launch checklist")
         self.assertContains(resp, "Launch trusted QR campaigns.")
+        self.assertContains(resp, "Action center")
+        self.assertContains(resp, "Scan pulse")
+        self.assertContains(resp, "Recent workspace")
+        self.assertContains(resp, "Workspace mix")
         self.assertContains(resp, reverse("accounts:logout"))
         self.assertContains(resp, "Logout")
 
+
+    def test_dashboard_surfaces_real_attention_items(self):
+        reported = make_qrcode(self.user, name="Reported landing page")
+        QRSuspiciousReport.objects.create(
+            qrcode=reported,
+            scanned_value="https://example.com/bad",
+            reason=QRSuspiciousReport.Reason.PHISHING,
+            status=QRSuspiciousReport.Status.OPEN,
+        )
+        broken = make_qrcode(self.user, name="Broken destination")
+        QRHealthCheck.objects.create(
+            qrcode=broken,
+            status=QRHealthCheck.Status.BROKEN,
+            status_code=404,
+            issue="Destination returned 404.",
+        )
+        make_qrcode(self.user, name="Limit pressure", scan_limit=10, total_scans=9)
+        make_qrcode(self.user, name="Renew soon", expires_at=timezone.now() + timedelta(days=2))
+
+        resp = self.client.get(reverse("qrcodes:dashboard"))
+
+        labels = [item["label"] for item in resp.context["attention_items"]]
+        self.assertIn("Security report", labels)
+        self.assertIn("Destination health", labels)
+        self.assertIn("Scan limit", labels)
+        self.assertIn("Expiry coming", labels)
+        self.assertContains(resp, "Reported landing page")
+        self.assertContains(resp, "Destination returned 404.")
+        self.assertContains(resp, "9 of 10 scans used")
+
+    def test_dashboard_tracks_scan_pulse_and_recent_workspace(self):
+        qr = make_qrcode(
+            self.user,
+            name="Campaign QR",
+            total_scans=4,
+            unique_scans=2,
+            last_scanned_at=timezone.now(),
+        )
+        QRScanEvent.objects.create(
+            qrcode=qr,
+            ip_address="127.0.0.1",
+            user_agent_raw="Mozilla/5.0",
+            fingerprint="today-scan",
+            is_unique=True,
+            is_processed=True,
+            device_type="mobile",
+        )
+        Barcode.objects.create(
+            user=self.user,
+            name="Shelf label",
+            barcode_format=Barcode.BarcodeFormat.CODE128,
+            content="SKU-1001",
+        )
+        make_certificate(self.user, recipient_name="Maya Kapoor", title="Training Award")
+
+        resp = self.client.get(reverse("qrcodes:dashboard"))
+
+        self.assertEqual(resp.context["scan_pulse"]["last_24h_scans"], 1)
+        self.assertEqual(resp.context["scan_pulse"]["unique_rate"], 50)
+        self.assertEqual(resp.context["workspace_totals"]["barcodes"], 1)
+        self.assertEqual(resp.context["workspace_totals"]["certificates"], 1)
+        workspace_names = [item["name"] for item in resp.context["recent_workspace_items"]]
+        self.assertIn("Campaign QR", workspace_names)
+        self.assertIn("Shelf label", workspace_names)
+        self.assertIn("Maya Kapoor", workspace_names)
+        self.assertContains(resp, "Shelf label")
+        self.assertContains(resp, "Maya Kapoor")
 
     def test_dashboard_recommends_scan_after_first_qr(self):
         make_qrcode(self.user, name="Needs scan")
@@ -790,10 +890,10 @@ class CertificateVerificationViewTest(TestCase):
 
         self.assertEqual(resp.status_code, 404)
 
-    def test_template_gallery_certificate_shortcut_opens_certificate_form(self):
+    def test_template_gallery_certificate_shortcut_redirects_to_manual_builder(self):
         resp = self.client.get(reverse("qrcodes:template_create", args=["certificate-verification"]))
 
-        self.assertRedirects(resp, reverse("qrcodes:certificate_new"))
+        self.assertRedirects(resp, reverse("qrcodes:create"))
 
 
 class QRScannerSafetyViewTest(TestCase):
@@ -1258,43 +1358,30 @@ class QRScannerSafetyViewTest(TestCase):
 
         self.assertRedirects(resp, reverse("core:pricing"))
 
-    def test_template_gallery_renders_categories_and_templates(self):
+    def test_template_gallery_redirects_to_manual_builder(self):
         resp = self.client.get(reverse("qrcodes:templates"))
 
-        self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Template Gallery")
-        self.assertContains(resp, "Restaurant")
-        self.assertContains(resp, "UPI payment")
-        self.assertContains(resp, "Use template")
+        self.assertRedirects(resp, reverse("qrcodes:create"))
 
-    @patch("apps.qrcodes.views._generate_qr_now", return_value=True)
-    def test_website_template_creates_dynamic_qr_and_campaign(self, mock_generate):
+    def test_website_template_redirects_to_manual_builder(self):
         resp = self.client.post(reverse("qrcodes:template_create", args=["website-url"]), {
             "name": "Main website",
             "campaign_name": "Website launch",
             "url": "example.com",
         })
 
-        qr = QRCode.objects.get(name="Main website")
-        self.assertRedirects(resp, reverse("qrcodes:detail", args=[qr.id]))
-        self.assertEqual(qr.qr_type, QRCode.QRType.DYNAMIC)
-        self.assertEqual(qr.destination_url, "https://example.com")
-        self.assertEqual(qr.content, "https://example.com")
-        self.assertEqual(qr.campaign.name, "Website launch")
-        self.assertIn("website-url", qr.tags)
-        mock_generate.assert_called_once_with(qr)
+        self.assertRedirects(resp, reverse("qrcodes:create"))
+        self.assertFalse(QRCode.objects.filter(name="Main website").exists())
 
-    def test_template_create_validates_relevant_fields(self):
+    def test_template_create_validation_is_disabled_with_gallery(self):
         resp = self.client.post(reverse("qrcodes:template_create", args=["website-url"]), {
             "name": "Broken website",
         })
 
-        self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Website URL is required.")
+        self.assertRedirects(resp, reverse("qrcodes:create"))
         self.assertFalse(QRCode.objects.filter(name="Broken website").exists())
 
-    @patch("apps.qrcodes.views._generate_qr_now", return_value=True)
-    def test_upi_template_builds_payment_payload(self, mock_generate):
+    def test_upi_template_redirects_to_manual_builder(self):
         resp = self.client.post(reverse("qrcodes:template_create", args=["upi-payment"]), {
             "name": "Counter payment",
             "payee_vpa": "merchant@upi",
@@ -1303,19 +1390,13 @@ class QRScannerSafetyViewTest(TestCase):
             "note": "Table order",
         })
 
-        qr = QRCode.objects.get(name="Counter payment")
-        self.assertRedirects(resp, reverse("qrcodes:detail", args=[qr.id]))
-        self.assertEqual(qr.qr_type, QRCode.QRType.TEXT)
-        self.assertIn("upi://pay?", qr.content)
-        self.assertIn("pa=merchant%40upi", qr.content)
-        self.assertIn("am=149.50", qr.content)
-        self.assertIsNotNone(qr.campaign)
-        mock_generate.assert_called_once_with(qr)
+        self.assertRedirects(resp, reverse("qrcodes:create"))
+        self.assertFalse(QRCode.objects.filter(name="Counter payment").exists())
 
-    def test_paid_template_requires_plan(self):
+    def test_paid_template_redirects_to_manual_builder(self):
         resp = self.client.get(reverse("qrcodes:template_create", args=["invoice-payment"]))
 
-        self.assertRedirects(resp, reverse("core:pricing"))
+        self.assertRedirects(resp, reverse("qrcodes:create"))
         self.assertFalse(QRCode.objects.filter(user=self.user, name="Blocked QR").exists())
 
 
@@ -1372,13 +1453,35 @@ class QRCodeCreateViewTest(TestCase):
         self.user.save(update_fields=["plan", "role"])
         self.client.force_login(self.user)
 
-    def test_get_renders_form(self):
+    def test_get_renders_action_chooser(self):
         resp = self.client.get(reverse("qrcodes:create"))
         self.assertEqual(resp.status_code, 200)
         self.assertIn("form", resp.context)
+        self.assertEqual(resp.context["selected_qr_type"], "")
+        self.assertContains(resp, "Choose QR action")
+        self.assertContains(resp, "?type=whatsapp")
+        self.assertContains(resp, "The form opens on the next page.")
+        self.assertNotContains(resp, "QR Code Name")
+
+    def test_get_with_type_renders_dedicated_form(self):
+        resp = self.client.get(reverse("qrcodes:create") + "?type=whatsapp")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["selected_qr_type"], QRCode.QRType.WHATSAPP)
+        self.assertContains(resp, "Create WhatsApp QR")
+        self.assertContains(resp, "Change action")
+        self.assertContains(resp, "QR Code Name")
+        self.assertContains(resp, "Phone Number")
+        self.assertNotContains(resp, "The form opens on the next page.")
+        self.assertContains(resp, "Clean grid")
+        self.assertContains(resp, "Rounded")
+        self.assertNotContains(resp, "Outer Shape")
         self.assertContains(resp, "<details class=\"disclosure-card group\"", count=4)
         self.assertContains(resp, "Ready with the basic details?")
-        self.assertContains(resp, "Optional colors, logo, frame, shape, and output size.")
+        self.assertContains(resp, "Optional colors, clean QR styling, logo, frame, and output size.")
+
+    def test_get_invalid_type_redirects_to_chooser(self):
+        resp = self.client.get(reverse("qrcodes:create") + "?type=not-real")
+        self.assertRedirects(resp, reverse("qrcodes:create"))
 
     @patch("apps.qrcodes.views._generate_qr_now", return_value=True)
     def test_post_valid_creates_qr(self, mock_generate):
@@ -1388,9 +1491,8 @@ class QRCodeCreateViewTest(TestCase):
             "content": "https://example.com",
             "foreground_color": "#000000",
             "background_color": "#FFFFFF",
-            "dot_style": "square",
-            "corner_style": "square",
-            "outer_shape": "circle",
+            "dot_style": "classy",
+            "corner_style": "dot",
             "error_correction": "M",
             "qr_size": 300,
             "logo_size_ratio": 0.2,
@@ -1398,7 +1500,10 @@ class QRCodeCreateViewTest(TestCase):
             "tags": "[]",
         })
         self.assertEqual(QRCode.objects.filter(user=self.user, name="New URL QR").count(), 1)
-        self.assertEqual(QRCode.objects.get(user=self.user, name="New URL QR").outer_shape, "circle")
+        qr = QRCode.objects.get(user=self.user, name="New URL QR")
+        self.assertEqual(qr.dot_style, QRCode.DotStyle.CLASSY)
+        self.assertEqual(qr.corner_style, QRCode.CornerStyle.DOT)
+        self.assertEqual(qr.outer_shape, QRCode.OuterShape.SQUARE)
         self.assertEqual(resp.status_code, 302)
         mock_generate.assert_called_once()
 

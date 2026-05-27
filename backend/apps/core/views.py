@@ -9,7 +9,7 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
-from apps.accounts.payments import paytm_configured
+from apps.accounts.payments import active_payment_gateway, cashfree_configured, paytm_configured
 from apps.accounts.plans import PLAN_CATALOG
 
 logger = logging.getLogger(__name__)
@@ -118,6 +118,8 @@ def health_check(request):
 def pricing(request):
     site_url = settings.PLATFORM_URL.rstrip("/")
     plans = [PLAN_CATALOG["free"], PLAN_CATALOG["pro"], PLAN_CATALOG["enterprise"]]
+    gateway = active_payment_gateway()
+    gateway_configured = cashfree_configured() if gateway == "cashfree" else paytm_configured()
     schema = {
         "@context": "https://schema.org",
         "@type": "Product",
@@ -127,7 +129,7 @@ def pricing(request):
         "offers": [
             {
                 "@type": "Offer",
-                "name": plan.name,
+                "name": f"{plan.name} monthly",
                 "url": f"{site_url}{reverse('core:pricing')}",
                 "price": str(plan.monthly_price_inr),
                 "priceCurrency": "INR",
@@ -138,7 +140,8 @@ def pricing(request):
     }
     return render(request, "core/pricing.html", {
         "plans": plans,
-        "gateway_configured": paytm_configured(),
+        "gateway": gateway,
+        "gateway_configured": gateway_configured,
         "schema_json": json.dumps(schema),
     })
 

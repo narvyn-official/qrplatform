@@ -23,7 +23,7 @@
   <article class="metric-tile">
     <p class="metric-label">Paid revenue</p>
     <p class="metric-value">₹{{ order_totals.revenue_inr|floatformat:0 }}</p>
-    <p class="mt-2 text-sm text-gray-500">{{ order_totals.paid }} paid order{{ order_totals.paid|pluralize }} · Paytm checkout</p>
+    <p class="mt-2 text-sm text-gray-500">{{ order_totals.paid }} paid order{{ order_totals.paid|pluralize }} · verified checkout</p>
   </article>
 </section>
 
@@ -136,7 +136,7 @@
       <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 p-4">
         <span class="min-w-0">
           <span class="block truncate text-sm font-bold">{{ order.user.email }}</span>
-          <span class="block text-xs text-gray-500">{{ order.plan_code|title }} · ₹{% widthratio order.amount_paise 100 1 %} · {{ order.created_at|date:"M d" }}</span>
+          <span class="block text-xs text-gray-500">{{ order.plan_code|title }} · {{ order.billing_cycle|title }} · ₹{% widthratio order.amount_paise 100 1 %} · {{ order.created_at|date:"M d" }}</span>
         </span>
         {% include "platform_admin/status_badge.html" with status=order.status label=order.get_status_display %}
       </div>

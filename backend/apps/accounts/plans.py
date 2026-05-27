@@ -6,11 +6,50 @@ from django.utils import timezone
 
 
 @dataclass(frozen=True)
+class BillingOption:
+    cycle: str
+    label: str
+    months: int
+    price_inr: int
+    monthly_price_inr: int
+    badge: str = ""
+
+    @property
+    def subtotal_inr(self):
+        return self.monthly_price_inr * self.months
+
+    @property
+    def savings_inr(self):
+        return max(self.subtotal_inr - self.price_inr, 0)
+
+    @property
+    def discount_percent(self):
+        if not self.subtotal_inr or not self.savings_inr:
+            return 0
+        return round((self.savings_inr / self.subtotal_inr) * 100)
+
+    @property
+    def per_month_inr(self):
+        if not self.months:
+            return self.price_inr
+        return round(self.price_inr / self.months)
+
+    @property
+    def subtitle(self):
+        if self.months == 1:
+            return "Pay month to month"
+        if self.savings_inr:
+            return f"Save Rs {self.savings_inr}"
+        return f"{self.months} months included"
+
+
+@dataclass(frozen=True)
 class Plan:
     code: str
     name: str
     role: str
     monthly_price_inr: int
+    quarterly_price_inr: int
     yearly_price_inr: int
     max_qr: int
     max_scans: int
@@ -23,8 +62,21 @@ class Plan:
     scheduled: bool = False
     clone: bool = True
 
+    def billing_options(self):
+        return (
+            BillingOption("monthly", "Monthly", 1, self.monthly_price_inr, self.monthly_price_inr),
+            BillingOption("quarterly", "Quarterly", 3, self.quarterly_price_inr, self.monthly_price_inr, "Best balance"),
+            BillingOption("yearly", "Yearly", 12, self.yearly_price_inr, self.monthly_price_inr, "Best value"),
+        )
+
+    def billing_option(self, billing_cycle="monthly"):
+        for option in self.billing_options():
+            if option.cycle == billing_cycle:
+                return option
+        return self.billing_options()[0]
+
     def price(self, billing_cycle="monthly"):
-        return self.yearly_price_inr if billing_cycle == "yearly" else self.monthly_price_inr
+        return self.billing_option(billing_cycle).price_inr
 
 
 PLAN_CATALOG = {
@@ -33,6 +85,7 @@ PLAN_CATALOG = {
         name="Free",
         role="user",
         monthly_price_inr=0,
+        quarterly_price_inr=0,
         yearly_price_inr=0,
         max_qr=5,
         max_scans=1_000,
@@ -43,6 +96,7 @@ PLAN_CATALOG = {
         name="Pro",
         role="pro",
         monthly_price_inr=499,
+        quarterly_price_inr=1_299,
         yearly_price_inr=4_999,
         max_qr=100,
         max_scans=50_000,
@@ -66,6 +120,7 @@ PLAN_CATALOG = {
         name="Business",
         role="enterprise",
         monthly_price_inr=1_999,
+        quarterly_price_inr=5_299,
         yearly_price_inr=19_999,
         max_qr=-1,
         max_scans=-1,
@@ -88,7 +143,7 @@ PLAN_CATALOG = {
 
 
 PAID_PLAN_CODES = ("pro", "enterprise")
-BILLING_CYCLES = ("monthly", "yearly")
+BILLING_CYCLES = ("monthly", "quarterly", "yearly")
 
 
 def get_plan(code):
@@ -114,4 +169,6 @@ def plan_period_end(billing_cycle="monthly", start=None):
     start = start or timezone.now()
     if billing_cycle == "yearly":
         return start + timedelta(days=365)
+    if billing_cycle == "quarterly":
+        return start + timedelta(days=90)
     return start + timedelta(days=30)

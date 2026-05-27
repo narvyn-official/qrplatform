@@ -60,10 +60,7 @@
       position: absolute;
       inset: 0;
       z-index: -1;
-      background:
-        radial-gradient(circle at 12% 16%, rgba(37, 99, 255, .13), transparent 30%),
-        radial-gradient(circle at 88% 24%, rgba(0, 209, 201, .13), transparent 28%),
-        linear-gradient(135deg, rgba(248, 250, 252, .98), rgba(255, 255, 255, .94));
+      background: linear-gradient(180deg, rgba(248, 250, 252, .98), rgba(255, 255, 255, .96));
     }
     .builder-step { @apply card relative overflow-hidden p-5 sm:p-6; }
     .builder-step::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 3px; background: linear-gradient(90deg, #2563FF, #00D1C9, #0B1331); opacity: .9; }

@@ -391,6 +391,30 @@ class LoginViewTests(TestCase):
         self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
 
     @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_valid_login_rejects_unknown_local_next_url(self, mock_ip):
+        resp = self.client.post(self.url + "?next=/missing-after-login/", {
+            "email": self.user.email,
+            "password": "testpass123",
+        })
+        self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
+
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_valid_login_normalizes_known_local_next_url(self, mock_ip):
+        resp = self.client.post(self.url + "?next=/dashboard", {
+            "email": self.user.email,
+            "password": "testpass123",
+        })
+        self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
+
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_valid_login_rejects_auth_callback_next_url(self, mock_ip):
+        resp = self.client.post(self.url + f"?next={reverse('accounts:google_callback')}", {
+            "email": self.user.email,
+            "password": "testpass123",
+        })
+        self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
+
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
     def test_remember_me_sets_seven_day_session(self, mock_ip):
         self.client.post(self.url, {
             "email": self.user.email,
@@ -446,6 +470,11 @@ class GoogleOAuthViewTests(TestCase):
         self.assertIn("accounts.google.com", resp["Location"])
         self.assertIn("scope=openid+email+profile", resp["Location"])
         self.assertIn("google_oauth_state", self.client.session)
+
+    def test_google_login_rejects_unknown_local_next_url(self):
+        self.client.get(reverse("accounts:google_login"), {"next": "/missing-after-google/"})
+
+        self.assertEqual(self.client.session["google_oauth_next"], "/dashboard/")
 
     @override_settings(GOOGLE_OAUTH_CLIENT_ID="", GOOGLE_OAUTH_CLIENT_SECRET="")
     def test_google_login_without_config_redirects_to_login(self):
@@ -516,6 +545,35 @@ class GoogleOAuthViewTests(TestCase):
         self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
         user.refresh_from_db()
         self.assertEqual(user.google_sub, "google-sub-2")
+
+    @patch("apps.accounts.views.requests.get")
+    @patch("apps.accounts.views.requests.post")
+    @patch("apps.accounts.views.get_client_ip", return_value="127.0.0.1")
+    def test_google_callback_rechecks_stored_next_before_redirect(self, mock_ip, mock_post, mock_get):
+        session = self.client.session
+        session["google_oauth_state"] = "state123"
+        session["google_oauth_next"] = "/missing-after-google/"
+        session.save()
+
+        token_response = MagicMock()
+        token_response.json.return_value = {"id_token": "id-token"}
+        token_response.raise_for_status.return_value = None
+        mock_post.return_value = token_response
+
+        profile_response = MagicMock()
+        profile_response.json.return_value = {
+            "aud": "client-id.apps.googleusercontent.com",
+            "sub": "google-sub-3",
+            "email": "nextcheck@example.com",
+            "email_verified": "true",
+            "name": "Next Check",
+        }
+        profile_response.raise_for_status.return_value = None
+        mock_get.return_value = profile_response
+
+        resp = self.client.get(reverse("accounts:google_callback"), {"state": "state123", "code": "abc"})
+
+        self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
 
 
 @override_settings(CACHES=CACHE_OVERRIDE)
@@ -955,6 +1013,25 @@ class CashfreeMembershipBillingTests(TestCase):
         kwargs = mock_create_order.call_args.kwargs
         self.assertIn("billing/callback/cashfree/", kwargs["return_url"])
         self.assertIn("billing/webhook/cashfree/", kwargs["notify_url"])
+
+    @patch("apps.accounts.billing_views.create_cashfree_order")
+    def test_checkout_supports_quarterly_billing_discount(self, mock_create_order):
+        mock_create_order.return_value = {
+            "order_id": "CF_REMOTE_QUARTERLY",
+            "cf_order_id": "12346",
+            "payment_session_id": "session_quarterly",
+            "order_status": "ACTIVE",
+        }
+
+        resp = self.client.get(reverse("accounts:billing_checkout", args=["pro"]) + "?billing=quarterly")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Quarterly")
+        self.assertContains(resp, "Save Rs 198")
+        order = MembershipOrder.objects.get(provider="cashfree")
+        self.assertEqual(order.billing_cycle, "quarterly")
+        self.assertEqual(order.amount_paise, 129900)
+        self.assertEqual(mock_create_order.call_args.kwargs["amount_paise"], 129900)
 
     @override_settings(CASHFREE_CLIENT_ID="", CASHFREE_CLIENT_SECRET="")
     def test_cashfree_checkout_requires_gateway_configuration(self):

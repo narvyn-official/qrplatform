@@ -12,7 +12,8 @@
   initialType: '{{ form.qr_type.value|default:'url'|escapejs }}',
   initialContent: '{{ form.content.value|default:''|escapejs }}',
   initialDestination: '{{ form.destination_url.value|default:''|escapejs }}',
-  initialOuterShape: '{{ form.outer_shape.value|default:'square'|escapejs }}',
+  initialDotStyle: '{{ form.dot_style.value|default:'square'|escapejs }}',
+  initialCornerStyle: '{{ form.corner_style.value|default:'square'|escapejs }}',
   initialProtected: {% if form.is_password_protected.value %}true{% else %}false{% endif %}
 })" x-init="updatePayload()">
 
@@ -22,92 +23,65 @@
   </div>
   {% endif %}
 
+  {% if not selected_qr_type %}
+    <section class="builder-shell p-3 sm:p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-black tracking-tight text-gray-950 sm:text-xl">Choose QR action</h2>
+          <p class="mt-1 text-sm leading-6 text-gray-500">Pick the scan result first. The form opens on the next page.</p>
+        </div>
+      </div>
+
+      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {% for value, label in qr_types %}
+        <a href="{% url 'qrcodes:create' %}?type={{ value }}"
+           class="group flex min-h-[72px] items-center gap-2 rounded-lg border border-surface-200 bg-white p-2.5 text-left text-gray-700 transition duration-150 hover:border-primary-200 hover:bg-primary-50/70 hover:text-primary-950 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:min-h-[76px] sm:p-3"
+           aria-label="Create {{ label }} QR code">
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-surface-200 bg-surface-50 text-gray-500 transition group-hover:border-primary-200 group-hover:text-primary-700">
+            {% if value == 'url' %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6.5h2a4 4 0 0 1 0 8h-2m-3-5h3m-3 5h-2a4 4 0 0 1 0-8h2"/></svg>
+            {% elif value == 'dynamic' %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h11a4 4 0 0 1 0 8H9m0 0 3-3m-3 3 3 3M20 17H9"/></svg>
+            {% elif value == 'whatsapp' %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 19.5 6.2 16A7.5 7.5 0 1 1 9 18.4L5 19.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.5 8.8c.4 2.4 2 4 4.4 4.6"/></svg>
+            {% elif value == 'vcard' %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5h14v14H5z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm6 5c-.5-1.7-1.8-3-4-3H7c-2.2 0-3.5 1.3-4 3"/></svg>
+            {% elif value == 'wifi' %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 9.5a11 11 0 0 1 15 0M7.5 12.5a7 7 0 0 1 9 0m-6 3a3 3 0 0 1 3 0M12 19h.01"/></svg>
+            {% elif value == 'email' %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16v12H4z"/><path stroke-linecap="round" stroke-linejoin="round" d="m4 7 8 6 8-6"/></svg>
+            {% elif value == 'sms' %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 6h14v10H9l-4 3V6Z"/></svg>
+            {% else %}
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10M7 17h6"/></svg>
+            {% endif %}
+          </span>
+          <span class="min-w-0">
+            <span class="block truncate text-sm font-black leading-5">{{ label }}</span>
+            <span class="hidden text-xs leading-5 text-gray-500 lg:block" x-text="typeDescription('{{ value }}')"></span>
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+  {% else %}
   <form method="post" enctype="multipart/form-data" class="space-y-6" @submit="preparePayload" @input.debounce.120ms="updatePayload">
     {% csrf_token %}
     <input type="hidden" name="qr_type" :value="qrType">
     <input type="hidden" name="content" x-ref="contentPayload" value="{{ form.content.value|default:'' }}">
     <input type="hidden" name="tags" value="{{ form.tags.value|default:'[]' }}">
+    <input type="hidden" name="outer_shape" value="{{ form.outer_shape.value|default:'square' }}">
 
-    <section class="builder-shell p-4 sm:p-6">
-      <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_520px] xl:items-stretch">
-        <div class="flex min-h-[300px] flex-col justify-between">
-          <div>
-            <div class="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-white/80 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary-700 shadow-sm">
-              <span class="h-1.5 w-1.5 rounded-full bg-teal-400"></span>
-              QR builder
-            </div>
-            <h2 class="mt-4 max-w-3xl text-3xl font-black tracking-tight text-gray-950 sm:text-4xl">Start with the action customers need.</h2>
-            <p class="mt-3 max-w-2xl text-base leading-7 text-gray-600">Pick the scan result first. The form below adapts to that choice, keeps optional settings tucked away, and gives you a real preview before you publish.</p>
-          </div>
-
-          <div class="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
-            <div class="rounded-lg border border-white/80 bg-white/80 p-3 shadow-sm backdrop-blur">
-              <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Step 1</p>
-              <p class="mt-1 text-sm font-bold text-gray-950">Choose action</p>
-              <p class="mt-1 hidden text-xs leading-5 text-gray-500 sm:block">URL, WhatsApp, WiFi, contact, email, or SMS.</p>
-            </div>
-            <div class="rounded-lg border border-white/80 bg-white/80 p-3 shadow-sm backdrop-blur">
-              <p class="text-xs font-bold uppercase tracking-wider text-teal-700">Step 2</p>
-              <p class="mt-1 text-sm font-bold text-gray-950">Add details</p>
-              <p class="mt-1 hidden text-xs leading-5 text-gray-500 sm:block">Only relevant fields stay visible.</p>
-            </div>
-            <div class="rounded-lg border border-white/80 bg-white/80 p-3 shadow-sm backdrop-blur">
-              <p class="text-xs font-bold uppercase tracking-wider text-coral-700">Step 3</p>
-              <p class="mt-1 text-sm font-bold text-gray-950">Create & track</p>
-              <p class="mt-1 hidden text-xs leading-5 text-gray-500 sm:block">Export files and watch scan analytics.</p>
-            </div>
-          </div>
+    <section class="builder-shell p-3 sm:p-4">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Selected action</p>
+          <h2 class="mt-1 text-lg font-black tracking-tight text-gray-950 sm:text-xl">Create {{ selected_qr_label }} QR</h2>
+          <p class="mt-1 text-sm leading-6 text-gray-500" x-text="typeUse(qrType)"></p>
         </div>
-
-        <div class="rounded-lg border border-white/80 bg-white/85 p-3 shadow-card backdrop-blur sm:p-4">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <label class="text-sm font-black text-gray-950">What should the QR do?</label>
-              <p class="mt-1 text-xs leading-5 text-gray-500">This decides which fields open next.</p>
-            </div>
-            <span class="badge badge-blue capitalize" x-text="typeLabel(qrType)"></span>
-          </div>
-
-          <div class="mt-4 grid grid-cols-2 gap-2">
-            {% for value, label in qr_types %}
-            <button type="button"
-                    class="group flex min-h-[76px] flex-col items-start gap-2 rounded-lg border bg-white p-3 text-left transition duration-150 hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50/70 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 sm:min-h-[92px] sm:flex-row sm:gap-3"
-                    :class="qrType === '{{ value }}' ? 'border-primary-500 bg-primary-50 text-primary-950 shadow-sm ring-1 ring-primary-500/20' : 'border-surface-200 text-gray-700'"
-                    :aria-pressed="qrType === '{{ value }}'"
-                    @click="qrType = '{{ value }}'; updatePayload()">
-              <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition"
-                    :class="qrType === '{{ value }}' ? 'border-primary-200 bg-white text-primary-700' : 'border-surface-200 bg-surface-50 text-gray-500 group-hover:border-primary-200 group-hover:text-primary-700'">
-                {% if value == 'url' %}
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6.5h2a4 4 0 0 1 0 8h-2m-3-5h3m-3 5h-2a4 4 0 0 1 0-8h2"/></svg>
-                {% elif value == 'dynamic' %}
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h11a4 4 0 0 1 0 8H9m0 0 3-3m-3 3 3 3M20 17H9"/></svg>
-                {% elif value == 'whatsapp' %}
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 19.5 6.2 16A7.5 7.5 0 1 1 9 18.4L5 19.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.5 8.8c.4 2.4 2 4 4.4 4.6"/></svg>
-                {% elif value == 'vcard' %}
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5h14v14H5z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm6 5c-.5-1.7-1.8-3-4-3H7c-2.2 0-3.5 1.3-4 3"/></svg>
-                {% elif value == 'wifi' %}
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 9.5a11 11 0 0 1 15 0M7.5 12.5a7 7 0 0 1 9 0m-6 3a3 3 0 0 1 3 0M12 19h.01"/></svg>
-                {% elif value == 'email' %}
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16v12H4z"/><path stroke-linecap="round" stroke-linejoin="round" d="m4 7 8 6 8-6"/></svg>
-                {% elif value == 'sms' %}
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 6h14v10H9l-4 3V6Z"/></svg>
-                {% else %}
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10M7 17h6"/></svg>
-                {% endif %}
-              </span>
-              <span class="min-w-0">
-                <span class="block text-sm font-black leading-5">{{ label }}</span>
-                <span class="mt-1 hidden text-xs leading-5 text-gray-500 sm:block" x-text="typeDescription('{{ value }}')"></span>
-              </span>
-            </button>
-            {% endfor %}
-          </div>
-
-          <div class="mt-3 rounded-lg border border-primary-100 bg-gradient-to-r from-primary-50 to-teal-50 px-3 py-2">
-            <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Selected flow</p>
-            <p class="mt-1 text-sm font-semibold text-gray-800" x-text="typeUse(qrType)"></p>
-          </div>
-        </div>
+        <a href="{% url 'qrcodes:create' %}" class="btn-secondary w-full justify-center px-3 py-2 text-xs sm:w-auto">
+          Change action
+        </a>
       </div>
       {% if form.qr_type.errors %}<p class="text-coral-600 text-xs mt-2">{{ form.qr_type.errors|join:", " }}</p>{% endif %}
     </section>
@@ -117,9 +91,9 @@
         <section class="builder-step">
           <div class="flex items-start justify-between gap-4 mb-5">
             <div>
-              <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Step 1</p>
-              <h2 class="mt-1 text-lg font-black text-gray-950">Content</h2>
-              <p class="text-sm text-gray-500 mt-1">Only the fields needed for this QR type are shown.</p>
+              <p class="text-xs font-bold uppercase tracking-wider text-primary-700">Details</p>
+              <h2 class="mt-1 text-lg font-black text-gray-950">Enter QR content</h2>
+              <p class="text-sm text-gray-500 mt-1">Only fields needed for the selected action are shown.</p>
             </div>
             <span class="badge badge-blue capitalize" x-text="qrType"></span>
           </div>
@@ -224,7 +198,7 @@
           <summary class="disclosure-summary">
             <div>
               <h2 class="text-base font-semibold text-gray-950">Design</h2>
-              <p class="mt-1 text-sm text-gray-500">Optional colors, logo, frame, shape, and output size.</p>
+              <p class="mt-1 text-sm text-gray-500">Optional colors, clean QR styling, logo, frame, and output size.</p>
             </div>
             <span class="disclosure-chevron">
               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
@@ -240,33 +214,54 @@
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Background</label>
               <input type="color" name="background_color" x-model="backgroundColor" value="{{ form.background_color.value|default:'#FFFFFF' }}" class="h-10 w-full rounded-lg border border-surface-200 cursor-pointer bg-white">
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Dot Style</label>
-              <select name="dot_style" class="input">
-                <option value="square" {% if form.dot_style.value|default:'square' == 'square' %}selected{% endif %}>Square</option>
-                <option value="rounded" {% if form.dot_style.value == 'rounded' %}selected{% endif %}>Rounded</option>
-                <option value="dots" {% if form.dot_style.value == 'dots' %}selected{% endif %}>Dots</option>
-                <option value="classy" {% if form.dot_style.value == 'classy' %}selected{% endif %}>Classy</option>
-                <option value="classy_rounded" {% if form.dot_style.value == 'classy_rounded' %}selected{% endif %}>Classy Rounded</option>
-                <option value="extra_rounded" {% if form.dot_style.value == 'extra_rounded' %}selected{% endif %}>Extra Rounded</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Corner Style</label>
-              <select name="corner_style" class="input">
-                <option value="square" {% if form.corner_style.value|default:'square' == 'square' %}selected{% endif %}>Square</option>
-                <option value="dot" {% if form.corner_style.value == 'dot' %}selected{% endif %}>Dot</option>
-                <option value="extra_rounded" {% if form.corner_style.value == 'extra_rounded' %}selected{% endif %}>Extra Rounded</option>
-              </select>
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Dot Style</label>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label class="group cursor-pointer rounded-lg border p-3 transition focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2"
+                       :class="dotStyle === 'square' ? 'border-primary-500 bg-primary-50 text-primary-950 shadow-sm' : 'border-surface-200 bg-white text-gray-700 hover:border-primary-200 hover:bg-primary-50/50'">
+                  <input type="radio" name="dot_style" value="square" x-model="dotStyle" @change="renderPreview()" class="sr-only" {% if form.dot_style.value|default:'square' == 'square' %}checked{% endif %}>
+                  <span class="block text-sm font-black">Classic</span>
+                  <span class="mt-1 block text-xs leading-5 text-gray-500">Sharp modules for maximum contrast.</span>
+                </label>
+                <label class="group cursor-pointer rounded-lg border p-3 transition focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2"
+                       :class="dotStyle === 'rounded' ? 'border-primary-500 bg-primary-50 text-primary-950 shadow-sm' : 'border-surface-200 bg-white text-gray-700 hover:border-primary-200 hover:bg-primary-50/50'">
+                  <input type="radio" name="dot_style" value="rounded" x-model="dotStyle" @change="renderPreview()" class="sr-only" {% if form.dot_style.value == 'rounded' %}checked{% endif %}>
+                  <span class="block text-sm font-black">Soft rounded</span>
+                  <span class="mt-1 block text-xs leading-5 text-gray-500">Polished edges without losing structure.</span>
+                </label>
+                <label class="group cursor-pointer rounded-lg border p-3 transition focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2"
+                       :class="dotStyle === 'dots' ? 'border-primary-500 bg-primary-50 text-primary-950 shadow-sm' : 'border-surface-200 bg-white text-gray-700 hover:border-primary-200 hover:bg-primary-50/50'">
+                  <input type="radio" name="dot_style" value="dots" x-model="dotStyle" @change="renderPreview()" class="sr-only" {% if form.dot_style.value == 'dots' %}checked{% endif %}>
+                  <span class="block text-sm font-black">Dots</span>
+                  <span class="mt-1 block text-xs leading-5 text-gray-500">Circular modules for a lighter look.</span>
+                </label>
+                <label class="group cursor-pointer rounded-lg border p-3 transition focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2"
+                       :class="dotStyle === 'classy' ? 'border-primary-500 bg-primary-50 text-primary-950 shadow-sm' : 'border-surface-200 bg-white text-gray-700 hover:border-primary-200 hover:bg-primary-50/50'">
+                  <input type="radio" name="dot_style" value="classy" x-model="dotStyle" @change="renderPreview()" class="sr-only" {% if form.dot_style.value == 'classy' %}checked{% endif %}>
+                  <span class="block text-sm font-black">Clean grid</span>
+                  <span class="mt-1 block text-xs leading-5 text-gray-500">Subtle spacing for a premium print finish.</span>
+                </label>
+              </div>
             </div>
             <div class="sm:col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Outer Shape</label>
-              <select name="outer_shape" x-model="outerShape" class="input">
-                {% for value, label in form.fields.outer_shape.choices %}
-                <option value="{{ value }}" {% if form.outer_shape.value|default:'square' == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-              <p class="mt-1 text-xs text-gray-400">Premium shape shells keep the QR core intact for reliable scanning.</p>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Corner Style</label>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <label class="group cursor-pointer rounded-lg border p-3 transition focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2"
+                       :class="cornerStyle === 'square' ? 'border-primary-500 bg-primary-50 text-primary-950 shadow-sm' : 'border-surface-200 bg-white text-gray-700 hover:border-primary-200 hover:bg-primary-50/50'">
+                  <input type="radio" name="corner_style" value="square" x-model="cornerStyle" @change="renderPreview()" class="sr-only" {% if form.corner_style.value|default:'square' == 'square' %}checked{% endif %}>
+                  <span class="block text-sm font-black">Square</span>
+                </label>
+                <label class="group cursor-pointer rounded-lg border p-3 transition focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2"
+                       :class="cornerStyle === 'extra_rounded' ? 'border-primary-500 bg-primary-50 text-primary-950 shadow-sm' : 'border-surface-200 bg-white text-gray-700 hover:border-primary-200 hover:bg-primary-50/50'">
+                  <input type="radio" name="corner_style" value="extra_rounded" x-model="cornerStyle" @change="renderPreview()" class="sr-only" {% if form.corner_style.value == 'extra_rounded' %}checked{% endif %}>
+                  <span class="block text-sm font-black">Rounded</span>
+                </label>
+                <label class="group cursor-pointer rounded-lg border p-3 transition focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2"
+                       :class="cornerStyle === 'dot' ? 'border-primary-500 bg-primary-50 text-primary-950 shadow-sm' : 'border-surface-200 bg-white text-gray-700 hover:border-primary-200 hover:bg-primary-50/50'">
+                  <input type="radio" name="corner_style" value="dot" x-model="cornerStyle" @change="renderPreview()" class="sr-only" {% if form.corner_style.value == 'dot' %}checked{% endif %}>
+                  <span class="block text-sm font-black">Dot</span>
+                </label>
+              </div>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1.5">Error Correction</label>
@@ -429,8 +424,7 @@
             </div>
 
             <div class="relative rounded-lg border border-surface-200 bg-white/70 p-5 backdrop-blur">
-              <div class="qr-preview-tilt mx-auto flex aspect-square w-full max-w-[260px] items-center justify-center bg-white p-4 shadow-sm"
-                   :class="outerShapeClass()"
+              <div class="qr-preview-tilt mx-auto flex aspect-square w-full max-w-[260px] items-center justify-center rounded-lg bg-white p-4 shadow-sm"
                    :style="previewShellStyle()">
                 <div class="relative aspect-square w-[86%] rounded-lg bg-white p-2 shadow-sm ring-1 ring-surface-200">
                   <div class="h-full w-full" x-html="previewSvg" aria-hidden="true"></div>
@@ -446,8 +440,8 @@
                 <dd class="font-semibold text-gray-900 capitalize" x-text="qrType"></dd>
               </div>
               <div class="flex items-center justify-between gap-4">
-                <dt class="text-gray-500">Shape</dt>
-                <dd class="font-semibold text-gray-900 capitalize" x-text="outerShape.replace('_', ' ')"></dd>
+                <dt class="text-gray-500">Style</dt>
+                <dd class="font-semibold text-gray-900" x-text="styleSummary()"></dd>
               </div>
               <div>
                 <dt class="text-gray-500 mb-1">Payload</dt>
@@ -473,6 +467,7 @@
       </aside>
     </div>
   </form>
+  {% endif %}
 </div>
 {% endblock %}
 
@@ -503,7 +498,8 @@ function qrBuilder(config) {
     plainText: config.initialType === 'text' ? config.initialContent || '' : '',
     foregroundColor: '{{ form.foreground_color.value|default:'#000000' }}',
     backgroundColor: '{{ form.background_color.value|default:'#FFFFFF' }}',
-    outerShape: config.initialOuterShape || 'square',
+    dotStyle: config.initialDotStyle || 'square',
+    cornerStyle: config.initialCornerStyle || 'square',
     passwordProtected: Boolean(config.initialProtected),
     previewSvg: '',
     previewStatus: 'Sample QR preview',
@@ -563,23 +559,27 @@ function qrBuilder(config) {
       return (value || '').replace(/([\\;,":])/g, '\\$1');
     },
 
-    outerShapeClass() {
-      const map = {
-        square: 'rounded-lg',
-        rounded: 'rounded-[2rem]',
-        circle: 'rounded-full',
-        capsule: 'rounded-[999px]',
-        ticket: 'rounded-2xl',
-        apple: 'rounded-[42%_42%_48%_48%]',
-        duck: 'rounded-[48%_58%_52%_44%]',
-        shield: 'rounded-[30%_30%_48%_48%]',
-        blob: 'rounded-[42%_58%_48%_52%]',
-      };
-      return map[this.outerShape] || map.square;
-    },
-
     safeColor(value, fallback) {
       return /^#[0-9A-Fa-f]{6}$/.test(value || '') ? value : fallback;
+    },
+
+    styleLabel(kind, value) {
+      const dotLabels = {
+        square: 'Classic',
+        rounded: 'Soft rounded',
+        dots: 'Dots',
+        classy: 'Clean grid',
+      };
+      const cornerLabels = {
+        square: 'Square corners',
+        extra_rounded: 'Rounded corners',
+        dot: 'Dot corners',
+      };
+      return kind === 'dot' ? (dotLabels[value] || dotLabels.square) : (cornerLabels[value] || cornerLabels.square);
+    },
+
+    styleSummary() {
+      return `${this.styleLabel('dot', this.dotStyle)} / ${this.styleLabel('corner', this.cornerStyle)}`;
     },
 
     previewShellStyle() {
@@ -666,6 +666,46 @@ function qrBuilder(config) {
       return matrix;
     },
 
+    isFinderModule(row, col, size) {
+      return (
+        (row < 7 && col < 7) ||
+        (row < 7 && col >= size - 7) ||
+        (row >= size - 7 && col < 7)
+      );
+    },
+
+    moduleShape(x, y, style) {
+      if (style === 'dots') {
+        return `<circle cx="${x + 0.5}" cy="${y + 0.5}" r="0.39" />`;
+      }
+      if (style === 'rounded') {
+        return `<rect x="${x + 0.04}" y="${y + 0.04}" width="0.92" height="0.92" rx="0.28" />`;
+      }
+      if (style === 'classy') {
+        return `<rect x="${x + 0.12}" y="${y + 0.12}" width="0.76" height="0.76" rx="0.1" />`;
+      }
+      return `<rect x="${x}" y="${y}" width="1" height="1" />`;
+    },
+
+    finderShape(x, y, style, dark, light) {
+      if (style === 'dot') {
+        return `
+          <circle cx="${x + 3.5}" cy="${y + 3.5}" r="3.5" fill="${dark}" />
+          <circle cx="${x + 3.5}" cy="${y + 3.5}" r="2.5" fill="${light}" />
+          <circle cx="${x + 3.5}" cy="${y + 3.5}" r="1.5" fill="${dark}" />`;
+      }
+      if (style === 'extra_rounded') {
+        return `
+          <rect x="${x}" y="${y}" width="7" height="7" rx="1.45" fill="${dark}" />
+          <rect x="${x + 1}" y="${y + 1}" width="5" height="5" rx="0.95" fill="${light}" />
+          <rect x="${x + 2}" y="${y + 2}" width="3" height="3" rx="0.65" fill="${dark}" />`;
+      }
+      return `
+        <rect x="${x}" y="${y}" width="7" height="7" fill="${dark}" />
+        <rect x="${x + 1}" y="${y + 1}" width="5" height="5" fill="${light}" />
+        <rect x="${x + 2}" y="${y + 2}" width="3" height="3" fill="${dark}" />`;
+    },
+
     buildSvgFromMatrix(matrix) {
       const size = matrix.length;
       const dark = this.safeColor(this.foregroundColor, '#000000');
@@ -673,15 +713,21 @@ function qrBuilder(config) {
       const modules = [];
       for (let row = 0; row < size; row += 1) {
         for (let col = 0; col < size; col += 1) {
-          if (matrix[row][col]) {
-            modules.push(`<rect x="${col}" y="${row}" width="1" height="1" rx=".08" />`);
+          if (matrix[row][col] && !this.isFinderModule(row, col, size)) {
+            modules.push(this.moduleShape(col, row, this.dotStyle));
           }
         }
       }
+      const finders = [
+        this.finderShape(0, 0, this.cornerStyle, dark, light),
+        this.finderShape(size - 7, 0, this.cornerStyle, dark, light),
+        this.finderShape(0, size - 7, this.cornerStyle, dark, light),
+      ].join('');
       return `
-        <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="QR code preview" class="h-full w-full" style="display:block;background:${light}" shape-rendering="crispEdges">
+        <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="QR code preview" class="h-full w-full" style="display:block;background:${light}">
           <rect width="${size}" height="${size}" fill="${light}"></rect>
           <g fill="${dark}">${modules.join('')}</g>
+          ${finders}
         </svg>`;
     },
 

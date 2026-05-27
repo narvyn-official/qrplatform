@@ -235,6 +235,7 @@ class APIKey(models.Model):
 class MembershipOrder(models.Model):
     class BillingCycle(models.TextChoices):
         MONTHLY = "monthly", _("Monthly")
+        QUARTERLY = "quarterly", _("Quarterly")
         YEARLY = "yearly", _("Yearly")
 
     class Status(models.TextChoices):

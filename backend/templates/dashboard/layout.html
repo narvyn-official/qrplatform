@@ -33,12 +33,6 @@
         New QR Code
       </a>
 
-      <a href="{% url 'qrcodes:templates' %}"
-         class="sidebar-link {% if active_tab == 'templates' %}active{% endif %}">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM15 15h2v2h-2zM19 15h1v5h-5v-1h4z"/></svg>
-        Templates
-      </a>
-
       <a href="{% url 'barcodes:create' %}"
          class="sidebar-link {% if active_tab == 'create_barcode' %}active{% endif %}">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
@@ -159,7 +153,7 @@
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h7v7H3zM14 7h7v7h-7zM3 17h7v4H3zM14 17h7v4h-7z"/></svg>
         Home
       </a>
-      <a href="{% url 'qrcodes:templates' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'create_qr' or active_tab == 'templates' or active_tab == 'certificates' %}bg-primary-600 text-white{% else %}text-gray-500{% endif %}">
+      <a href="{% url 'qrcodes:create' %}" class="flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-semibold {% if active_tab == 'create_qr' or active_tab == 'certificates' %}bg-primary-600 text-white{% else %}text-gray-500{% endif %}">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         QR
       </a>
@@ -193,7 +187,6 @@
       <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto" @click="mobileNav = false">
         <a href="{% url 'qrcodes:dashboard' %}" class="sidebar-link {% if active_tab == 'dashboard' %}active{% endif %}">Dashboard</a>
         <a href="{% url 'qrcodes:create' %}" class="sidebar-link {% if active_tab == 'create_qr' %}active{% endif %}">New QR Code</a>
-        <a href="{% url 'qrcodes:templates' %}" class="sidebar-link {% if active_tab == 'templates' %}active{% endif %}">Templates</a>
         <a href="{% url 'barcodes:create' %}" class="sidebar-link {% if active_tab == 'create_barcode' %}active{% endif %}">New Barcode</a>
         <a href="{% url 'qrcodes:scan' %}" class="sidebar-link {% if active_tab == 'scan_qr' %}active{% endif %}">Scan QR</a>
         <a href="{% url 'qrcodes:list' %}" class="sidebar-link {% if active_tab == 'qrcodes' %}active{% endif %}">My QR Codes</a>

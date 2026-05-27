@@ -9,29 +9,14 @@ import urllib.parse
 from typing import Optional, Tuple
 
 import qrcode
-from qrcode.image.styledpil import StyledPilImage
-from qrcode.image.styles.moduledrawers.pil import (
-    SquareModuleDrawer,
-    RoundedModuleDrawer,
-    CircleModuleDrawer,
-    GappedSquareModuleDrawer,
-)
-from qrcode.image.styles.colormasks import SolidFillColorMask
 from qrcode import constants as qr_constants
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import qrcode.image.svg
 
 logger = logging.getLogger(__name__)
 
-# Map model choices → qrcode library drawers
-DOT_STYLE_MAP = {
-    "square": SquareModuleDrawer(),
-    "rounded": RoundedModuleDrawer(),
-    "dots": CircleModuleDrawer(),
-    "classy": GappedSquareModuleDrawer(),
-    "classy_rounded": RoundedModuleDrawer(),
-    "extra_rounded": RoundedModuleDrawer(),
-}
+DOT_STYLES = {"square", "rounded", "dots", "classy"}
+CORNER_STYLES = {"square", "extra_rounded", "dot"}
 
 ERROR_CORRECTION_MAP = {
     "L": qr_constants.ERROR_CORRECT_L,
@@ -52,6 +37,7 @@ def generate_qr_image(
     foreground_color: str = "#000000",
     background_color: str = "#FFFFFF",
     dot_style: str = "square",
+    corner_style: str = "square",
     error_correction: str = "M",
     size: int = 300,
     logo_path: Optional[str] = None,
@@ -73,8 +59,6 @@ def generate_qr_image(
     fg_rgb = hex_to_rgb(foreground_color)
     bg_rgb = hex_to_rgb(background_color)
 
-    drawer = DOT_STYLE_MAP.get(dot_style, SquareModuleDrawer())
-
     qr = qrcode.QRCode(
         version=None,  # auto-size
         error_correction=ec_level,
@@ -84,23 +68,17 @@ def generate_qr_image(
     qr.add_data(content)
     qr.make(fit=True)
 
-    color_mask = SolidFillColorMask(
-        front_color=fg_rgb,
-        back_color=bg_rgb,
-    )
-
-    img = qr.make_image(
-        image_factory=StyledPilImage,
-        module_drawer=drawer,
-        color_mask=color_mask,
-    ).convert("RGBA")
-
     shape = outer_shape or "square"
     qr_core_size = size if shape == "square" else max(150, int(size * 0.64))
 
-    # Resize to desired QR core size. Non-square shapes use a safe outer shell
-    # so finder patterns and quiet zones remain intact for scanners.
-    img = img.resize((qr_core_size, qr_core_size), Image.LANCZOS)
+    img = _draw_styled_qr(
+        qr.modules,
+        size=qr_core_size,
+        fg_rgb=fg_rgb,
+        bg_rgb=bg_rgb,
+        dot_style=dot_style,
+        corner_style=corner_style,
+    )
 
     # Embed logo if provided
     if logo_path and os.path.exists(logo_path):
@@ -114,6 +92,132 @@ def generate_qr_image(
         img = _add_frame_text(img, frame_text, frame_color, background_color)
 
     return img
+
+
+def _normalize_dot_style(dot_style: str) -> str:
+    if dot_style in {"classy_rounded", "extra_rounded"}:
+        return "rounded"
+    return dot_style if dot_style in DOT_STYLES else "square"
+
+
+def _normalize_corner_style(corner_style: str) -> str:
+    return corner_style if corner_style in CORNER_STYLES else "square"
+
+
+def _finder_origins(module_count: int):
+    return (
+        (0, 0),
+        (0, module_count - 7),
+        (module_count - 7, 0),
+    )
+
+
+def _is_finder_module(row: int, col: int, module_count: int) -> bool:
+    return any(
+        origin_row <= row < origin_row + 7 and origin_col <= col < origin_col + 7
+        for origin_row, origin_col in _finder_origins(module_count)
+    )
+
+
+def _module_box(row: int, col: int, border: int, module_size: float):
+    x0 = (col + border) * module_size
+    y0 = (row + border) * module_size
+    return x0, y0, x0 + module_size, y0 + module_size
+
+
+def _draw_data_module(draw: ImageDraw.ImageDraw, box, style: str, fill):
+    x0, y0, x1, y1 = box
+    module_size = x1 - x0
+    if style == "dots":
+        inset = module_size * 0.11
+        draw.ellipse((x0 + inset, y0 + inset, x1 - inset, y1 - inset), fill=fill)
+    elif style == "rounded":
+        inset = module_size * 0.04
+        draw.rounded_rectangle(
+            (x0 + inset, y0 + inset, x1 - inset, y1 - inset),
+            radius=module_size * 0.34,
+            fill=fill,
+        )
+    elif style == "classy":
+        inset = module_size * 0.12
+        draw.rounded_rectangle(
+            (x0 + inset, y0 + inset, x1 - inset, y1 - inset),
+            radius=module_size * 0.12,
+            fill=fill,
+        )
+    else:
+        bleed = module_size * 0.01
+        draw.rectangle((x0 - bleed, y0 - bleed, x1 + bleed, y1 + bleed), fill=fill)
+
+
+def _draw_finder(draw: ImageDraw.ImageDraw, row: int, col: int, border: int, module_size: float, style: str, fg, bg):
+    x0 = (col + border) * module_size
+    y0 = (row + border) * module_size
+    outer = (x0, y0, x0 + 7 * module_size, y0 + 7 * module_size)
+    middle = (
+        x0 + module_size,
+        y0 + module_size,
+        x0 + 6 * module_size,
+        y0 + 6 * module_size,
+    )
+    center = (
+        x0 + 2 * module_size,
+        y0 + 2 * module_size,
+        x0 + 5 * module_size,
+        y0 + 5 * module_size,
+    )
+
+    if style == "dot":
+        draw.ellipse(outer, fill=fg)
+        draw.ellipse(middle, fill=bg)
+        draw.ellipse(center, fill=fg)
+    elif style == "extra_rounded":
+        draw.rounded_rectangle(outer, radius=module_size * 1.55, fill=fg)
+        draw.rounded_rectangle(middle, radius=module_size * 1.05, fill=bg)
+        draw.rounded_rectangle(center, radius=module_size * 0.72, fill=fg)
+    else:
+        draw.rectangle(outer, fill=fg)
+        draw.rectangle(middle, fill=bg)
+        draw.rectangle(center, fill=fg)
+
+
+def _draw_styled_qr(
+    matrix,
+    *,
+    size: int,
+    fg_rgb,
+    bg_rgb,
+    dot_style: str,
+    corner_style: str,
+) -> Image.Image:
+    """Render a QR matrix with scan-safe module and finder styles."""
+    module_count = len(matrix)
+    border = 4
+    render_size = max(size * 4, (module_count + border * 2) * 12)
+    module_size = render_size / (module_count + border * 2)
+    fg = tuple(fg_rgb) + (255,)
+    bg = tuple(bg_rgb) + (255,)
+    normalized_dot = _normalize_dot_style(dot_style)
+    normalized_corner = _normalize_corner_style(corner_style)
+
+    img = Image.new("RGBA", (render_size, render_size), bg)
+    draw = ImageDraw.Draw(img, "RGBA")
+
+    for row, modules in enumerate(matrix):
+        for col, is_dark in enumerate(modules):
+            if not is_dark or _is_finder_module(row, col, module_count):
+                continue
+            _draw_data_module(
+                draw,
+                _module_box(row, col, border, module_size),
+                normalized_dot,
+                fg,
+            )
+
+    for row, col in _finder_origins(module_count):
+        _draw_finder(draw, row, col, border, module_size, normalized_corner, fg, bg)
+
+    return img.resize((size, size), Image.LANCZOS)
 
 
 def _embed_logo(qr_img: Image.Image, logo_path: str, size_ratio: float) -> Image.Image:

@@ -3,11 +3,11 @@ Account views — signup, login, email verification, password reset, profile.
 """
 import logging
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse
+from django.urls import Resolver404, resolve, reverse
 from django.contrib.auth import (
     login, logout, authenticate, get_user_model, update_session_auth_hash,
 )
@@ -38,6 +38,16 @@ logger = logging.getLogger(__name__)
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
+POST_AUTH_REDIRECT_BLOCKLIST = {
+    "accounts:login",
+    "accounts:signup",
+    "accounts:google_login",
+    "accounts:google_callback",
+    "accounts:logout",
+    "accounts:resend_verification",
+    "accounts:forgot_password",
+    "accounts:reset_password",
+}
 
 
 def axes_lockout_handler(request, credentials, *args, **kwargs):
@@ -58,15 +68,37 @@ def _log_audit(user, action, request, **metadata):
     )
 
 
-def _safe_next_url(request):
-    next_url = request.POST.get("next") or request.GET.get("next") or ""
-    if next_url and url_has_allowed_host_and_scheme(
+def _resolved_post_auth_path(path):
+    try:
+        match = resolve(path)
+    except Resolver404:
+        if not path.endswith("/"):
+            return _resolved_post_auth_path(f"{path}/")
+        return None, None
+    return path, match.view_name
+
+
+def _safe_next_url(request, next_url=None):
+    next_url = next_url if next_url is not None else (request.POST.get("next") or request.GET.get("next") or "")
+    if not next_url:
+        return settings.LOGIN_REDIRECT_URL
+    if not url_has_allowed_host_and_scheme(
         next_url,
         allowed_hosts={request.get_host()},
         require_https=request.is_secure(),
     ):
-        return next_url
-    return settings.LOGIN_REDIRECT_URL
+        return settings.LOGIN_REDIRECT_URL
+
+    parsed = urlsplit(next_url)
+    path = parsed.path or "/"
+    if not path.startswith("/"):
+        return settings.LOGIN_REDIRECT_URL
+
+    resolved_path, view_name = _resolved_post_auth_path(path)
+    if not resolved_path or view_name in POST_AUTH_REDIRECT_BLOCKLIST:
+        return settings.LOGIN_REDIRECT_URL
+
+    return urlunsplit(("", "", resolved_path, parsed.query, parsed.fragment))
 
 
 def _email_verification_required():
@@ -270,7 +302,7 @@ def google_callback(request):
     user.update_last_activity()
     _log_audit(user, AuditLog.Action.LOGIN, request, provider="google")
     request.session.pop("pending_verification_email", None)
-    next_url = request.session.pop("google_oauth_next", settings.LOGIN_REDIRECT_URL)
+    next_url = _safe_next_url(request, request.session.pop("google_oauth_next", ""))
     return redirect(next_url)
 
 

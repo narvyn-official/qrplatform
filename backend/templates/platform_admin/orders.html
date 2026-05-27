@@ -11,11 +11,23 @@
   <button class="btn-primary">Filter</button>
 </form>
 <section class="card overflow-hidden">
+  <div class="hidden border-b border-surface-100 bg-surface-50 px-4 py-3 text-xs font-bold uppercase tracking-wider text-graphite-500 lg:grid lg:grid-cols-[minmax(0,1.25fr)_110px_120px_100px_120px_140px]">
+    <span>Customer / order</span>
+    <span>Plan</span>
+    <span>Billing</span>
+    <span>Amount</span>
+    <span>Status</span>
+    <span>Created</span>
+  </div>
   <div class="divide-y divide-surface-100">
     {% for order in orders %}
-    <article class="grid grid-cols-1 gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_130px_130px_140px_160px] lg:items-center">
-      <div class="min-w-0"><p class="truncate text-sm font-black">{{ order.user.email }}</p><p class="truncate text-xs text-gray-500">{{ order.receipt }} · {{ order.provider_order_id }}</p></div>
+    <article class="grid grid-cols-1 gap-3 p-4 lg:grid-cols-[minmax(0,1.25fr)_110px_120px_100px_120px_140px] lg:items-center">
+      <div class="min-w-0">
+        <p class="truncate text-sm font-black">{{ order.user.email }}</p>
+        <p class="truncate text-xs text-gray-500">{{ order.provider|title }} · {{ order.provider_order_id }}</p>
+      </div>
       <span class="text-sm font-semibold capitalize">{{ order.plan_code }}</span>
+      <span class="text-sm font-semibold capitalize text-gray-700">{{ order.billing_cycle }}</span>
       <span class="text-sm">₹{% widthratio order.amount_paise 100 1 %}</span>
       {% include "platform_admin/status_badge.html" with status=order.status label=order.get_status_display %}
       <span class="text-sm text-gray-500">{{ order.created_at|date:"M d, Y H:i" }}</span>

@@ -48,6 +48,7 @@ def generate_qr_images(qr):
         foreground_color=qr.foreground_color,
         background_color=qr.background_color,
         dot_style=qr.dot_style,
+        corner_style=qr.corner_style,
         error_correction=qr.error_correction,
         size=qr.qr_size,
         logo_path=logo_path,
