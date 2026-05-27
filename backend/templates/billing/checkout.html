@@ -43,37 +43,97 @@
       </dl>
 
       {% if order and gateway == "cashfree" %}
-      <button type="button" id="cashfree-pay-button" class="btn-primary mt-6 w-full">Pay with UPI</button>
+      <button type="button" id="cashfree-pay-button" class="btn-primary mt-6 w-full" data-ready-label="Pay with UPI" disabled>Loading UPI checkout...</button>
       <p id="cashfree-error" class="mt-3 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"></p>
       <p class="mt-3 text-xs leading-5 text-gray-500">Cashfree opens a secure UPI checkout. After payment, the backend verifies the order status before changing your plan.</p>
       <script>
-        function onCashfreeScriptLoad() {
+        (function() {
           var button = document.getElementById("cashfree-pay-button");
           var error = document.getElementById("cashfree-error");
-          if (!window.Cashfree) {
-            error.textContent = "Cashfree checkout could not be loaded. Please refresh and try again.";
+          var checkout = null;
+          var isOpening = false;
+          var config = {
+            mode: "{{ cashfree_mode|escapejs }}",
+            paymentSessionId: "{{ cashfree_payment_session_id|escapejs }}"
+          };
+
+          function showError(message) {
+            if (!error) return;
+            error.textContent = message;
             error.classList.remove("hidden");
-            return;
           }
-          var cashfree = window.Cashfree({ mode: "{{ cashfree_mode }}" });
+
+          function hideError() {
+            if (error) error.classList.add("hidden");
+          }
+
+          function setButtonReady() {
+            if (!button) return;
+            button.disabled = false;
+            button.textContent = button.dataset.readyLabel || "Pay with UPI";
+          }
+
+          function setButtonBusy() {
+            if (!button) return;
+            button.disabled = true;
+            button.textContent = "Opening Cashfree...";
+          }
+
+          window.markCashfreeUnavailable = function() {
+            if (!button) return;
+            button.disabled = true;
+            button.textContent = "Checkout unavailable";
+            showError("Cashfree checkout could not be loaded. Please check your connection, refresh, and try again.");
+          };
+
+          window.markCashfreeReady = function() {
+            if (!window.Cashfree) {
+              window.markCashfreeUnavailable();
+              return;
+            }
+            try {
+              checkout = window.Cashfree({ mode: config.mode });
+              hideError();
+              setButtonReady();
+            } catch (err) {
+              window.markCashfreeUnavailable();
+            }
+          };
+
+          if (!button) return;
           button.addEventListener("click", function() {
-            error.classList.add("hidden");
-            cashfree.checkout({
-              paymentSessionId: "{{ cashfree_payment_session_id }}",
+            if (isOpening) return;
+            hideError();
+            if (!config.paymentSessionId) {
+              showError("This payment session is missing. Please return to pricing and start checkout again.");
+              return;
+            }
+            if (!checkout) {
+              showError("Secure UPI checkout is still loading. Please wait a moment and try again.");
+              return;
+            }
+            isOpening = true;
+            setButtonBusy();
+            checkout.checkout({
+              paymentSessionId: config.paymentSessionId,
               redirectTarget: "_self"
             }).then(function(result) {
               if (result && result.error) {
                 error.textContent = result.error.message || "Cashfree checkout could not start. Please try again.";
                 error.classList.remove("hidden");
+                setButtonReady();
               }
             }).catch(function() {
               error.textContent = "Cashfree checkout could not start. Please try again.";
               error.classList.remove("hidden");
+              setButtonReady();
+            }).finally(function() {
+              isOpening = false;
             });
           });
-        }
+        })();
       </script>
-      <script src="{{ cashfree_js_url }}" onload="onCashfreeScriptLoad();" crossorigin="anonymous"></script>
+      <script src="{{ cashfree_js_url }}" onload="window.markCashfreeReady && window.markCashfreeReady();" onerror="window.markCashfreeUnavailable && window.markCashfreeUnavailable();" crossorigin="anonymous"></script>
       {% elif order %}
       <div id="paytm-checkoutjs"></div>
       <button type="button" id="paytm-pay-button" class="btn-primary mt-6 w-full">Pay with Paytm / UPI</button>

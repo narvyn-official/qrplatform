@@ -24,7 +24,7 @@
         <button type="submit" class="btn-primary px-3 py-2 sm:px-4">Logout</button>
       </form>
       {% else %}
-      <a href="{% url 'accounts:login' %}" class="btn-secondary px-3 py-2">Sign in</a>
+      <a href="{% url 'accounts:login' %}" class="btn-secondary px-3 py-2">Login</a>
       <a href="{% url 'accounts:signup' %}" class="btn-primary px-3 py-2 sm:px-4">Start free</a>
       {% endif %}
     </div>
@@ -62,7 +62,7 @@
           </svg>
         </a>
         <a href="{% url 'accounts:login' %}" class="btn-secondary justify-center px-6 py-3">
-          Sign in
+          Login
         </a>
         {% endif %}
       </div>
