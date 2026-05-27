@@ -347,7 +347,7 @@ def cashfree_webhook(request):
         return HttpResponse("ok")
 
     if not verify_cashfree_webhook_signature(raw_body=raw_body, signature=signature, timestamp=timestamp):
-        if provider_order_id and not MembershipOrder.objects.filter(
+        if not provider_order_id or not MembershipOrder.objects.filter(
             provider="cashfree",
             provider_order_id=provider_order_id,
         ).exists():

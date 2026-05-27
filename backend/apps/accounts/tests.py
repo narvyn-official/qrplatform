@@ -1035,9 +1035,25 @@ class CashfreeMembershipBillingTests(TestCase):
         self.assertEqual(order.status, MembershipOrder.Status.PAID)
 
     def test_cashfree_webhook_rejects_invalid_signature(self):
+        order = MembershipOrder.objects.create(
+            user=self.user,
+            plan_code="pro",
+            billing_cycle="monthly",
+            amount_paise=49900,
+            provider="cashfree",
+            provider_order_id="CF_BAD_SIGNATURE",
+            receipt="CF_BAD_SIGNATURE",
+        )
+        raw_body = json.dumps({
+            "data": {
+                "order": {"order_id": order.provider_order_id, "order_status": "PAID"},
+                "payment": {"payment_status": "SUCCESS"},
+            }
+        }).encode("utf-8")
+
         resp = self.client.post(
             reverse("accounts:cashfree_webhook"),
-            data=b'{"data": {}}',
+            data=raw_body,
             content_type="application/json",
             HTTP_X_WEBHOOK_SIGNATURE="bad",
             HTTP_X_WEBHOOK_TIMESTAMP="1760000000",
