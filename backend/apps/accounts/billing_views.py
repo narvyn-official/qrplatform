@@ -328,8 +328,6 @@ def cashfree_webhook(request):
     signature = request.headers.get("x-webhook-signature", "")
     timestamp = request.headers.get("x-webhook-timestamp", "")
     raw_body = request.body
-    if not verify_cashfree_webhook_signature(raw_body=raw_body, signature=signature, timestamp=timestamp):
-        return HttpResponseBadRequest("Invalid signature.")
 
     try:
         payload = json.loads(raw_body.decode("utf-8") or "{}")
@@ -344,6 +342,13 @@ def cashfree_webhook(request):
         or data.get("order_id")
         or payload.get("order_id")
     )
+
+    if not provider_order_id and not order_data and not payment_data and not signature and not timestamp:
+        return HttpResponse("ok")
+
+    if not verify_cashfree_webhook_signature(raw_body=raw_body, signature=signature, timestamp=timestamp):
+        return HttpResponseBadRequest("Invalid signature.")
+
     if not provider_order_id:
         return HttpResponseBadRequest("Missing order id.")
 

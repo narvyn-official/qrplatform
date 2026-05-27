@@ -1044,3 +1044,12 @@ class CashfreeMembershipBillingTests(TestCase):
         )
 
         self.assertEqual(resp.status_code, 400)
+
+    def test_cashfree_webhook_allows_unsigned_reachability_ping(self):
+        resp = self.client.post(
+            reverse("accounts:cashfree_webhook"),
+            data=b"{}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 200)
