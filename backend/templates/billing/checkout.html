@@ -133,7 +133,7 @@
           });
         })();
       </script>
-      <script src="{{ cashfree_js_url }}" onload="window.markCashfreeReady && window.markCashfreeReady();" onerror="window.markCashfreeUnavailable && window.markCashfreeUnavailable();" crossorigin="anonymous"></script>
+      <script src="{{ cashfree_js_url }}" onload="window.markCashfreeReady && window.markCashfreeReady();" onerror="window.markCashfreeUnavailable && window.markCashfreeUnavailable();"></script>
       {% elif order %}
       <div id="paytm-checkoutjs"></div>
       <button type="button" id="paytm-pay-button" class="btn-primary mt-6 w-full">Pay with Paytm / UPI</button>
@@ -192,7 +192,7 @@
           });
         }
       </script>
-      <script type="application/javascript" src="{{ paytm_js_url }}" onload="onPaytmScriptLoad();" crossorigin="anonymous"></script>
+      <script type="application/javascript" src="{{ paytm_js_url }}" onload="onPaytmScriptLoad();"></script>
       {% else %}
       <a href="{% url 'core:pricing' %}" class="btn-secondary mt-6 w-full">Back to pricing</a>
       {% endif %}
