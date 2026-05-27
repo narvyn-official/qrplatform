@@ -332,6 +332,8 @@ def cashfree_webhook(request):
     try:
         payload = json.loads(raw_body.decode("utf-8") or "{}")
     except (UnicodeDecodeError, json.JSONDecodeError):
+        if not signature and not timestamp:
+            return HttpResponse("ok")
         return HttpResponseBadRequest("Invalid payload.")
 
     data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
