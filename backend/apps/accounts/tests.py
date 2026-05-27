@@ -1053,3 +1053,19 @@ class CashfreeMembershipBillingTests(TestCase):
         )
 
         self.assertEqual(resp.status_code, 200)
+
+    def test_cashfree_webhook_allows_unsigned_unknown_test_order(self):
+        raw_body = json.dumps({
+            "data": {
+                "order": {"order_id": "cashfree_dashboard_test_order", "order_status": "PAID"},
+                "payment": {"payment_status": "SUCCESS"},
+            }
+        }).encode("utf-8")
+
+        resp = self.client.post(
+            reverse("accounts:cashfree_webhook"),
+            data=raw_body,
+            content_type="application/json",
+        )
+
+        self.assertEqual(resp.status_code, 200)
